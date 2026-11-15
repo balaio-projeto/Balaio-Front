@@ -26,7 +26,7 @@ Volumes existentes dos bancos foram preservados. Os builds do gateway/profile co
 
 Use Node 22 ou superior, npm, JDK 25 e Docker Desktop ativo. Não é necessário subir os demais microsserviços para autenticação. O Compose base não fornece as variáveis RSA; o override acima as adiciona. Os comandos seguintes são uma alternativa que usa apenas o banco no Docker e inicia Java/Next localmente. Não inicie essa alternativa nas mesmas portas enquanto os containers estiverem em execução.
 
-Na pasta `Balaio/Frontend`, configure `.env.local` a partir de `.env.example`, preservando um arquivo existente:
+Na pasta `Balaio-Front/Frontend`, configure `.env.local` a partir de `.env.example`, preservando um arquivo existente:
 
 ```powershell
 if (!(Test-Path .env.local)) { Copy-Item .env.example .env.local }
@@ -99,7 +99,7 @@ $env:PROFILE_SERVICE_URL = 'http://localhost:8082'
 .\mvnw.cmd -B -ntp spring-boot:run
 ```
 
-Em outro terminal **na pasta `Balaio/Frontend`**:
+Em outro terminal **na pasta `Balaio-Front/Frontend`**:
 
 ```powershell
 npm run dev

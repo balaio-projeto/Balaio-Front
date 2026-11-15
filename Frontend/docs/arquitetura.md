@@ -57,7 +57,7 @@ Página ou componente
   no navegador.
 - O cliente HTTP aplica timeout de 10 s e devolve sempre `{ dados, erro }`. As telas
   nunca fazem `fetch` direto.
-- Para trocar a Fake API pelo backend real, basta mudar a variável `API_URL`.
+- Com `API_GATEWAY_URL` configurada, o cliente e o Route Handler escolhem o Gateway por método e rota. `API_URL` continua atendendo eventos, vídeos e outras capacidades demonstrativas; mudar somente uma variável não altera essa matriz.
 
 ## Estado global
 
