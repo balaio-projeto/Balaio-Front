@@ -1,10 +1,9 @@
 // Executado apenas pelo Route Handler. As URLs nunca são enviadas ao navegador.
 import { createHmac } from 'node:crypto'
-import { rotaPublicaFake, rotaContaFake } from './rotas-proxy'
+import { rotaPublicaFake, rotaContaFake, usaBackendReal } from './rotas-proxy'
 
 const AUTENTICACAO = new Set(['/auth/cadastro', '/auth/login', '/auth/entrar', '/auth/logout'])
-export const usaBackendReal = (metodo: string, caminho: string) =>
-  (metodo === 'POST' && AUTENTICACAO.has(caminho)) || (metodo === 'GET' && caminho === '/usuario')
+export { usaBackendReal } from './rotas-proxy'
 
 function erro(status: number, codigo: string, mensagem: string) {
   return Response.json({ dados: null, erro: { codigo, mensagem } }, {
@@ -142,13 +141,13 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     return finalizar(erro(405, 'METODO_NAO_PERMITIDO', 'Método não permitido.'))
   }
   const real = usaBackendReal(metodo, caminho)
-  const contaFake = rotaContaFake(metodo, caminho)
+  const contaFake = !real && rotaContaFake(metodo, caminho)
   if (!real && !contaFake && !rotaPublicaFake(metodo, caminho, url.searchParams)) {
     return finalizar(erro(404, 'RECURSO_NAO_ENCONTRADO', 'Recurso não encontrado.'))
   }
   if (contaFake && url.search) return finalizar(erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.'))
   const headers = new Headers()
-  for (const nome of ['accept', 'content-type', 'origin']) {
+  for (const nome of ['accept', 'content-type', 'origin', 'idempotency-key']) {
     const valor = requisicao.headers.get(nome)
     if (valor) headers.set(nome, valor)
   }

@@ -99,14 +99,13 @@ Guardados por usuário (logado) ou por visitante (cookie `balaio_cliente`).
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
 | GET | `/fretes` | 🌐 | Opções de entrega |
-| POST | `/checkout` | 🔑 | Cria o pedido. O total é calculado na API |
+| POST | `/checkout` | 🔑 | Cria pedido, reserva e preferência Checkout Pro de teste; retorna URL sandbox quando pronta |
 | GET | `/pedidos`, `/pedidos/:id` | 🔑 | Pedidos do usuário logado |
-| PATCH | `/pedidos/:id/cancelar` | 🔑 | Cancela enquanto o pedido está `confirmado` |
+| PATCH | `/pedidos/:id/cancelar` | 🔑 | Solicita cancelamento ou reembolso; resultado depende de confirmação do provedor |
 | GET / POST | `/pedidos/:id/conversa` | 🔑 | Mensagens entre comprador e artesão |
 | POST | `/pedidos/:id/avaliacao` | 🔑 | `{ nota, comentario }`, só depois da entrega |
 
-Estados do pedido: `confirmado → producao → enviado → entregue`, ou `recusado` /
-`cancelado`.
+Estados financeiros incluem `aguardando_pagamento`, `confirmacao_pendente`, `cancelamento_pendente`, `reembolso_pendente`, `falha_pagamento` e `reembolsado`. O navegador consulta `GET /pedidos/:id` depois do retorno do Checkout Pro; parâmetros do redirect não confirmam pagamento.
 
 ### Painel do artesão
 
@@ -120,7 +119,7 @@ Estados do pedido: `confirmado → producao → enviado → entregue`, ou `recus
 | PATCH | `/pedidos/:id/recusar` | 🧑‍🎨 | `{ motivo }` |
 | GET / POST | `/artesao/selo` | 🧑‍🎨 | Consulta ou pede o selo de verificado |
 
-No `catalog-service` real, `POST /pecas` e `PATCH /pecas/:slug` exigem Bearer JWT de artesão e usam o UUID autenticado para determinar a titularidade. O slug público provisório vem de `GET /artesao/me` do profile-service (`artesao-<UUID>`). `POST` retorna 201; `PATCH` retorna 200 e recusa outro dono com 404. Erro de validação pode trazer `erro.campo` além de `codigo` e `mensagem`; o formulário destaca `nome`, `preco` e `prazoProducaoDias`. Fotos novas são data URIs JPG/PNG/WebP de até 5 MB, persistidas no catálogo e devolvidas com URL pública. A Fake API ainda oferece DELETE e inativação pelo PATCH; essas operações não fazem parte desta entrega no catálogo real.
+No `catalog-service` real, `POST /pecas`, `PATCH /pecas/:slug` e `DELETE /pecas/:slug` exigem Bearer JWT de artesão e usam o UUID autenticado para determinar a titularidade. O slug público provisório vem de `GET /artesao/me` do profile-service (`artesao-<UUID>`). `POST` retorna 201, `PATCH` retorna 200 e `DELETE` retorna 204 sem corpo. Erro de validação pode trazer `erro.campo` além de `codigo` e `mensagem`; o formulário destaca `nome`, `preco` e `prazoProducaoDias`. Fotos novas são data URIs JPG/PNG/WebP de até 5 MB, persistidas no catálogo e devolvidas com URL pública. O Route Handler envia as escritas e `GET`/`HEAD /arquivos/pecas/:nome` ao Gateway quando `API_GATEWAY_URL` está configurada; a seleção das consultas feitas no servidor segue a mesma matriz de rotas.
 
 O formulário consulta `GET /referencias` no catálogo real. Se as listas não carregarem, ele exibe o erro e bloqueia o cadastro até uma nova tentativa bem sucedida.
 
@@ -196,12 +195,13 @@ GET /api/v1/pecas?q=pifano&ordenar=preco-asc&pagina=1&tamanho=9
 ```http
 POST /api/v1/checkout
 Cookie: balaio_sessao=<token>
+Idempotency-Key: <uuid gerado pelo cliente e reutilizado até obter checkoutUrl>
 Content-Type: application/json
 
 {
   "itens": [{ "slug": "banda-de-pifanos-completa", "quantidade": 1 }],
   "freteId": "padrao",
-  "meio": "pix",
+  "meio": "checkout_pro",
   "endereco": { "cep": "50000-000", "endereco": "Rua da Aurora, 100", "cidade": "Recife", "estado": "PE" }
 }
 ```
