@@ -16,9 +16,10 @@ import { useDados } from '@/store/dados'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { obterUsuario } from '@/services/api/conta.servico'
 import SeletorEstado from '@/components/forms/SeletorEstado'
+import { abrirPagamentoAposLimpeza } from './abrirPagamento'
 
 export default function CheckoutFormulario() {
-  const { itens, pronto, erro: erroSacola, recarregar, limpar } = useSacola()
+  const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar, limparConfirmado } = useSacola()
   const { mapaPecas, carregando, erro } = usePecas()
   const { fretes: opcoesFrete, carregando: carregandoFretes, erroFretes } = useDados()
   const [freteId, definirFrete] = useState('padrao')
@@ -26,6 +27,7 @@ export default function CheckoutFormulario() {
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [salvando, definirSalvando] = useState(false)
   const [concluido, definirConcluido] = useState(false)
+  const [destinoPendente, definirDestinoPendente] = useState<string | null>(null)
   const [erroConfirmacao, definirErroConfirmacao] = useState<string | null>(null)
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
   const entregaEditada = useRef(false)
@@ -93,6 +95,7 @@ export default function CheckoutFormulario() {
 
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    if (destinoPendente) { await abrirPagamento(destinoPendente); return }
     if (salvando || !detalhados.length || !frete) return
     const dados = new FormData(evento.currentTarget)
     const proximosErros: Record<string, string> = {}
@@ -141,11 +144,25 @@ export default function CheckoutFormulario() {
       definirErroConfirmacao('A página de pagamento de teste retornada é inválida. Tente novamente mais tarde.')
       return
     }
-    definirConcluido(true)
-    avisar.sucesso('Pedido registrado', 'Abrindo o checkout de teste do Mercado Pago.')
-    concluirCheckoutPendente()
-    limpar()
-    window.location.assign(destino.href)
+    await abrirPagamento(destino.href)
+  }
+
+  async function abrirPagamento(destino: string) {
+    if (salvando) return
+    definirSalvando(true)
+    const limpeza = await abrirPagamentoAposLimpeza(limparConfirmado, destino, (url) => {
+      concluirCheckoutPendente()
+      definirConcluido(true)
+      avisar.sucesso('Pedido registrado', 'Abrindo o checkout de teste do Mercado Pago.')
+      window.location.assign(url)
+    })
+    definirSalvando(false)
+    if (!limpeza.ok) {
+      definirDestinoPendente(destino)
+      definirErroConfirmacao(`Pedido registrado, mas a sacola da conta ainda não foi limpa. ${limpeza.mensagem ?? 'Tente novamente.'}`)
+      return
+    }
+    definirDestinoPendente(null)
   }
 
   if ((!pronto || carregando || carregandoFretes) && !concluido) {
@@ -162,7 +179,13 @@ export default function CheckoutFormulario() {
 
   if (concluido) return <EstadoCarregando rotulo="Abrindo o pagamento de teste…" cartoes={1} />
 
-  if (erroSacola) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
+  if (erroSacola && !conflito) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
+  if (conflito) return <EstadoVazio
+    icone={<IconeSacola tamanho={34} />}
+    titulo="Revise sua sacola"
+    descricao="Há um item que impede a mesclagem da sacola. Retire o item na sacola para continuar."
+    acao={<Link href="/cart" className="botao botao-primario">Corrigir sacola</Link>}
+  />
   if (erro || erroFretes || !frete) return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
 
   if (pronto && detalhados.length === 0 && !concluido) {
@@ -193,6 +216,7 @@ export default function CheckoutFormulario() {
       />
 
       <h1 className="titulo-pagina">Finalizar compra</h1>
+      {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
       <p className="subtitulo-pagina">
         O pagamento de teste acontece no site seguro do Mercado Pago. Os dados do cartão não passam pelo Balaio.
       </p>
@@ -322,7 +346,7 @@ export default function CheckoutFormulario() {
           </p>
 
           {erroConfirmacao && (
-            <p className="aviso acima-3" role="alert">{erroConfirmacao} Sua sacola foi mantida para tentar novamente.</p>
+            <p className="aviso acima-3" role="alert">{erroConfirmacao}</p>
           )}
 
           <div className="barra-fixa barra-fixa-total">
@@ -331,7 +355,7 @@ export default function CheckoutFormulario() {
               <span className="barra-fixa-valor">{emReais(total)}</span>
             </p>
             <button disabled={salvando || concluido} type="submit" className="botao botao-sucesso botao-largo">
-              {salvando ? 'Registrando pedido…' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
+              {salvando ? 'Aguarde…' : destinoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
               <IconeSetaDireita />
             </button>
           </div>

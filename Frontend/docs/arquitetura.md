@@ -64,7 +64,9 @@ Página ou componente
 Montado no `app/layout.tsx`:
 
 - **Sessão:** usuário logado e papel.
-- **Sacola** e **favoritos:** carregados da API ao abrir o site e salvos a cada alteração.
+- **Sacola:** visitante usa `localStorage`; comprador autenticado usa `GET/PUT /estado/sacola` no commerce. No login, a cópia local é mesclada e removida apenas após confirmação remota. Atualizar a sacola não reserva peças; a reserva acontece no checkout.
+- Conflitos de catálogo na mesclagem mantêm a lista para correção pelo comprador. Falhas do armazenamento local deixam a sacola visitante em memória com aviso; essa cópia atravessa a troca de identidade no login, permanece em falha de PUT e é descartada apenas após confirmação remota. A memória da sacola autenticada continua isolada por identidade. O checkout só redireciona ao pagamento após confirmar a limpeza da sacola da conta.
+- **Favoritos:** carregados do estado agregado e salvos pela API.
 - **Dados de apoio:** artesãos, coletivos e opções de frete.
 - **Tema claro/escuro:** fica só no navegador.
 

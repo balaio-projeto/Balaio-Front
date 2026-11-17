@@ -112,7 +112,9 @@ async function encaminharSimulador(requisicao: Request, url: URL): Promise<Respo
   const headers = new Headers()
   requisicao.headers.forEach((valor, nome) => { if (!HEADERS_DE_TRANSPORTE.has(nome)) headers.set(nome, valor) })
   try {
-    const resposta = await fetch(`${destinoConfigurado(false)}${url.pathname.slice('/api/v1'.length)}${url.search}`, {
+    const sacolaFake = requisicao.method === 'GET' && url.pathname === '/api/v1/estado/sacola'
+    const caminho = sacolaFake ? '/estado' : url.pathname.slice('/api/v1'.length)
+    const resposta = await fetch(`${destinoConfigurado(false)}${caminho}${url.search}`, {
       method: requisicao.method, headers, cache: 'no-store', redirect: 'manual',
       body: ['GET', 'HEAD'].includes(requisicao.method.toUpperCase()) ? undefined : await requisicao.arrayBuffer(),
     })
@@ -121,6 +123,10 @@ async function encaminharSimulador(requisicao: Request, url: URL): Promise<Respo
       if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie'].includes(nome)) saida.set(nome, valor)
     })
     for (const cookie of resposta.headers.getSetCookie()) saida.append('set-cookie', cookie)
+    if (sacolaFake && resposta.ok) {
+      const estado = await resposta.json()
+      return Response.json({ dados: estado?.dados?.sacola ?? [], erro: estado?.erro ?? null }, { status: resposta.status, headers: saida })
+    }
     return new Response(resposta.body, { status: resposta.status, headers: saida })
   } catch {
     return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.')

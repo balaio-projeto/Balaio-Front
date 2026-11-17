@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
-import type { RespostaApi } from '@/services/api/tipos'
+import { falha, type RespostaApi } from '@/services/api/tipos'
 
 type Alteracao<T> = { valor: T; confirmado: T; versao: number }
 
@@ -60,5 +60,26 @@ export function useEstadoPersistido<T>(
     return proximo
   }
 
-  return { valor: otimista ? otimista.valor : inicial, atualizar }
+  async function substituirConfirmado(valor: T): Promise<RespostaApi<T>> {
+    const operacao = fila.current.then(async (): Promise<RespostaApi<T>> => {
+      if (!ativo.current) return falha('OPERACAO_INTERROMPIDA', 'A operação foi interrompida.')
+      try {
+        const resposta = await salvar(valor)
+        if (!ativo.current || resposta.erro || resposta.dados === null) return resposta
+        const controle = alteracao.current ?? { valor: inicial, confirmado: inicial, versao: 0 }
+        controle.versao++
+        controle.valor = resposta.dados
+        controle.confirmado = resposta.dados
+        alteracao.current = controle
+        definirOtimista({ valor: resposta.dados })
+        return resposta
+      } catch {
+        return falha('ERRO_REDE', 'Não foi possível falar com o servidor.')
+      }
+    })
+    fila.current = operacao.then(() => {})
+    return operacao
+  }
+
+  return { valor: otimista ? otimista.valor : inicial, atualizar, substituirConfirmado }
 }

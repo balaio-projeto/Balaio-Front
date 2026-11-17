@@ -11,6 +11,7 @@ export type EstadoCliente = {
 }
 
 export const obterEstado = () => buscar<EstadoCliente>('/estado')
+export const obterSacola = () => buscar<ItemSacola[]>('/estado/sacola')
 export const salvarFavoritos = (favoritos: string[]) => enviar<string[]>('/estado/favoritos', { favoritos }, 'PUT')
 export const salvarSacola = (sacola: ItemSacola[]) => enviar<ItemSacola[]>('/estado/sacola', { sacola }, 'PUT')
 export const salvarHistoricoBusca = (historicoBusca: string[]) => enviar<string[]>('/estado/historicoBusca', { historicoBusca }, 'PUT')

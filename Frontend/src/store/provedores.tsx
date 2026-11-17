@@ -1,7 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
-import { SacolaProvider } from '@/store/sacola'
+import { useRef, type ReactNode } from 'react'
+import { SacolaProvider, type ItemSacola } from '@/store/sacola'
 import { FavoritosProvider } from '@/store/favoritos'
 import { DadosProvider } from '@/store/dados'
 import { SessaoProvider, useSessao } from '@/store/sessao'
@@ -22,10 +22,11 @@ export default function Provedores({ sessao, children }: { sessao: Sessao | null
 function EstadoDaSessao({ children }: { children: ReactNode }) {
   const { sessao } = useSessao()
   const identidade = sessao ? `usuario:${sessao.id}` : 'visitante'
+  const memoriaVisitanteRef = useRef<ItemSacola[] | null>(null)
 
   return (
     <EstadoClienteProvider key={identidade}>
-      <SacolaProvider>
+      <SacolaProvider memoriaVisitanteRef={memoriaVisitanteRef}>
         <FavoritosProvider>
           <HistoricoBuscaProvider>{children}</HistoricoBuscaProvider>
         </FavoritosProvider>

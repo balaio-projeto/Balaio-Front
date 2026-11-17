@@ -56,6 +56,8 @@ test('consultas de usuário e identidade do artesão encaminham JWT ao profile-s
 test('checkout, pedido e mediação encaminham sessão como Bearer', async () => {
   for (const [path, method] of [
     ['/api/v1/checkout', 'POST'],
+    ['/api/v1/estado/sacola', 'GET'],
+    ['/api/v1/estado/sacola', 'PUT'],
     ['/api/v1/pedidos/123/cancelar', 'PATCH'],
     ['/api/v1/admin/mediacoes/123/decisao', 'POST'],
     ['/api/v1/artesao/pedidos-pendentes', 'GET'],
@@ -66,6 +68,57 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     })
     const resposta = await proxy(requisicao)
     assert.equal(resposta.headers.get('x-middleware-request-authorization'), 'Bearer jwt-assinado')
+  }
+})
+
+test('sacola Fake lê o agregado existente e preserva PUT existente', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  delete process.env.API_GATEWAY_URL
+  const chamadas: string[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    chamadas.push(`${opcoes?.method} ${entrada}`)
+    return Response.json({ dados: opcoes?.method === 'GET'
+      ? { sacola: [{ slug: 'peca-teste', quantidade: 1 }], favoritos: [] }
+      : [{ slug: 'peca-teste', quantidade: 1 }], erro: null })
+  }
+  try {
+    const get = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola'))
+    assert.deepEqual((await get.json()).dados, [{ slug: 'peca-teste', quantidade: 1 }])
+    const put = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola', {
+      method: 'PUT', body: JSON.stringify({ sacola: [{ slug: 'peca-teste', quantidade: 1 }] }),
+    }))
+    assert.equal(put.status, 200)
+    assert.deepEqual(chamadas, ['GET http://127.0.0.1:3001/api/v1/estado',
+      'PUT http://127.0.0.1:3001/api/v1/estado/sacola'])
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
+test('sacola autenticada encaminha GET e PUT com Bearer e envelope; falha não lê Fake API', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const chamadas: string[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    chamadas.push(`${opcoes?.method} ${entrada} ${new Headers(opcoes?.headers).get('authorization')}`)
+    if (opcoes?.method === 'GET') throw new Error('rede indisponível')
+    return Response.json({ dados: [{ slug: 'peca-teste', quantidade: 1 }], erro: null })
+  }
+  try {
+    const headers = { authorization: 'Bearer comprador-a' }
+    const get = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola', { headers }))
+    assert.equal(get.status, 502)
+    const put = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola', {
+      method: 'PUT', headers, body: JSON.stringify({ sacola: [{ slug: 'peca-teste', quantidade: 1 }] }),
+    }))
+    assert.equal(put.status, 200)
+    assert.deepEqual((await put.json()).dados, [{ slug: 'peca-teste', quantidade: 1 }])
+    assert.deepEqual(chamadas, ['GET http://gateway.local/api/v1/estado/sacola Bearer comprador-a',
+      'PUT http://gateway.local/api/v1/estado/sacola Bearer comprador-a'])
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
   }
 })
 
