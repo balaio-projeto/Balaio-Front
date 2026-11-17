@@ -13,6 +13,8 @@ import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
 import type { EstadoPedido, EtapaPedido } from '@/types/dominio'
 import CancelarPedido from '@/components/pedido/CancelarPedido'
+import { acaoCancelamentoPedido } from '@/components/pedido/acaoCancelamentoPedido'
+import EstadoPagamento from '@/components/pedido/EstadoPagamento'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +28,7 @@ const etapasPadrao: { estado: EstadoPedido; titulo: string; pendente: string }[]
 function linhaDoTempo(estado: EstadoPedido, registradas: EtapaPedido[]): EtapaPedido[] {
   if (['recusado', 'cancelado', 'reembolsado'].includes(estado)) return registradas
   const indiceAtual = etapasPadrao.findIndex((etapa) => etapa.estado === estado)
-  return etapasPadrao.map((etapa, indice) => {
+  const etapas = etapasPadrao.map((etapa, indice) => {
     const registrada = registradas.find((item) => item.estado === etapa.estado)
     return {
       estado: etapa.estado,
@@ -37,6 +39,11 @@ function linhaDoTempo(estado: EstadoPedido, registradas: EtapaPedido[]): EtapaPe
       nota: registrada?.nota,
     }
   })
+  if (['aguardando_reserva', 'aguardando_pagamento', 'confirmacao_pendente', 'cancelamento_pendente', 'reembolso_pendente', 'encerramento_pendente'].includes(estado)) {
+    return [{ estado, titulo: rotuloEstadoPedido[estado].texto,
+      detalhe: 'O pedido ainda não chegou à etapa de produção.', concluida: false, atual: true }, ...etapas]
+  }
+  return etapas
 }
 
 export default async function Acompanhamento({ params }: { params: Promise<{ id: string }> }) {
@@ -51,6 +58,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
   const { dados: conversa } = await conversaDoPedido(id)
   const etapas = linhaDoTempo(pedido.estado, pedido.etapas ?? [])
   const encerrado = ['recusado', 'cancelado', 'reembolsado'].includes(pedido.estado)
+  const acaoCancelamento = acaoCancelamentoPedido(pedido.estado)
 
   return (
     <Pagina>
@@ -88,13 +96,14 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
             </div>
 
             <ResumoItensPedido pedido={pedido} />
+            <EstadoPagamento inicial={pedido} />
           </section>
 
           {encerrado && (
             <section className="pedido-encerrado abaixo-5" role="status">
               <h2>{rotuloEstadoPedido[pedido.estado].texto}</h2>
               <p>{pedido.motivoEncerramento ?? 'Este pedido foi encerrado.'}</p>
-              <p className="campo-ajuda">Se havia uma peça única neste pedido, ela voltou a ficar disponível na vitrine.</p>
+              <p className="campo-ajuda">A disponibilidade da peça única depende da liberação confirmada pelo catálogo.</p>
             </section>
           )}
 
@@ -175,12 +184,22 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
 
           <section className="cartao acima-5">
             <h2 className="secao-titulo">Cancelamento e ajuda</h2>
-            {pedido.estado === 'confirmado' ? (
+            {acaoCancelamento === 'direto' ? (
               <>
-                <p className="texto-suave abaixo-3">A produção ainda não começou, então você pode cancelar diretamente.</p>
+                <p className="texto-suave abaixo-3">Você pode cancelar diretamente antes do início da produção.</p>
                 <CancelarPedido pedidoId={pedido.id} />
               </>
-            ) : encerrado ? (
+            ) : acaoCancelamento === 'pendente' ? (
+              <p className="texto-suave" role="status">
+                {pedido.estado === 'confirmacao_pendente'
+                  ? 'A confirmação do pagamento está em processamento. Aguarde a atualização do pedido antes de solicitar o cancelamento.'
+                  : pedido.estado === 'reembolso_pendente'
+                    ? 'O reembolso foi solicitado e ainda aguarda confirmação do Mercado Pago de teste.'
+                    : pedido.estado === 'cancelamento_pendente'
+                      ? 'O cancelamento está em processamento. O pedido só será encerrado após a confirmação do provedor.'
+                      : 'O encerramento está em processamento. A peça única só volta à vitrine após a liberação confirmada pelo catálogo.'}
+              </p>
+            ) : acaoCancelamento === 'encerrado' ? (
               <p className="texto-suave">O pedido já foi encerrado. Se precisar contestar o resultado, fale com a plataforma.</p>
             ) : (
               <>

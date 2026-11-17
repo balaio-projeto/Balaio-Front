@@ -6,12 +6,28 @@ export type Checkout = {
   itens: { slug: string; quantidade: number }[]
   freteId: string
   endereco: { cep: string; endereco: string; cidade: string; estado: string }
-  meio: 'pix' | 'cartao' | 'boleto'
-  compradorId: string
+  meio: 'checkout_pro'
 }
 
-export function finalizarCompra(compra: Checkout): Promise<RespostaApi<Pedido>> {
-  return enviar('/checkout', compra)
+export async function finalizarCompra(compra: Checkout): Promise<RespostaApi<Pedido>> {
+  const atual = JSON.stringify(compra)
+  const armazenamento = 'balaio-checkout-pendente'
+  let chave = crypto.randomUUID()
+  if (typeof window !== 'undefined') {
+    try {
+      const anterior = JSON.parse(sessionStorage.getItem(armazenamento) ?? 'null') as { compra?: string; chave?: string } | null
+      if (anterior?.compra === atual && anterior.chave) chave = anterior.chave
+      else sessionStorage.setItem(armazenamento, JSON.stringify({ compra: atual, chave }))
+    } catch {
+      sessionStorage.setItem(armazenamento, JSON.stringify({ compra: atual, chave }))
+    }
+  }
+  const resposta = await buscar<Pedido>('/checkout', { method: 'POST', body: atual, headers: { 'Idempotency-Key': chave } })
+  return resposta
+}
+
+export function concluirCheckoutPendente() {
+  if (typeof window !== 'undefined') sessionStorage.removeItem('balaio-checkout-pendente')
 }
 
 export function enviarMensagem(id: string, mensagem: Mensagem): Promise<RespostaApi<Mensagem>> {
@@ -42,8 +58,14 @@ export async function listarConversasArtesao(artesao?: string): Promise<Resposta
   return buscar<ConversaArtesao[]>(`/artesao/conversas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`)
 }
 
-export async function listarPedidosPendentes(artesao?: string): Promise<RespostaApi<PedidoPendente[]>> {
-  return buscar<PedidoPendente[]>(`/artesao/pedidos-pendentes${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`)
+export async function listarPedidosPendentes(artesao?: string, token?: string): Promise<RespostaApi<PedidoPendente[]>> {
+  return buscar<PedidoPendente[]>(`/artesao/pedidos-pendentes${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+}
+
+export async function listarVendasArtesao(artesao?: string, token?: string): Promise<RespostaApi<Pedido[]>> {
+  return buscar<Pedido[]>(`/artesao/vendas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
 }
 
 export const atualizarEstadoPedido = (id: string, estado: Pedido['estado']) => enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/estado`, { estado }, 'PATCH')
@@ -54,6 +76,6 @@ export const recusarPedido = (id: string, motivo: string) =>
 export const cancelarPedido = (id: string) =>
   enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/cancelar`, {}, 'PATCH')
 
-export async function listarMediacoes(): Promise<RespostaApi<Mediacao[]>> {
-  return buscar<Mediacao[]>('/admin/mediacoes')
+export async function listarMediacoes(token?: string): Promise<RespostaApi<Mediacao[]>> {
+  return buscar<Mediacao[]>('/admin/mediacoes', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
 }

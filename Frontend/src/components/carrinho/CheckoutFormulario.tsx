@@ -1,48 +1,39 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, Foto, Migalhas } from '@/components/ui/Basicos'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { IconeCadeado, IconeCaminhao, IconeCheck, IconeSacola, IconeSetaDireita } from '@/components/ui/Icones'
 import { avisar } from '@/components/feedback/Avisos'
-import { finalizarCompra } from '@/services/api/pedidos.servico'
+import { concluirCheckoutPendente, finalizarCompra } from '@/services/api/pedidos.servico'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import { useSacola } from '@/store/sacola'
 import { usePecas } from '@/hooks/usePecas'
 import { validarCEP, validarEstado, validarObrigatorio } from '@/utils/validacao'
 import { useDados } from '@/store/dados'
-import { useSessao } from '@/store/sessao'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { obterUsuario } from '@/services/api/conta.servico'
 import SeletorEstado from '@/components/forms/SeletorEstado'
-
-type Meio = 'pix' | 'cartao' | 'boleto'
-
-const meios: { id: Meio; nome: string; nota: string }[] = [
-  { id: 'pix', nome: 'Pix', nota: 'Simulado' },
-  { id: 'cartao', nome: 'Cartão', nota: 'Simulado' },
-  { id: 'boleto', nome: 'Boleto', nota: 'Simulado' },
-]
+import { abrirPagamentoAposLimpeza } from './abrirPagamento'
 
 export default function CheckoutFormulario() {
-  const { sessao } = useSessao()
-  const roteador = useRouter()
-  const { itens, pronto, limpar } = useSacola()
+  const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar, limparConfirmado } = useSacola()
   const { mapaPecas, carregando, erro } = usePecas()
-  const [meio, definirMeio] = useState<Meio>('pix')
-  const { fretes: opcoesFrete, carregando: carregandoFretes, erro: erroFretes } = useDados()
+  const { fretes: opcoesFrete, carregando: carregandoFretes, erroFretes } = useDados()
   const [freteId, definirFrete] = useState('padrao')
   const frete = opcoesFrete.find((f) => f.id === freteId) ?? opcoesFrete[0]
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [salvando, definirSalvando] = useState(false)
   const [concluido, definirConcluido] = useState(false)
+  const [destinoPendente, definirDestinoPendente] = useState<string | null>(null)
   const [erroConfirmacao, definirErroConfirmacao] = useState<string | null>(null)
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
+  const entregaEditada = useRef(false)
 
   function atualizarEntrega(campo: keyof typeof entrega, valor: string) {
+    entregaEditada.current = true
     definirEntrega((atual) => ({ ...atual, [campo]: valor }))
     const id = campo === 'cep' ? 'cep-checkout' : campo
     definirErros((atuais) => {
@@ -61,13 +52,25 @@ export default function CheckoutFormulario() {
   }
 
   useEffect(() => {
+    let vivo = true
     obterUsuario().then(({ dados }) => {
+      if (!vivo || entregaEditada.current) return
       const principal = dados?.enderecos?.find((item) => item.principal) ?? dados?.enderecos?.[0]
       if (!principal) return
       const partes = principal.bairro.split(',').map((item) => item.trim())
-      const enderecoCarregado = { cep: principal.cep, endereco: principal.rua, cidade: partes.slice(0, -1).join(', '), estado: partes.at(-1) ?? '' }
-      definirEntrega(enderecoCarregado)
+      const estado = partes.at(-1) ?? ''
+      const cidade = partes.at(-2) ?? ''
+      const reconhecido = partes.length >= 2 && cidade !== '' && !validarEstado(estado)
+      const bairro = reconhecido ? partes.slice(0, -2).filter(Boolean).join(', ') : ''
+      const enderecoCarregado = {
+        cep: principal.cep,
+        endereco: [principal.rua, bairro].filter(Boolean).join(', '),
+        cidade: reconhecido ? cidade : '',
+        estado: reconhecido ? estado.toUpperCase() : '',
+      }
+      definirEntrega((atual) => entregaEditada.current ? atual : enderecoCarregado)
       definirErros((atuais) => {
+        if (entregaEditada.current) return atuais
         const proximos = { ...atuais }
         if (!validarCEP(enderecoCarregado.cep)) delete proximos['cep-checkout']
         if (!validarObrigatorio(enderecoCarregado.endereco)) delete proximos.endereco
@@ -76,12 +79,14 @@ export default function CheckoutFormulario() {
         return proximos
       })
     })
+    return () => { vivo = false }
   }, [])
 
   const detalhados = itens.flatMap((item) => {
     const peca = mapaPecas.get(item.slug)
     return peca ? [{ item, peca }] : []
   })
+  const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
 
   const subtotalCheio = detalhados.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
   const subtotal = detalhados.reduce((total, d) => total + precoComDesconto(d.peca) * d.item.quantidade, 0)
@@ -90,6 +95,7 @@ export default function CheckoutFormulario() {
 
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    if (destinoPendente) { await abrirPagamento(destinoPendente); return }
     if (salvando || !detalhados.length || !frete) return
     const dados = new FormData(evento.currentTarget)
     const proximosErros: Record<string, string> = {}
@@ -117,7 +123,7 @@ export default function CheckoutFormulario() {
     definirSalvando(true)
     definirErroConfirmacao(null)
     const resposta = await finalizarCompra({
-      itens, freteId: frete.id, meio, compradorId: sessao?.id ?? '',
+      itens, freteId: frete.id, meio: 'checkout_pro',
       endereco: { cep: String(dados.get('cep')), endereco: String(dados.get('endereco')), cidade: String(dados.get('cidade')), estado: String(dados.get('estado')) },
     })
     definirSalvando(false)
@@ -127,10 +133,36 @@ export default function CheckoutFormulario() {
       avisar.erro('Não foi possível registrar o pedido', mensagem)
       return
     }
-    definirConcluido(true)
-    avisar.sucesso('Compra de demonstração registrada', 'Nenhum pagamento real foi realizado.')
-    roteador.push('/confirmation/' + resposta.dados.id)
-    limpar()
+    if (!resposta.dados.checkoutUrl) {
+      definirErroConfirmacao('Pedido registrado; a página de pagamento ainda está sendo preparada. Tente novamente com os mesmos dados.')
+      return
+    }
+    let destino: URL
+    try { destino = new URL(resposta.dados.checkoutUrl) }
+    catch { definirErroConfirmacao('A página de pagamento de teste retornada é inválida.'); return }
+    if (destino.protocol !== 'https:' || destino.hostname !== 'sandbox.mercadopago.com') {
+      definirErroConfirmacao('A página de pagamento de teste retornada é inválida. Tente novamente mais tarde.')
+      return
+    }
+    await abrirPagamento(destino.href)
+  }
+
+  async function abrirPagamento(destino: string) {
+    if (salvando) return
+    definirSalvando(true)
+    const limpeza = await abrirPagamentoAposLimpeza(limparConfirmado, destino, (url) => {
+      concluirCheckoutPendente()
+      definirConcluido(true)
+      avisar.sucesso('Pedido registrado', 'Abrindo o checkout de teste do Mercado Pago.')
+      window.location.assign(url)
+    })
+    definirSalvando(false)
+    if (!limpeza.ok) {
+      definirDestinoPendente(destino)
+      definirErroConfirmacao(`Pedido registrado, mas a sacola da conta ainda não foi limpa. ${limpeza.mensagem ?? 'Tente novamente.'}`)
+      return
+    }
+    definirDestinoPendente(null)
   }
 
   if ((!pronto || carregando || carregandoFretes) && !concluido) {
@@ -145,8 +177,15 @@ export default function CheckoutFormulario() {
     )
   }
 
-  if (concluido) return <EstadoCarregando rotulo="Abrindo a confirmação do pedido…" cartoes={1} />
+  if (concluido) return <EstadoCarregando rotulo="Abrindo o pagamento de teste…" cartoes={1} />
 
+  if (erroSacola && !conflito) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
+  if (conflito) return <EstadoVazio
+    icone={<IconeSacola tamanho={34} />}
+    titulo="Revise sua sacola"
+    descricao="Há um item que impede a mesclagem da sacola. Retire o item na sacola para continuar."
+    acao={<Link href="/cart" className="botao botao-primario">Corrigir sacola</Link>}
+  />
   if (erro || erroFretes || !frete) return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
 
   if (pronto && detalhados.length === 0 && !concluido) {
@@ -158,11 +197,11 @@ export default function CheckoutFormulario() {
         <h1 className="titulo-pagina">Finalizar compra</h1>
         <EstadoVazio
           icone={<IconeSacola tamanho={34} />}
-          titulo="Sua sacola está vazia"
-          descricao="Adicione uma peça à sacola para revisar sua compra."
+          titulo={itens.length ? 'As peças da sacola estão indisponíveis' : 'Sua sacola está vazia'}
+          descricao={itens.length ? 'Volte à sacola para remover as peças indisponíveis e continuar explorando.' : 'Adicione uma peça à sacola para revisar sua compra.'}
           acao={
-            <Link href="/" className="botao botao-primario">
-              Explorar o catálogo
+            <Link href={itens.length ? '/cart' : '/'} className="botao botao-primario">
+              {itens.length ? 'Rever sacola' : 'Explorar o catálogo'}
             </Link>
           }
         />
@@ -177,8 +216,9 @@ export default function CheckoutFormulario() {
       />
 
       <h1 className="titulo-pagina">Finalizar compra</h1>
+      {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
       <p className="subtitulo-pagina">
-        Compra de demonstração: os dados serão salvos, sem cobrança ou pagamento real.
+        O pagamento de teste acontece no site seguro do Mercado Pago. Os dados do cartão não passam pelo Balaio.
       </p>
 
       <ol className="etapas-compra">
@@ -252,46 +292,21 @@ export default function CheckoutFormulario() {
           </section>
 
           <section className="cartao">
-            <h2 className="secao-titulo">Forma de pagamento</h2>
-            <div className="opcoes-pagamento">
-              {meios.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className="opcao-pagamento"
-                  aria-pressed={meio === m.id}
-                  onClick={() => definirMeio(m.id)}
-                >
-                  <span>
-                    <span className="opcao-pagamento-nome">{m.nome}</span>
-                    <span className="opcao-pagamento-nota">{m.nota}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {meio === 'pix' && (
-              <p className="texto-suave">O Pix é apenas uma escolha de demonstração. Nenhum código de pagamento será gerado.</p>
-            )}
-
-            {meio === 'cartao' && (
-              <div className="bloco-psp">
-                <p className="bloco-psp-titulo">
-                  <IconeCadeado />
-                  Cartão de demonstração
-                </p>
-                <p>Nenhum dado de cartão será solicitado e nenhuma cobrança será feita.</p>
-              </div>
-            )}
-
-            {meio === 'boleto' && (
-              <p className="texto-suave">O boleto é apenas uma escolha de demonstração. Nenhum documento de cobrança será emitido.</p>
-            )}
+            <h2 className="secao-titulo">Pagamento</h2>
+            <p className="texto-suave">Você escolherá o meio de pagamento no Checkout Pro de teste do Mercado Pago.</p>
           </section>
         </div>
 
         <aside className="cartao coluna-compra">
           <h2 className="secao-titulo">Seu pedido</h2>
+
+          {indisponiveis.length > 0 && (
+            <div className="aviso abaixo-4" role="status">
+              <p>Estas peças não estão disponíveis no catálogo:</p>
+              <ul>{indisponiveis.map((item) => <li key={item.slug}>{item.slug.replace(/-/g, ' ')} · Quantidade: {item.quantidade}</li>)}</ul>
+              <Link href="/cart" className="botao-texto">Rever sacola e remover peças indisponíveis</Link>
+            </div>
+          )}
 
           {detalhados.map(({ peca, item }) => (
             <div className="item-sacola" key={peca.slug} style={{ gridTemplateColumns: '64px minmax(0, 1fr)' }}>
@@ -331,7 +346,7 @@ export default function CheckoutFormulario() {
           </p>
 
           {erroConfirmacao && (
-            <p className="aviso acima-3" role="alert">{erroConfirmacao} Sua sacola foi mantida para tentar novamente.</p>
+            <p className="aviso acima-3" role="alert">{erroConfirmacao}</p>
           )}
 
           <div className="barra-fixa barra-fixa-total">
@@ -340,7 +355,7 @@ export default function CheckoutFormulario() {
               <span className="barra-fixa-valor">{emReais(total)}</span>
             </p>
             <button disabled={salvando || concluido} type="submit" className="botao botao-sucesso botao-largo">
-              {salvando ? 'Registrando pedido…' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
+              {salvando ? 'Aguarde…' : destinoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
               <IconeSetaDireita />
             </button>
           </div>
@@ -348,7 +363,7 @@ export default function CheckoutFormulario() {
           <p className="nota-fiscal acima-4" style={{ display: 'flex', gap: 10 }}>
             <IconeCadeado />
             <span>
-              Esta etapa registra um pedido de demonstração. <strong>Nenhum pagamento real será processado.</strong>
+              Esta etapa registra o pedido e abre um pagamento em ambiente de teste. <strong>A confirmação depende do provedor.</strong>
             </span>
           </p>
         </aside>

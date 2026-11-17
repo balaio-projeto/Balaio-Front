@@ -34,6 +34,8 @@ Frontend/
 | `app/` | Monta cada tela: busca os dados pelos services e compõe os componentes |
 | `components/` | Componentes por domínio: `produto`, `carrinho`, `pedido`, `painel`, `admin`, `eventos`, `forms`, `layout`, `ui` e `feedback` (carregando, erro e estado vazio) |
 | `services/api/` | Único ponto de acesso à API: um cliente HTTP (`cliente.ts`) e um arquivo por recurso (`pecas.servico.ts`, `pedidos.servico.ts`...) |
+
+No Checkout Pro, o frontend recebe apenas a URL hospedada `sandbox.mercadopago.com` e redireciona o comprador. Nenhum cartão, token do provedor ou segredo webhook passa pelo navegador. O retorno para `/confirmation/:id` consulta o estado do commerce periodicamente; query string ou navegação de sucesso não alteram o status financeiro. Cancelamento e reembolso só são exibidos como concluídos depois da confirmação do provedor no backend. A integração não promete retenção ou repasse ao artesão.
 | `store/` | Sessão, sacola, favoritos e dados compartilhados |
 | `hooks/` | Lógica reutilizável dos componentes (`usePecas`, `useReferencias`...) |
 | `types/` | Tipos das entidades (`Peca`, `Artesao`, `Pedido`, `Evento`, `Usuario`...) |
@@ -55,14 +57,16 @@ Página ou componente
   no navegador.
 - O cliente HTTP aplica timeout de 10 s e devolve sempre `{ dados, erro }`. As telas
   nunca fazem `fetch` direto.
-- Para trocar a Fake API pelo backend real, basta mudar a variável `API_URL`.
+- Com `API_GATEWAY_URL` configurada, o cliente e o Route Handler escolhem o Gateway por método e rota. `API_URL` continua atendendo eventos, vídeos e outras capacidades demonstrativas; mudar somente uma variável não altera essa matriz.
 
 ## Estado global
 
 Montado no `app/layout.tsx`:
 
 - **Sessão:** usuário logado e papel.
-- **Sacola** e **favoritos:** carregados da API ao abrir o site e salvos a cada alteração.
+- **Sacola:** visitante usa `localStorage`; comprador autenticado usa `GET/PUT /estado/sacola` no commerce. No login, a cópia local é mesclada e removida apenas após confirmação remota. Atualizar a sacola não reserva peças; a reserva acontece no checkout.
+- Conflitos de catálogo na mesclagem mantêm a lista para correção pelo comprador. Falhas do armazenamento local deixam a sacola visitante em memória com aviso; essa cópia atravessa a troca de identidade no login, permanece em falha de PUT e é descartada apenas após confirmação remota. A memória da sacola autenticada continua isolada por identidade. O checkout só redireciona ao pagamento após confirmar a limpeza da sacola da conta.
+- **Favoritos:** carregados do estado agregado e salvos pela API.
 - **Dados de apoio:** artesãos, coletivos e opções de frete.
 - **Tema claro/escuro:** fica só no navegador.
 
