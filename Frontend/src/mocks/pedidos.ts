@@ -11,7 +11,6 @@ export const pedidos: Pedido[] = [
     rastreio: 'BR-TRAC-8893A',
     transportadora: 'Sertão Logística Regional',
     previsaoEntrega: '26 de março, 2026',
-    avaliado: false,
     etapas: [
       {
         estado: 'confirmado',
@@ -54,7 +53,6 @@ export const pedidos: Pedido[] = [
     rastreio: 'BR-IPOJ-4471C',
     transportadora: 'Sertão Logística Regional',
     previsaoEntrega: '08 de março, 2026',
-    avaliado: false,
     etapas: [
       { estado: 'confirmado', titulo: 'Pedido confirmado', detalhe: '28/02/2026 às 09:15.', concluida: true, atual: false },
       { estado: 'producao', titulo: 'Em produção', detalhe: 'Peça em estoque, separada no mesmo dia.', concluida: true, atual: false },
@@ -72,7 +70,6 @@ export const pedidos: Pedido[] = [
     rastreio: 'BR-TRAC-2210B',
     transportadora: 'Sertão Logística Regional',
     previsaoEntrega: '17 de fevereiro, 2026',
-    avaliado: true,
     etapas: [
       { estado: 'confirmado', titulo: 'Pedido confirmado', detalhe: '10/02/2026 às 18:40.', concluida: true, atual: false },
       { estado: 'producao', titulo: 'Em produção', detalhe: 'Peça em estoque.', concluida: true, atual: false },

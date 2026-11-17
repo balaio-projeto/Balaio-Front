@@ -1,8 +1,10 @@
 // Executado apenas pelo Route Handler. As URLs nunca são enviadas ao navegador.
 import { createHmac } from 'node:crypto'
-import { rotaPublicaFake, rotaContaFake, usaBackendReal } from './rotas-proxy'
+import {
+  CAMINHOS_DE_AUTENTICACAO, ehRotaDeMidia, limiteDoCorpo, rotaContaFake, rotaPublicaFake, usaBackendReal,
+} from './rotas-proxy'
 
-const AUTENTICACAO = new Set(['/auth/cadastro', '/auth/login', '/auth/entrar', '/auth/logout'])
+const AUTENTICACAO = new Set(CAMINHOS_DE_AUTENTICACAO)
 export { usaBackendReal } from './rotas-proxy'
 
 function erro(status: number, codigo: string, mensagem: string) {
@@ -106,6 +108,27 @@ function cookieDeSessaoNaRaiz(cookie: string) {
   return [...atributos, 'Path=/'].join('; ')
 }
 
+const PRAZO_PADRAO_MS = 10_000
+const PRAZO_CABECALHOS_MIDIA_MS = 10 * 60_000
+const CABECALHOS_DE_MIDIA = ['content-range', 'accept-ranges', 'content-length']
+
+function tokenDoCookie(requisicao: Request): string | null {
+  const cookie = (requisicao.headers.get('cookie') ?? '').split(';').map((item) => item.trim())
+    .find((item) => item.startsWith('balaio_sessao='))
+  const token = cookie?.slice('balaio_sessao='.length)
+  return token ? token : null
+}
+
+async function buscarComPrazoNosCabecalhos(url: string, opcoes: RequestInit, prazoMs: number): Promise<Response> {
+  const controle = new AbortController()
+  const temporizador = setTimeout(() => controle.abort(), prazoMs)
+  try {
+    return await fetch(url, { ...opcoes, signal: controle.signal })
+  } finally {
+    clearTimeout(temporizador)
+  }
+}
+
 const HEADERS_DE_TRANSPORTE = new Set(['host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive', 'upgrade', 'accept-encoding'])
 
 async function encaminharSimulador(requisicao: Request, url: URL): Promise<Response> {
@@ -148,12 +171,13 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
   }
   const real = usaBackendReal(metodo, caminho)
   const contaFake = !real && rotaContaFake(metodo, caminho)
-  if (!real && !contaFake && !rotaPublicaFake(metodo, caminho, url.searchParams)) {
+  if (!real && !contaFake && !rotaPublicaFake(metodo, caminho)) {
     return finalizar(erro(404, 'RECURSO_NAO_ENCONTRADO', 'Recurso não encontrado.'))
   }
   if (contaFake && url.search) return finalizar(erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.'))
   const headers = new Headers()
-  for (const nome of ['accept', 'content-type', 'origin', 'idempotency-key']) {
+  const midia = real && ehRotaDeMidia(caminho)
+  for (const nome of ['accept', 'content-type', 'origin', 'idempotency-key', ...(midia ? ['range'] : [])]) {
     const valor = requisicao.headers.get(nome)
     if (valor) headers.set(nome, valor)
   }
@@ -162,7 +186,17 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     ? item.startsWith('balaio_sessao=') : !contaFake && item.startsWith('balaio_cliente='))
   if (permitidos.length) headers.set('cookie', permitidos.join('; '))
   const autorizacao = requisicao.headers.get('authorization')
+  const tokenDaSessao = real && !autorizacao ? tokenDoCookie(requisicao) : null
   if (real && autorizacao) headers.set('authorization', autorizacao)
+  else if (tokenDaSessao) headers.set('authorization', `Bearer ${tokenDaSessao}`)
+  const semCorpo = ['GET', 'HEAD'].includes(metodo)
+  if (tokenDaSessao && !semCorpo && !origemPermitida(requisicao)) {
+    return finalizar(erro(403, 'SEM_PERMISSAO', 'Origem não permitida.'))
+  }
+  const limite = real && !semCorpo ? limiteDoCorpo(metodo, caminho) : null
+  if (limite !== null && Number(requisicao.headers.get('content-length')) > limite) {
+    return finalizar(erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.'))
+  }
 
   try {
     const caminhoFake = contaFake && caminho === '/conta/perfil' ? '/usuario' : caminho
@@ -175,11 +209,23 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
       if (contexto instanceof Response) return finalizar(contexto)
       contexto.forEach((valor, nome) => headers.set(nome, valor))
     }
-    const resposta = await fetch(`${destinoConfigurado(real)}${caminhoFake}${url.search}`, {
-      method: metodo, headers, cache: 'no-store', redirect: 'manual',
-      body: contaFake ? corpo : ['GET', 'HEAD'].includes(metodo) ? undefined : await requisicao.arrayBuffer(),
-      signal: AbortSignal.timeout(10000),
-    })
+    const destino = `${destinoConfigurado(real)}${caminhoFake}${url.search}`
+    if (!contaFake && !semCorpo && !midia) {
+      corpo = await requisicao.arrayBuffer()
+      if (limite !== null && corpo.byteLength > limite) {
+        return finalizar(erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.'))
+      }
+    }
+    const resposta = midia
+      ? await buscarComPrazoNosCabecalhos(destino, {
+        method: metodo, headers, cache: 'no-store', redirect: 'manual',
+        body: semCorpo ? undefined : requisicao.body, duplex: 'half',
+      } as RequestInit, PRAZO_CABECALHOS_MIDIA_MS)
+      : await fetch(destino, {
+        method: metodo, headers, cache: 'no-store', redirect: 'manual',
+        body: corpo,
+        signal: AbortSignal.timeout(PRAZO_PADRAO_MS),
+      })
     if (contaFake && resposta.status === 401) {
       return finalizar(erro(502, 'API_INDISPONIVEL', 'Não foi possível acessar os dados da conta.'))
     }
@@ -187,7 +233,7 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
       return finalizar(erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.'))
     }
     const saida = new Headers({ 'Cache-Control': 'no-store' })
-    for (const nome of ['content-type', 'content-disposition', 'www-authenticate']) {
+    for (const nome of ['content-type', 'content-disposition', 'www-authenticate', ...(midia ? CABECALHOS_DE_MIDIA : [])]) {
       const valor = resposta.headers.get(nome)
       if (valor) saida.set(nome, valor)
     }

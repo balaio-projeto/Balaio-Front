@@ -2,10 +2,9 @@
 
 import { createContext, useContext, type ReactNode } from 'react'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
-import { salvarHistoricoBusca } from '@/services/api/estado.servico'
+import { LIMITE_HISTORICO_BUSCA } from '@/store/colecoesVisitante'
 import { useEstadoCliente } from '@/store/estadoCliente'
 
-const LIMITE_HISTORICO = 8
 const HISTORICO_VAZIO: string[] = []
 
 type ContextoHistoricoBusca = {
@@ -17,16 +16,16 @@ type ContextoHistoricoBusca = {
 const Contexto = createContext<ContextoHistoricoBusca | null>(null)
 
 export function HistoricoBuscaProvider({ children }: { children: ReactNode }) {
-  const { estado } = useEstadoCliente()
+  const { estado, salvadorDaColecao } = useEstadoCliente()
   const { valor: recentes, atualizar } = useEstadoPersistido(
     estado?.historicoBusca ?? HISTORICO_VAZIO,
-    salvarHistoricoBusca,
+    salvadorDaColecao('historicoBusca'),
     'Não foi possível salvar o histórico de busca',
   )
 
   function registrar(termo: string) {
     if (!estado) return
-    atualizar((atuais) => [termo, ...atuais.filter((item) => item.toLowerCase() !== termo.toLowerCase())].slice(0, LIMITE_HISTORICO))
+    atualizar((atuais) => [termo, ...atuais.filter((item) => item.toLowerCase() !== termo.toLowerCase())].slice(0, LIMITE_HISTORICO_BUSCA))
   }
 
   function limpar() {

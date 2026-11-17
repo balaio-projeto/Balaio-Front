@@ -8,6 +8,7 @@ import FormAvaliacao from '@/components/forms/FormAvaliacao'
 import { obterPedido } from '@/services/api/pedidos.servico'
 import { obterPecaHistorico } from '@/services/api/pecas.servico'
 import { obterArtesao } from '@/services/api/artesaos.servico'
+import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { exigirSessao } from '@/services/autenticacao'
 
 export const dynamic = 'force-dynamic'
@@ -19,15 +20,18 @@ export default async function Avaliar({ params }: { params: Promise<{ id: string
   if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
 
-  if (pedido.estado !== 'entregue' || pedido.avaliado) {
+  const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null
+  if (avaliacao?.erro) throw new Error(avaliacao.erro.mensagem)
+  const avaliado = avaliacao?.dados === true
+  if (pedido.estado !== 'entregue' || avaliado) {
     return (
       <Pagina>
         <Migalhas trilha={[{ texto: 'Início', href: '/' }, { texto: 'Meus pedidos', href: '/orders' }, { texto: 'Avaliar compra' }]} />
         <h1 className="titulo-pagina">Avaliar compra</h1>
         <EstadoVazio
           icone={<IconeAviso tamanho={34} />}
-          titulo={pedido.avaliado ? 'Este pedido já foi avaliado' : 'A avaliação ainda não está disponível'}
-          descricao={pedido.avaliado
+          titulo={avaliado ? 'Este pedido já foi avaliado' : 'A avaliação ainda não está disponível'}
+          descricao={avaliado
             ? 'Você já enviou sua avaliação para esta compra.'
             : 'Você poderá avaliar a compra quando o pedido estiver marcado como entregue.'}
           acao={<Link href={`/orders/${pedido.id}`} className="botao botao-primario">Ver pedido</Link>}

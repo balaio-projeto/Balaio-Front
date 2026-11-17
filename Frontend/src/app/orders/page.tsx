@@ -92,7 +92,7 @@ export default async function MeusPedidos() {
                       Acompanhar pedido
                     </Link>
                   )}
-                  {entregue && !pedido.avaliado && (
+                  {entregue && (
                     <Link href={`/orders/${pedido.id}/review`} className="botao botao-sucesso">
                       Avaliar
                     </Link>

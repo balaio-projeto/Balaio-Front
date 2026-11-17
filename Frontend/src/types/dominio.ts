@@ -85,7 +85,6 @@ export type Pedido = {
   transportadora?: string
   previsaoEntrega?: string
   etapas: EtapaPedido[]
-  avaliado: boolean
   motivoEncerramento?: string
 }
 
@@ -148,6 +147,14 @@ export type Mediacao = {
   assunto: string
   partes: string
   aberta: string
+  relato?: string
+  tentativas?: number
+}
+
+export type Reputacao = {
+  media: number
+  total: number
+  distribuicao: Record<string, number>
 }
 
 export type Coletivo = {
@@ -196,11 +203,13 @@ export type Video = {
   curtidas: number
   comentarios: number
   publicadoEm: string
-  capa: string
+  capa: string | null
+  url?: string | null
   situacao?: 'publicada' | 'rascunho'
 }
 
 export type Comentario = {
+  id?: string
   autor: string
   texto: string
   quando: string

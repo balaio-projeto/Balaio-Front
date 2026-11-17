@@ -4,7 +4,7 @@ import { IconePlay } from '@/components/ui/Icones'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import type { Video } from '@/types/dominio'
 import { emMilhares } from '@/utils/formato'
-import { fallbackDe } from '@/utils/imagem'
+import { fallbackDe, imagemBase } from '@/utils/imagem'
 
 const DURACAO_DESCONHECIDA = '0:00'
 
@@ -44,7 +44,7 @@ export default function ListaVideosPainel({
           return (
             <li className="video-painel" key={video.id}>
               <div className="video-painel-capa">
-                <ImagemComFallback src={video.capa} reserva={fallbackDe(video.capa)} alt="" loading="lazy" />
+                <ImagemComFallback src={video.capa ?? imagemBase} reserva={fallbackDe(video.capa ?? imagemBase)} alt="" loading="lazy" />
                 {video.duracao !== DURACAO_DESCONHECIDA && <span className="video-painel-duracao">{video.duracao}</span>}
               </div>
 

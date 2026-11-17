@@ -1,5 +1,5 @@
-import type { ConversaArtesao, Mediacao, Mensagem, Pedido, PedidoPendente } from '@/types/dominio'
-import { buscar, enviar } from './cliente'
+import type { ConversaArtesao, Mensagem, Pedido, PedidoPendente } from '@/types/dominio'
+import { buscar, comToken, enviar } from './cliente'
 import { type RespostaApi } from './tipos'
 
 export type Checkout = {
@@ -34,20 +34,12 @@ export function enviarMensagem(id: string, mensagem: Mensagem): Promise<Resposta
   return enviar(`/pedidos/${encodeURIComponent(id)}/conversa`, mensagem)
 }
 
-export function avaliarPedido(id: string, avaliacao: { nota: number; comentario: string; aspectos: string[] }): Promise<RespostaApi<{ id: string }>> {
-  return enviar(`/pedidos/${encodeURIComponent(id)}/avaliacao`, avaliacao)
-}
-
-export function criarMediacao(mediacao: Mediacao & { relato: string; solucao: string }): Promise<RespostaApi<Mediacao>> {
-  return enviar('/admin/mediacoes', mediacao)
-}
-
 export async function listarPedidos(token?: string): Promise<RespostaApi<Pedido[]>> {
-  return buscar<Pedido[]>('/pedidos', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+  return buscar<Pedido[]>('/pedidos', comToken(token))
 }
 
 export async function obterPedido(id: string, token?: string): Promise<RespostaApi<Pedido>> {
-  return buscar<Pedido>(`/pedidos/${encodeURIComponent(id)}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+  return buscar<Pedido>(`/pedidos/${encodeURIComponent(id)}`, comToken(token))
 }
 
 export async function conversaDoPedido(id: string): Promise<RespostaApi<Mensagem[]>> {
@@ -60,12 +52,12 @@ export async function listarConversasArtesao(artesao?: string): Promise<Resposta
 
 export async function listarPedidosPendentes(artesao?: string, token?: string): Promise<RespostaApi<PedidoPendente[]>> {
   return buscar<PedidoPendente[]>(`/artesao/pedidos-pendentes${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
-    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+    comToken(token))
 }
 
 export async function listarVendasArtesao(artesao?: string, token?: string): Promise<RespostaApi<Pedido[]>> {
   return buscar<Pedido[]>(`/artesao/vendas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
-    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+    comToken(token))
 }
 
 export const atualizarEstadoPedido = (id: string, estado: Pedido['estado']) => enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/estado`, { estado }, 'PATCH')
@@ -75,7 +67,3 @@ export const recusarPedido = (id: string, motivo: string) =>
 
 export const cancelarPedido = (id: string) =>
   enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/cancelar`, {}, 'PATCH')
-
-export async function listarMediacoes(token?: string): Promise<RespostaApi<Mediacao[]>> {
-  return buscar<Mediacao[]>('/admin/mediacoes', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
-}

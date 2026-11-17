@@ -9,6 +9,7 @@ import { IconeAviso, IconeCaminhao, IconeCheck, IconeSetaDireita } from '@/compo
 import { obterPedido, conversaDoPedido } from '@/services/api/pedidos.servico'
 import { obterPecaHistorico } from '@/services/api/pecas.servico'
 import { obterArtesao } from '@/services/api/artesaos.servico'
+import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
 import type { EstadoPedido, EtapaPedido } from '@/types/dominio'
@@ -59,6 +60,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
   const etapas = linhaDoTempo(pedido.estado, pedido.etapas ?? [])
   const encerrado = ['recusado', 'cancelado', 'reembolsado'].includes(pedido.estado)
   const acaoCancelamento = acaoCancelamentoPedido(pedido.estado)
+  const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null
 
   return (
     <Pagina>
@@ -176,9 +178,11 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
             <section className="cartao acima-5">
               <h2 className="secao-titulo">Sua avaliação</h2>
               <p className="texto-suave abaixo-3">
-                {pedido.avaliado ? 'Obrigado por avaliar esta compra.' : 'Conte como foi receber a peça e ajude outros compradores.'}
+                {avaliacao?.erro
+                  ? 'Não foi possível verificar sua avaliação agora. Tente novamente em instantes.'
+                  : avaliacao?.dados ? 'Obrigado por avaliar esta compra.' : 'Conte como foi receber a peça e ajude outros compradores.'}
               </p>
-              {!pedido.avaliado && <Link href={`/orders/${pedido.id}/review`} className="botao botao-primario">Avaliar compra</Link>}
+              {avaliacao?.dados === false && <Link href={`/orders/${pedido.id}/review`} className="botao botao-primario">Avaliar compra</Link>}
             </section>
           )}
 
