@@ -58,6 +58,7 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     ['/api/v1/checkout', 'POST'],
     ['/api/v1/estado/sacola', 'GET'],
     ['/api/v1/estado/sacola', 'PUT'],
+    ['/api/v1/sacola/revalidar', 'POST'],
     ['/api/v1/pedidos/123/cancelar', 'PATCH'],
     ['/api/v1/admin/mediacoes/123/decisao', 'POST'],
     ['/api/v1/artesao/pedidos-pendentes', 'GET'],
@@ -96,6 +97,31 @@ test('sacola autenticada encaminha GET e PUT com Bearer e envelope ao gateway', 
     else process.env.API_GATEWAY_URL = anterior
   }
 })
+
+test('POST de revalidação mantém rota pública, JWT e resposta do Gateway', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  let destino = '', autorizacao = ''
+  globalThis.fetch = async (entrada, opcoes) => {
+    destino = String(entrada)
+    autorizacao = new Headers(opcoes?.headers).get('authorization') ?? ''
+    return Response.json({ dados: { itens: [], podeProsseguir: false, revalidadoEm: '2026-11-17T00:00:00Z' }, erro: null })
+  }
+  try {
+    const resposta = await encaminharApi(new Request('http://localhost:4321/api/v1/sacola/revalidar', {
+      method: 'POST', headers: { authorization: 'Bearer comprador-a', 'content-type': 'application/json' },
+      body: '{}',
+    }))
+    assert.equal(resposta.status, 200)
+    assert.equal(destino, 'http://gateway.local/api/v1/sacola/revalidar')
+    assert.equal(autorizacao, 'Bearer comprador-a')
+    assert.equal((await resposta.json()).dados.podeProsseguir, false)
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
 
 test('checkout usa Gateway e preserva Idempotency-Key', async () => {
   const anterior = process.env.API_GATEWAY_URL

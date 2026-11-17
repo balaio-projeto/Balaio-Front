@@ -107,9 +107,10 @@ Se a mesclagem encontrar uma peça indisponível, a página mantém os itens vis
 |---|---|---|---|
 | GET | `/estado/sacola` | 🔑 | `{dados:[{slug,quantidade}],erro:null}` da conta autenticada (commerce) |
 | PUT | `/estado/sacola` | 🔑 | `{ sacola: [{ slug, quantidade }] }`, substituição completa no commerce |
+| POST | `/sacola/revalidar` | 🔑 | Revalida os itens persistidos da conta no commerce; devolve preço final por unidade, disponibilidade, `podeProsseguir` e `revalidadoEm` |
 | GET / PUT | `/estado/{colecao}` | 🔑 | `favoritos`, `historicoBusca`, `videosCurtidos` ou `videosSalvos` da conta (community); o PUT recebe `{ <colecao>: ["..."] }` |
 
-O endpoint de domínio da sacola é `/estado/sacola`; não existe rota `/sacola`. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout. Hoje o commerce ainda não implementa essa rota (veja [Pendências no backend](#pendências-no-backend)).
+O endpoint de persistência da sacola é `/estado/sacola`; a rota `/sacola/revalidar` faz apenas a verificação anterior ao checkout. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout. Uma peça indisponível bloqueia o avanço; falha ou timeout invalida a consulta inteira e oferece retry. A interface usa `precoAtual` já descontado, exibe alterações e consulta novamente antes de registrar o pedido. Revalidar não reserva estoque.
 
 ### Pedidos
 
@@ -248,7 +249,7 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 |---|---|
 | catalog | `/pecas`, `/referencias`, arquivos de peças, `/artesaos/{slug}/pecas` |
 | profile | `/auth/**`, `/usuario/**`, `/conta/**`, `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria` |
-| commerce | `/checkout`, `/fretes`, `/pedidos`, `/artesao/vendas`, `/artesao/pedidos-pendentes`, `/estado/sacola` |
+| commerce | `/checkout`, `/fretes`, `/pedidos`, `/artesao/vendas`, `/artesao/pedidos-pendentes`, `/estado/sacola`, `/sacola/revalidar` |
 | community | Perguntas, conversa, avaliação, vídeos, mediações, `/estado/favoritos`, `/estado/videosCurtidos`, `/estado/videosSalvos`, `/estado/historicoBusca` e reputação |
 | events | `/eventos` |
 
@@ -257,8 +258,7 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 Enquanto estes endpoints não existem, as telas correspondentes mostram erro ou estado vazio:
 
 - **events-service:** nenhum endpoint implementado.
-- **profile-service:** só implementa `/auth/cadastro`, `/auth/login`, `/auth/entrar`,
-  `/auth/logout`, `/auth/recuperacao`, `/auth/redefinicao` e `GET /usuario`. Faltam
-  `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria`,
-  `PATCH /usuario`, endereços e `/conta`.
-- **commerce-service:** não implementa `/estado/sacola`.
+- **profile-service:** implementa autenticação, recuperação de senha, `GET /usuario`,
+  `/artesaos`, `/artesaos/{slug}` e `/artesao/me`. Faltam `/artesao/selo`,
+  `/artesaos/{slug}/configuracoes`, `/coletivos`, `/admin/curadoria`, `PATCH /usuario`,
+  endereços e `/conta`.
