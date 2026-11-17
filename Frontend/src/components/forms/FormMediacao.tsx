@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, Foto } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
-import { criarMediacao, listarMediacoes } from '@/services/api/pedidos.servico'
+import { criarMediacao, listarMediacoes } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
 
 const motivos = [
@@ -25,11 +25,9 @@ type Props = {
   pedidoId: string
   pecaNome?: string
   pecaImagem?: string
-  atelie?: string
-  usuarioNome: string
 }
 
-export default function FormMediacao({ pedidoId, pecaNome, pecaImagem, atelie, usuarioNome }: Props) {
+export default function FormMediacao({ pedidoId, pecaNome, pecaImagem }: Props) {
   const [salvando, definirSalvando] = useState(false)
   const [motivo, definirMotivo] = useState('')
   const [relato, definirRelato] = useState('')
@@ -69,17 +67,17 @@ export default function FormMediacao({ pedidoId, pecaNome, pecaImagem, atelie, u
       return
     }
 
-    const mediacao: Mediacao = {
-      id: 'MED-' + crypto.randomUUID().slice(0, 8),
-      pedido: pedidoId,
-      assunto: motivoEscolhido!.assunto,
-      partes: `${usuarioNome} × ${atelie ?? 'Ateliê do pedido'}`,
-      aberta: 'agora mesmo',
-    }
+    const solucaoDesejada = solucoes.find((s) => s.chave === solucao)?.rotulo
     envioEmAndamento.current = true
     definirSalvando(true)
     try {
-      const resposta = await criarMediacao({ ...mediacao, relato, solucao })
+      const resposta = await criarMediacao({
+        pedido: pedidoId,
+        assunto: motivoEscolhido!.assunto,
+        relato: solucaoDesejada ? `${relato.trim()}
+
+Solução desejada: ${solucaoDesejada}` : relato.trim(),
+      })
       if (resposta.erro || !resposta.dados) { avisar.erro('Não foi possível abrir mediação', resposta.erro?.mensagem); return }
       avisar.sucesso('Pedido de mediação registrado')
       definirAberta(resposta.dados)

@@ -530,3 +530,7 @@
     max-height: none;
   }
 }
+
+.video-midia {
+  @apply w-full h-full object-cover bg-black cursor-pointer;
+}

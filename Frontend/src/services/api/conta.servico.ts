@@ -1,4 +1,4 @@
-import { buscar, enviar } from './cliente'
+import { buscar, comToken, enviar } from './cliente'
 import { urlDoGateway } from './gateway'
 import type { EnderecoUsuario, OpcaoFrete, Usuario } from '@/types/dominio'
 
@@ -6,7 +6,6 @@ export type Cadastro = { nome: string; email: string; senha: string; perfil: 'co
 export type Credenciais = { email: string; senha: string }
 export type AtualizacaoUsuario = Pick<Usuario, 'nome' | 'email' | 'telefone' | 'tipoComprador'>
 
-const autorizacao = (token?: string) => token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
 
 const baseAutenticacao = () => urlDoGateway() ?? undefined
 export const enviarAutenticacao = <T>(caminho: string, corpo: unknown) => buscar<T>(caminho, {
@@ -16,7 +15,7 @@ export const enviarAutenticacao = <T>(caminho: string, corpo: unknown) => buscar
 export const cadastrarUsuario = (cadastro: Cadastro) => enviarAutenticacao<Usuario>('/auth/cadastro', cadastro)
 export const entrar = (credenciais: Credenciais) => enviarAutenticacao<Usuario>('/auth/login', credenciais)
 export const sair = () => enviarAutenticacao<{ encerrada: boolean }>('/auth/logout', {})
-export const obterUsuario = (token?: string) => buscar<Usuario>('/usuario', autorizacao(token), baseAutenticacao())
+export const obterUsuario = (token?: string) => buscar<Usuario>('/usuario', comToken(token), baseAutenticacao())
 export const atualizarUsuario = (usuario: AtualizacaoUsuario) => enviar<Usuario>('/usuario', usuario, 'PATCH')
 export const criarEndereco = (endereco: Omit<EnderecoUsuario, 'id' | 'principal'>) => enviar<EnderecoUsuario>('/usuario/enderecos', endereco)
 export const atualizarEndereco = (id: string, endereco: Partial<EnderecoUsuario>) => enviar<EnderecoUsuario>(`/usuario/enderecos/${encodeURIComponent(id)}`, endereco, 'PATCH')

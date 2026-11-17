@@ -5,7 +5,6 @@ import { Migalhas } from '@/components/ui/Basicos'
 import FormMediacao from '@/components/forms/FormMediacao'
 import { obterPedido } from '@/services/api/pedidos.servico'
 import { obterPecaHistorico } from '@/services/api/pecas.servico'
-import { obterArtesao } from '@/services/api/artesaos.servico'
 import { exigirSessao } from '@/services/autenticacao'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +17,6 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
 
   const { dados: peca } = await obterPecaHistorico(pedido.pecaSlug)
-  const artesao = peca ? (await obterArtesao(peca.artesao)).dados : null
 
   return (
     <Pagina>
@@ -41,8 +39,6 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
           pedidoId={pedido.id}
           pecaNome={peca?.nome}
           pecaImagem={peca?.imagem}
-          atelie={artesao?.atelie}
-          usuarioNome={usuario.nome}
         />
 
         <aside className="cartao">

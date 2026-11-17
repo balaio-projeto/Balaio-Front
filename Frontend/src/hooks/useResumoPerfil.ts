@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { listarFilaCuradoria, obterMeuSelo } from '@/services/api/curadoria.servico'
-import { listarConversasArtesao, listarMediacoes, listarPedidos, listarPedidosPendentes } from '@/services/api/pedidos.servico'
+import { listarConversasArtesao, listarPedidos, listarPedidosPendentes } from '@/services/api/pedidos.servico'
+import { listarMediacoes } from '@/services/api/mediacoes.servico'
 import type { Sessao } from '@/services/sessao/cookie'
 import type { Artesao, EstadoPedido, EstadoSelo } from '@/types/dominio'
 

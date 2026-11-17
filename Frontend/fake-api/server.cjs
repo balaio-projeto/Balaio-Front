@@ -520,6 +520,9 @@ function criarServidor(arquivo = path.join(__dirname, 'db.json')) {
   })
 
   server.get('/api/v1/estado', (req, res) => res.json(ok(estadoDaRequisicao(req, res))))
+  for (const campo of ['favoritos', 'historicoBusca', 'videosCurtidos', 'videosSalvos']) {
+    server.get(`/api/v1/estado/${campo}`, (req, res) => res.json(ok(estadoDaRequisicao(req, res)[campo])))
+  }
   for (const campo of ['favoritos', 'sacola', 'historicoBusca', 'videosCurtidos', 'videosSalvos']) {
     server.put(`/api/v1/estado/${campo}`, (req, res) => {
       const estado = estadoDaRequisicao(req, res)

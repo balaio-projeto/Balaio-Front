@@ -1,5 +1,4 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { salvarFavoritos } from '@/services/api/estado.servico'
 import { useEstadoCliente } from '@/store/estadoCliente'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
 
@@ -16,10 +15,10 @@ const Contexto = createContext<ContextoFavoritos | null>(null)
 const FAVORITOS_VAZIOS: string[] = []
 
 export function FavoritosProvider({ children }: { children: ReactNode }) {
-  const { estado, pronto, erro, recarregar } = useEstadoCliente()
+  const { estado, pronto, erro, recarregar, salvadorDaColecao } = useEstadoCliente()
   const { valor: slugs, atualizar } = useEstadoPersistido(
     estado?.favoritos ?? FAVORITOS_VAZIOS,
-    salvarFavoritos,
+    salvadorDaColecao('favoritos'),
     'Não foi possível salvar os favoritos',
   )
 

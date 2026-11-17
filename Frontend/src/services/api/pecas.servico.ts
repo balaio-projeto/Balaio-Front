@@ -1,5 +1,5 @@
 import type { FotoPeca, Peca } from '@/types/dominio'
-import { buscar, montarQuery, enviar } from './cliente'
+import { buscar, comToken, enviar, montarQuery } from './cliente'
 import type { RespostaApi } from './tipos'
 
 export type Ordenacao = 'recentes' | 'preco-asc' | 'preco-desc' | 'avaliacao'
@@ -14,7 +14,7 @@ export function listarPecas(filtros: FiltrosPeca = {}): Promise<RespostaApi<Peca
   return buscar('/pecas' + montarQuery({ ...filtros, desconto: filtros.desconto ? 'true' : undefined }))
 }
 export function obterPeca(slug: string, token?: string): Promise<RespostaApi<Peca>> {
-  return buscar('/pecas/' + encodeURIComponent(slug), token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+  return buscar('/pecas/' + encodeURIComponent(slug), comToken(token))
 }
 export function obterPecaHistorico(slug: string): Promise<RespostaApi<Peca>> {
   return buscar('/pecas/' + encodeURIComponent(slug) + '/historico')
@@ -31,7 +31,7 @@ export async function pecasPorTipo(
   return { ...resposta, dados: resposta.dados.filter((peca) => peca.slug !== excluir).slice(0, limite) }
 }
 export function pecasPorArtesao(slug: string, token?: string): Promise<RespostaApi<Peca[]>> {
-  return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+  return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas', comToken(token))
 }
 export type FotoParaEnviar = Pick<FotoPeca, 'id' | 'nome' | 'url'>
 export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categoria' | 'tipo' | 'historia' | 'preco' | 'disponibilidade'> & {

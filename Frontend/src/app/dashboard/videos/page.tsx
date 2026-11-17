@@ -15,12 +15,12 @@ const dicas = [
 ]
 
 export default async function VideosDoAtelie() {
-  const { artesao } = await exigirArtesao()
+  const { artesao, token } = await exigirArtesao()
   const [{ dados: todosVideos, erro: erroVideos }, { dados: pecasArtesao }] = await Promise.all([
-    listarVideos(true),
+    listarVideos(true, token),
     pecasPorArtesao(artesao.slug),
   ])
-  const meus = (todosVideos ?? []).filter((video) => video.artesao === artesao.slug).reverse()
+  const meus = [...(todosVideos ?? [])].reverse()
   const pecas = (pecasArtesao ?? []).map((peca) => ({ slug: peca.slug, nome: peca.nome }))
 
   return (

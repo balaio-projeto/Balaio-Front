@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { Campo, Foto } from '@/components/ui/Basicos'
 import SeletorEstrelas from '@/components/ui/SeletorEstrelas'
 import { IconeCheck } from '@/components/ui/Icones'
-import { avaliarPedido } from '@/services/api/pedidos.servico'
+import { avaliarPedido } from '@/services/api/avaliacoes.servico'
 import { avisar } from '@/components/feedback/Avisos'
 
 const rotulosNota = ['', 'Muito ruim', 'Ruim', 'Regular', 'Bom', 'Excelente']

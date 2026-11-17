@@ -1,19 +1,16 @@
 import { buscar, enviar } from './cliente'
 import type { ItemSacola } from '@/store/sacola'
+import type { Colecao, ColecoesDoUsuario } from './colecoes'
 
-export type EstadoCliente = {
+export { COLECOES, type Colecao, type ColecoesDoUsuario } from './colecoes'
+
+export type EstadoCliente = ColecoesDoUsuario & {
   id: string
-  favoritos: string[]
   sacola: ItemSacola[]
-  historicoBusca: string[]
-  videosCurtidos: string[]
-  videosSalvos: string[]
 }
 
 export const obterEstado = () => buscar<EstadoCliente>('/estado')
 export const obterSacola = () => buscar<ItemSacola[]>('/estado/sacola')
-export const salvarFavoritos = (favoritos: string[]) => enviar<string[]>('/estado/favoritos', { favoritos }, 'PUT')
 export const salvarSacola = (sacola: ItemSacola[]) => enviar<ItemSacola[]>('/estado/sacola', { sacola }, 'PUT')
-export const salvarHistoricoBusca = (historicoBusca: string[]) => enviar<string[]>('/estado/historicoBusca', { historicoBusca }, 'PUT')
-export const salvarVideosCurtidos = (videosCurtidos: string[]) => enviar<string[]>('/estado/videosCurtidos', { videosCurtidos }, 'PUT')
-export const salvarVideosSalvos = (videosSalvos: string[]) => enviar<string[]>('/estado/videosSalvos', { videosSalvos }, 'PUT')
+export const obterColecao = (colecao: Colecao) => buscar<string[]>(`/estado/${colecao}`)
+export const salvarColecao = (colecao: Colecao, itens: string[]) => enviar<string[]>(`/estado/${colecao}`, { [colecao]: itens }, 'PUT')

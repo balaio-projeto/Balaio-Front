@@ -16,6 +16,7 @@ import { iconePorTipo } from '@/constants/vitrine'
 import { listarArtesaos } from '@/services/api/artesaos.servico'
 import { listarEventos } from '@/services/api/eventos.servico'
 import { listarVideos } from '@/services/api/videos.servico'
+import { imagemBase } from '@/utils/imagem'
 import { listarPecas } from '@/services/api/pecas.servico'
 import { hrefListagem } from '@/utils/filtrosUrl'
 
@@ -42,7 +43,7 @@ export default async function Home() {
   const eventos = eventosResposta.dados ?? []
   const listaVideos = videosResposta.dados ?? []
   const videosDestaque =
-    listaVideos.length > 0 ? { capas: listaVideos.map((video) => video.capa), total: listaVideos.length } : undefined
+    listaVideos.length > 0 ? { capas: listaVideos.map((video) => video.capa ?? imagemBase), total: listaVideos.length } : undefined
   const pontos = eventos.map(({ slug, nome, cidade, periodo, lat, lng }) => ({ slug, nome, cidade, periodo, lat, lng }))
 
   return (
