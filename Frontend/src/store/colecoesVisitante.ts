@@ -36,15 +36,6 @@ export function gravarColecaoVisitante(colecao: Colecao, itens: string[]): boole
   }
 }
 
-export function gravarColecoesVisitante(colecoes: ColecoesDoUsuario): boolean {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(colecoes))
-    return true
-  } catch {
-    return false
-  }
-}
-
 export function esquecerColecoesVisitante(): void {
   try {
     localStorage.removeItem(CHAVE)

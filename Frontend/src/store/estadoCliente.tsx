@@ -2,13 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  COLECOES, obterColecao, obterEstado, salvarColecao as salvarColecaoRemota,
+  COLECOES, obterColecao, salvarColecao as salvarColecaoRemota,
   type Colecao, type ColecoesDoUsuario, type EstadoCliente,
 } from '@/services/api/estado.servico'
 import { falha, sucesso, type RespostaApi } from '@/services/api/tipos'
 import { useSessao } from '@/store/sessao'
 import {
-  colecoesVazias, esquecerColecoesVisitante, gravarColecaoVisitante, gravarColecoesVisitante,
+  colecoesVazias, esquecerColecoesVisitante, gravarColecaoVisitante,
   lerColecoesVisitante, mesclarColecao, normalizarColecoes,
 } from '@/store/colecoesVisitante'
 
@@ -55,16 +55,8 @@ async function migrarColecoesDoVisitante(remotas: ColecoesDoUsuario): Promise<Co
   return mescladas
 }
 
-async function carregarEstadoDoVisitante(): Promise<RespostaApi<EstadoCliente>> {
-  const simulado = await obterEstado()
-  let colecoes = lerColecoesVisitante()
-  if (!colecoes && simulado.dados) {
-    colecoes = normalizarColecoes(simulado.dados)
-    gravarColecoesVisitante(colecoes)
-  }
-  const estado = { ...(colecoes ?? colecoesVazias()), id: simulado.dados?.id ?? 'visitante', sacola: simulado.dados?.sacola ?? [] }
-  if (simulado.dados) return sucesso(estado)
-  return { dados: estado, erro: simulado.erro ?? { codigo: 'RESPOSTA_INVALIDA', mensagem: 'O servidor não retornou seus dados.' } }
+function estadoDoVisitante(): EstadoCliente {
+  return { ...(lerColecoesVisitante() ?? colecoesVazias()), id: 'visitante' }
 }
 
 export function EstadoClienteProvider({ children }: { children: ReactNode }) {
@@ -81,12 +73,11 @@ export function EstadoClienteProvider({ children }: { children: ReactNode }) {
         const { dados, erro } = await carregarColecoesDaConta()
         if (!ativo) return
         definirLeitura(dados
-          ? { estado: { ...dados, id: usuarioId, sacola: [] }, pronto: true, erro: null, curtidosNoCarregamento: dados.videosCurtidos }
+          ? { estado: { ...dados, id: usuarioId }, pronto: true, erro: null, curtidosNoCarregamento: dados.videosCurtidos }
           : { ...LEITURA_INICIAL, pronto: true, erro: erro?.mensagem ?? 'Não foi possível carregar seus dados.' })
         return
       }
-      const { dados, erro } = await carregarEstadoDoVisitante()
-      if (ativo) definirLeitura({ estado: dados, pronto: true, erro: erro?.mensagem ?? null, curtidosNoCarregamento: [] })
+      if (ativo) definirLeitura({ estado: estadoDoVisitante(), pronto: true, erro: null, curtidosNoCarregamento: [] })
     })()
     return () => { ativo = false }
   }, [usuarioId, tentativa])

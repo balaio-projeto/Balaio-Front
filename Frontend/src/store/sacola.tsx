@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { obterSacola, salvarSacola } from '@/services/api/estado.servico'
 import { obterPeca } from '@/services/api/pecas.servico'
-import { useEstadoCliente } from '@/store/estadoCliente'
 import { useSessao } from '@/store/sessao'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
 
@@ -20,7 +19,6 @@ type ContextoSacola = {
 
 const Contexto = createContext<ContextoSacola | null>(null)
 const CHAVE_VISITANTE = 'balaio:sacola:visitante:v1'
-const CHAVE_MIGRADA = 'balaio:sacola:visitante:migrada:v1'
 const SACOLA_VAZIA: ItemSacola[] = []
 const AVISO_ARMAZENAMENTO = 'Não foi possível salvar a sacola neste dispositivo. Ela ficará disponível apenas enquanto esta página estiver aberta.'
 
@@ -71,10 +69,6 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
   children: ReactNode; memoriaVisitanteRef: RefObject<ItemSacola[] | null>
 }) {
   const { sessao } = useSessao()
-  const { estado, pronto: estadoPronto, erro: estadoErro, recarregar: recarregarEstado } = useEstadoCliente()
-  const estadoParaImportar = sessao ? null : estado
-  const prontoParaImportar = sessao ? false : estadoPronto
-  const erroParaImportar = sessao ? null : estadoErro
   const [base, definirBase] = useState<ItemSacola[]>(SACOLA_VAZIA)
   const [pronto, definirPronto] = useState(false)
   const [erro, definirErro] = useState<string | null>(null)
@@ -93,44 +87,12 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
     if (!sessao) {
       if (visitanteInicializado.current) return () => { ativo = false }
       const local = lerLocal()
-      const marcador = lerChaveLocal(CHAVE_MIGRADA)
-      if (memoriaVisitanteRef.current !== null) {
-        const itens = memoriaVisitanteRef.current
-        visitanteInicializado.current = true
-        atual.current = itens
-        definirBase(itens)
-        if (!gravarChaveLocal(CHAVE_VISITANTE, JSON.stringify(itens))) definirAviso(AVISO_ARMAZENAMENTO)
-        definirPronto(true)
-        definirErro(null)
-        return () => { ativo = false }
-      }
-      if (local.falhou || marcador.falhou) {
-        if (!prontoParaImportar) return () => { ativo = false }
-        const itens = validar(estadoParaImportar?.sacola)
-        visitanteInicializado.current = true
-        memoriaVisitanteRef.current = itens
-        atual.current = itens
-        definirBase(itens)
-        definirAviso(AVISO_ARMAZENAMENTO)
-        definirPronto(true)
-        return () => { ativo = false }
-      }
-      if (local.itens === null && !marcador.valor && !prontoParaImportar)
-        return () => { ativo = false }
-      if (local.itens === null && !marcador.valor && erroParaImportar) {
-        definirErro(erroParaImportar)
-        definirPronto(true)
-        return () => { ativo = false }
-      }
-      const itens = local.itens ?? (marcador.valor ? [] : validar(estadoParaImportar?.sacola))
-      if (local.itens === null) {
-        if (!gravarChaveLocal(CHAVE_VISITANTE, JSON.stringify(itens))
-            || !gravarChaveLocal(CHAVE_MIGRADA, '1')) definirAviso(AVISO_ARMAZENAMENTO)
-      }
+      const itens = memoriaVisitanteRef.current ?? local.itens ?? []
       visitanteInicializado.current = true
       memoriaVisitanteRef.current = itens
       atual.current = itens
       definirBase(itens)
+      if (local.falhou || !gravarChaveLocal(CHAVE_VISITANTE, JSON.stringify(itens))) definirAviso(AVISO_ARMAZENAMENTO)
       definirPronto(true)
       definirErro(null)
       return () => { ativo = false }
@@ -160,7 +122,6 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
           if (salva.erro || !salva.dados) throw new Error(salva.erro?.mensagem ?? 'Não foi possível mesclar a sacola.')
           if (leituraLocal.itens !== null && !gravarChaveLocal(CHAVE_VISITANTE, null))
             definirAviso(AVISO_ARMAZENAMENTO)
-          if (!gravarChaveLocal(CHAVE_MIGRADA, '1')) definirAviso(AVISO_ARMAZENAMENTO)
           memoriaVisitanteRef.current = []
           locaisPendentes.current = null
           ignorados.current.clear()
@@ -175,8 +136,7 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
           return
         }
       } else if (leituraLocal.itens !== null) {
-        if (!gravarChaveLocal(CHAVE_VISITANTE, null)
-            || !gravarChaveLocal(CHAVE_MIGRADA, '1')) definirAviso(AVISO_ARMAZENAMENTO)
+        if (!gravarChaveLocal(CHAVE_VISITANTE, null)) definirAviso(AVISO_ARMAZENAMENTO)
         memoriaVisitanteRef.current = []
       }
       definirErro(null)
@@ -184,12 +144,11 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
       definirPronto(true)
     })()
     return () => { ativo = false }
-  }, [sessao, prontoParaImportar, erroParaImportar, estadoParaImportar, tentativa, memoriaVisitanteRef])
+  }, [sessao, tentativa, memoriaVisitanteRef])
 
   function recarregar() {
     definirPronto(false)
     definirErro(null)
-    if (!sessao && lerLocal().itens === null) recarregarEstado()
     definirTentativa((n) => n + 1)
   }
   function removerParaMesclar(slug: string) {
