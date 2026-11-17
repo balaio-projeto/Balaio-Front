@@ -63,6 +63,17 @@ const gateway = createServer(async (req, res) => {
         return json(res, 200, dados.sacola)
       }
     }
+    if (req.method === 'POST' && caminho === '/api/v1/sacola/revalidar') {
+      const conta = validar(req)
+      if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+      if (configuracao.falhaRevalidacao) return json(res, 503, null, 'CATALOGO_INDISPONIVEL')
+      const itens = (sacolas.get(conta.id) ?? []).map((item) => ({ ...item,
+        precoAtual: configuracao.pecaIndisponivel ? null : (configuracao.precoRevalidado ?? 50),
+        disponibilidade: configuracao.pecaIndisponivel ? 'indisponivel' : 'disponivel',
+        situacao: configuracao.pecaIndisponivel ? 'indisponivel' : 'disponivel' }))
+      return json(res, 200, { itens, podeProsseguir: itens.length > 0 && !configuracao.pecaIndisponivel,
+        revalidadoEm: new Date().toISOString() })
+    }
     if (req.method === 'POST' && caminho === '/api/v1/checkout')
       return json(res, 202, { id: randomUUID(), checkoutUrl: 'https://sandbox.mercadopago.com/checkout/pay?pref_id=qa' })
   }

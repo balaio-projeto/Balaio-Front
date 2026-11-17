@@ -9,7 +9,7 @@ import { avisar } from '@/components/feedback/Avisos'
 import { concluirCheckoutPendente, finalizarCompra } from '@/services/api/pedidos.servico'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
-import { useSacola } from '@/store/sacola'
+import { useRevalidacaoSacola, useSacola } from '@/store/sacola'
 import { usePecas } from '@/hooks/usePecas'
 import { validarCEP, validarEstado, validarObrigatorio } from '@/utils/validacao'
 import { useDados } from '@/store/dados'
@@ -20,6 +20,8 @@ import { abrirPagamentoAposLimpeza } from './abrirPagamento'
 
 export default function CheckoutFormulario() {
   const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar, limparConfirmado } = useSacola()
+  const cotacao = useRevalidacaoSacola(itens, pronto && !erroSacola && !conflito)
+  const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
   const { mapaPecas, carregando, erro } = usePecas()
   const { fretes: opcoesFrete, carregando: carregandoFretes, erroFretes } = useDados()
   const [freteId, definirFrete] = useState('padrao')
@@ -89,14 +91,15 @@ export default function CheckoutFormulario() {
   const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
 
   const subtotalCheio = detalhados.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
-  const subtotal = detalhados.reduce((total, d) => total + precoComDesconto(d.peca) * d.item.quantidade, 0)
-  const economia = subtotalCheio - subtotal
+  const subtotal = detalhados.reduce((total, d) => total
+    + (precos.get(d.item.slug)?.precoAtual ?? precoComDesconto(d.peca)) * d.item.quantidade, 0)
+  const economia = cotacao.valido ? 0 : subtotalCheio - subtotal
   const total = subtotal + (frete?.valor ?? 0)
 
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     if (destinoPendente) { await abrirPagamento(destinoPendente); return }
-    if (salvando || !detalhados.length || !frete) return
+    if (salvando || !detalhados.length || !frete || !cotacao.valido || !cotacao.dados?.podeProsseguir) return
     const dados = new FormData(evento.currentTarget)
     const proximosErros: Record<string, string> = {}
 
@@ -122,6 +125,18 @@ export default function CheckoutFormulario() {
 
     definirSalvando(true)
     definirErroConfirmacao(null)
+    const atual = await cotacao.revalidar()
+    if (!atual || !atual.podeProsseguir) {
+      definirSalvando(false)
+      definirErroConfirmacao('Não foi possível confirmar preço e disponibilidade atuais. Confira a sacola e tente novamente.')
+      return
+    }
+    if (JSON.stringify(atual.itens.map((item) => [item.slug, item.precoAtual, item.situacao]))
+        !== JSON.stringify(cotacao.dados.itens.map((item) => [item.slug, item.precoAtual, item.situacao]))) {
+      definirSalvando(false)
+      definirErroConfirmacao('O preço ou a disponibilidade mudou. Revise os valores atuais antes de confirmar.')
+      return
+    }
     const resposta = await finalizarCompra({
       itens, freteId: frete.id, meio: 'checkout_pro',
       endereco: { cep: String(dados.get('cep')), endereco: String(dados.get('endereco')), cidade: String(dados.get('cidade')), estado: String(dados.get('estado')) },
@@ -217,6 +232,15 @@ export default function CheckoutFormulario() {
 
       <h1 className="titulo-pagina">Finalizar compra</h1>
       {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
+      <div className="aviso abaixo-4" role={cotacao.erro ? 'alert' : 'status'}>
+        <p>{cotacao.consultando ? 'Conferindo preço e disponibilidade atuais…'
+          : cotacao.erro ? `Não foi possível revalidar a sacola: ${cotacao.erro} Os preços abaixo são apenas referência.`
+            : cotacao.dados?.podeProsseguir ? 'Preços conferidos agora. A disponibilidade será confirmada pela reserva no checkout.'
+              : 'Há peça indisponível. Revise a sacola antes de continuar.'}</p>
+        {!cotacao.consultando && <button type="button" className="botao-texto" onClick={() => void cotacao.revalidar()}>
+          Conferir novamente
+        </button>}
+      </div>
       <p className="subtitulo-pagina">
         O pagamento de teste acontece no site seguro do Mercado Pago. Os dados do cartão não passam pelo Balaio.
       </p>
@@ -308,7 +332,9 @@ export default function CheckoutFormulario() {
             </div>
           )}
 
-          {detalhados.map(({ peca, item }) => (
+          {detalhados.map(({ peca, item }) => {
+            const cotado = precos.get(item.slug)
+            return (
             <div className="item-sacola" key={peca.slug} style={{ gridTemplateColumns: '64px minmax(0, 1fr)' }}>
               <div className="item-sacola-figura">
                 <Foto nome={peca.nome} imagem={peca.imagem} decorativa />
@@ -319,16 +345,21 @@ export default function CheckoutFormulario() {
                   {item.quantidade > 1 ? ` × ${item.quantidade}` : ''}
                 </p>
                 <p className="autoria linha-preco">
-                  {peca.desconto && <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>}
-                  {emReais(precoComDesconto(peca) * item.quantidade)}
+                  {peca.desconto && !cotacao.valido && <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>}
+                  {emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}
                 </p>
+                {cotado?.situacao === 'indisponivel' &&
+                  <p className="aviso" role="status">Peça indisponível.</p>}
+                {cotado?.precoAtual !== null && cotado?.precoAtual !== undefined
+                  && cotado.precoAtual !== precoComDesconto(peca) &&
+                  <p className="campo-ajuda">Preço atualizado: {emReais(cotado.precoAtual)} por unidade.</p>}
               </div>
             </div>
-          ))}
+          )})}
 
           <p className="resumo acima-3">
             <span>Subtotal</span>
-            <strong>{emReais(subtotalCheio)}</strong>
+            <strong>{emReais(cotacao.valido ? subtotal : subtotalCheio)}</strong>
           </p>
           {economia > 0 && (
             <p className="resumo resumo-desconto">
@@ -354,7 +385,7 @@ export default function CheckoutFormulario() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(total)}</span>
             </p>
-            <button disabled={salvando || concluido} type="submit" className="botao botao-sucesso botao-largo">
+            <button disabled={salvando || concluido || (!destinoPendente && (!cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
               {salvando ? 'Aguarde…' : destinoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
               <IconeSetaDireita />
             </button>

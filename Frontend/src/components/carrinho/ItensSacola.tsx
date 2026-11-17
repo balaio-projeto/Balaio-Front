@@ -5,7 +5,8 @@ import { Foto, SeloDisponibilidade } from '@/components/ui/Basicos'
 import Seletor from '@/components/ui/Seletor'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { IconeSacola, IconeSetaDireita } from '@/components/ui/Icones'
-import { useSacola } from '@/store/sacola'
+import { useRevalidacaoSacola, useSacola } from '@/store/sacola'
+import { useSessao } from '@/store/sessao'
 import { avisar } from '@/components/feedback/Avisos'
 import { usePecas } from '@/hooks/usePecas'
 import EstadoErro from '@/components/feedback/EstadoErro'
@@ -20,6 +21,9 @@ export default function ItensSacola() {
   const { artesaos, fretes, carregando: carregandoFretes, erroFretes } = useDados()
   const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar,
     remover, removerParaMesclar, repor, alterarQuantidade } = useSacola()
+  const { sessao } = useSessao()
+  const cotacao = useRevalidacaoSacola(itens, Boolean(sessao && pronto && !erroSacola && !conflito))
+  const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
 
   const detalhados = itens.flatMap((item) => {
     const peca = mapaPecas.get(item.slug)
@@ -28,8 +32,9 @@ export default function ItensSacola() {
   const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
 
   const subtotalCheio = detalhados.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
-  const subtotal = detalhados.reduce((total, d) => total + precoComDesconto(d.peca) * d.item.quantidade, 0)
-  const economia = subtotalCheio - subtotal
+  const subtotal = detalhados.reduce((total, d) => total
+    + (precos.get(d.item.slug)?.precoAtual ?? precoComDesconto(d.peca)) * d.item.quantidade, 0)
+  const economia = cotacao.valido ? 0 : subtotalCheio - subtotal
   const frete = fretes[0]?.valor ?? 0
 
   function removerItem(slug: string, nome: string) {
@@ -70,6 +75,15 @@ export default function ItensSacola() {
         <p>Não foi possível mesclar a sacola: {erroSacola} Retire o item indisponível ou tente novamente.</p>
         <button type="button" className="botao-texto" onClick={recarregar}>Tentar novamente</button>
       </div>}
+      {sessao && !conflito && <div className="aviso abaixo-4" role={cotacao.erro ? 'alert' : 'status'}>
+        <p>{cotacao.consultando ? 'Conferindo preços e disponibilidade atuais…'
+          : cotacao.erro ? `Não foi possível revalidar a sacola: ${cotacao.erro} Os valores exibidos são apenas referência.`
+            : cotacao.dados?.podeProsseguir ? 'Preços e disponibilidade conferidos agora. A reserva ocorre no checkout.'
+              : 'Há peça indisponível. Remova-a antes de continuar.'}</p>
+        {!cotacao.consultando && <button type="button" className="botao-texto" onClick={() => void cotacao.revalidar()}>
+          Conferir novamente
+        </button>}
+      </div>}
       <p className="subtitulo-pagina">
         {itens.length} {itens.length === 1 ? 'peça na sacola' : 'peças na sacola'}.
       </p>
@@ -97,6 +111,9 @@ export default function ItensSacola() {
           ))}
           {detalhados.map(({ peca, item }) => {
             const artesao = artesaos.find((a) => a.slug === peca.artesao)
+            const cotado = precos.get(item.slug)
+            const disponibilidade = cotado?.disponibilidade && cotado.disponibilidade !== 'indisponivel'
+              ? cotado.disponibilidade : peca.disponibilidade
             return (
               <article className="item-sacola" key={peca.slug}>
                 <div className="item-sacola-figura">
@@ -113,16 +130,24 @@ export default function ItensSacola() {
                       </p>
                     </div>
                     <span className="linha-preco">
-                      {peca.desconto && (
+                      {peca.desconto && !cotacao.valido && (
                         <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>
                       )}
-                      <strong className="preco">{emReais(precoComDesconto(peca) * item.quantidade)}</strong>
+                      <strong className="preco">{emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}</strong>
                     </span>
                   </div>
 
+                  {cotado?.situacao === 'indisponivel' &&
+                    <p className="aviso acima-3" role="status">Peça indisponível na revalidação.</p>}
+                  {cotado?.precoAtual !== null && cotado?.precoAtual !== undefined
+                    && cotado.precoAtual !== precoComDesconto(peca) &&
+                    <p className="campo-ajuda">Preço atualizado: {emReais(cotado.precoAtual)} por unidade.</p>}
+
                   <div className="linha-flex acima-3">
-                    <SeloDisponibilidade tipo={peca.disponibilidade} prazoDias={peca.prazoProducaoDias} />
-                    {peca.desconto && (
+                    {cotado?.situacao !== 'indisponivel' &&
+                      <SeloDisponibilidade tipo={disponibilidade}
+                        prazoDias={peca.prazoProducaoDias} />}
+                    {peca.desconto && !cotacao.valido && (
                       <span className="etiqueta-desconto">
                         {peca.desconto}%<span className="so-leitor"> de desconto da plataforma</span>
                       </span>
@@ -167,7 +192,7 @@ export default function ItensSacola() {
 
           <p className="resumo">
             <span>Subtotal</span>
-            <strong>{emReais(subtotalCheio)}</strong>
+            <strong>{emReais(cotacao.valido ? subtotal : subtotalCheio)}</strong>
           </p>
           {economia > 0 && (
             <p className="resumo resumo-desconto">
@@ -189,7 +214,7 @@ export default function ItensSacola() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(subtotal + frete)}</span>
             </p>
-            {!conflito && <Link href="/checkout" className="botao botao-primario botao-largo">
+            {!conflito && indisponiveis.length === 0 && (!sessao || (cotacao.valido && cotacao.dados?.podeProsseguir)) && <Link href="/checkout" className="botao botao-primario botao-largo">
               Ir para o pagamento
               <IconeSetaDireita />
             </Link>}

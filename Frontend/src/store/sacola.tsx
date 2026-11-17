@@ -1,7 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { obterSacola, salvarSacola } from '@/services/api/estado.servico'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { obterSacola, revalidarSacola, salvarSacola, type RevalidacaoSacola } from '@/services/api/estado.servico'
 import { obterPeca } from '@/services/api/pecas.servico'
 import { useSessao } from '@/store/sessao'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
@@ -233,4 +233,42 @@ export function useSacola(): ContextoSacola {
 export function useTotalSacola(): { total: number; pronto: boolean } {
   const { itens, pronto } = useSacola()
   return { total: itens.reduce((soma, item) => soma + item.quantidade, 0), pronto }
+}
+
+export function useRevalidacaoSacola(itens: ItemSacola[], habilitada: boolean) {
+  const assinatura = JSON.stringify([...itens].sort((a, b) => a.slug.localeCompare(b.slug)))
+  const [estado, definirEstado] = useState<{
+    assinatura: string; dados: RevalidacaoSacola | null; erro: string | null; consultando: boolean
+  }>({ assinatura: '', dados: null, erro: null, consultando: false })
+  const versaoRef = useRef(0)
+
+  const revalidar = useCallback(async (): Promise<RevalidacaoSacola | null> => {
+    if (!habilitada || itens.length === 0) return null
+    const versao = ++versaoRef.current
+    definirEstado((atual) => ({ ...atual, assinatura, erro: null, consultando: true }))
+    const resposta = await revalidarSacola()
+    if (versao !== versaoRef.current) return null
+    const recebidos = resposta.dados?.itens
+    const assinaturaRemota = Array.isArray(recebidos)
+      ? JSON.stringify(recebidos.map(({ slug, quantidade }) => ({ slug, quantidade }))
+        .sort((a, b) => a.slug.localeCompare(b.slug))) : ''
+    if (resposta.erro || !resposta.dados || assinaturaRemota !== assinatura) {
+      definirEstado((atual) => ({ ...atual, assinatura, consultando: false,
+        erro: resposta.erro?.mensagem ?? 'A sacola mudou durante a consulta. Tente novamente.' }))
+      return null
+    }
+    definirEstado({ assinatura, dados: resposta.dados, erro: null, consultando: false })
+    return resposta.dados
+  }, [assinatura, habilitada, itens.length])
+
+  useEffect(() => {
+    if (!habilitada || itens.length === 0) return
+    const controle = versaoRef
+    void revalidar()
+    return () => { controle.current++ }
+  }, [habilitada, assinatura, itens.length, revalidar])
+
+  return { dados: estado.dados, valido: habilitada && estado.assinatura === assinatura && !estado.erro && !estado.consultando,
+    erro: estado.assinatura === assinatura ? estado.erro : null,
+    consultando: estado.assinatura !== assinatura || estado.consultando, revalidar }
 }
