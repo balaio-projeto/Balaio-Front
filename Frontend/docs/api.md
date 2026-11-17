@@ -86,13 +86,18 @@ Todas com o prefixo `/api/v1`.
 
 ### Sacola e favoritos
 
-Guardados por usuário (logado) ou por visitante (cookie `balaio_cliente`).
+Visitantes guardam a sacola em `localStorage`. No primeiro uso sem chave local, o frontend importa uma vez `dados.sacola` de `GET /estado` da Fake API. A sacola de comprador autenticado é carregada e substituída no commerce pelo Gateway, usando o JWT da sessão. No login, itens locais e remotos são mesclados por slug; a cópia local só é removida após confirmação do PUT. Não há reserva antes do checkout.
+Se a mesclagem encontrar uma peça indisponível, a página mantém os itens visíveis para o comprador retirar o item e tentar novamente; falha de rede permite repetir sem descartar a cópia local. Se o navegador bloquear o armazenamento, a sacola visitante continua em memória e exibe aviso de que não persistirá após fechar a página. Essa cópia atravessa o login por navegação cliente e só é descartada após o PUT de mesclagem confirmar; nenhuma sacola privada de outra conta é transportada. Depois de registrar o pedido, a navegação ao pagamento aguarda a confirmação do PUT que limpa a sacola remota; uma falha oferece nova tentativa sem criar outro pedido.
 
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| GET | `/estado` | 🌐 | Sacola, favoritos e histórico de busca |
-| PUT | `/estado/sacola` | 🌐 | `{ sacola: [{ slug, quantidade }] }` |
+| GET | `/estado` | 🌐 | Estado agregado da Fake API, usado para favoritos, histórico e importação inicial da sacola visitante |
+| GET | `/estado/sacola` | 🔑 | `{dados:[{slug,quantidade}],erro:null}` da conta autenticada; o adaptador Fake traduz a leitura para `GET /estado` |
+| PUT | `/estado/sacola` | 🔑 | `{ sacola: [{ slug, quantidade }] }`, substituição completa no commerce; em modo Fake, permanece o PUT existente |
 | PUT | `/estado/favoritos` | 🌐 | `{ favoritos: ["slug"] }` |
+
+O endpoint de domínio da sacola é `/estado/sacola`; não existe rota `/sacola`. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout.
+No modo Fake, as rotas antigas continuam públicas e com o mesmo formato; o frontend visitante usa localStorage após a importação inicial.
 
 ### Pedidos
 

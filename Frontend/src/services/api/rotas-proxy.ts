@@ -6,13 +6,14 @@ const regras: [string[], RegExp][] = [
   [['GET', 'HEAD'], /^\/(referencias|fretes)$/],
   [['GET', 'HEAD'], /^\/arquivos\/pecas\/[^/]+$/],
   [['GET'], /^\/estado$/],
-  [['PUT'], /^\/estado\/(favoritos|sacola|historicoBusca|videosCurtidos|videosSalvos)$/],
+  [['PUT'], /^\/estado\/(favoritos|historicoBusca|videosCurtidos|videosSalvos)$/],
   [['POST'], /^\/(eventos|auth\/recuperacao)$/],
 ]
 
 const AUTENTICACAO_REAL = new Set(['/auth/cadastro', '/auth/login', '/auth/entrar', '/auth/logout'])
 
 export function usaBackendReal(metodo: string, caminho: string): boolean {
+  if (caminho === '/estado/sacola' && ['GET', 'PUT'].includes(metodo)) return true
   if (metodo === 'POST' && AUTENTICACAO_REAL.has(caminho)) return true
   if (metodo === 'GET' && (caminho === '/usuario' || caminho === '/fretes'
     || caminho === '/referencias' || caminho === '/artesao/me'

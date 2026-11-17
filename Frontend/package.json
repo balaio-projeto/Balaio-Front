@@ -15,6 +15,7 @@
     "test:auth": "tsx --test tests/auth.test.ts",
     "test:e2e:auth": "playwright test",
     "test:session": "tsx --test src/proxy.test.ts",
+    "test:sacola": "tsx --test src/store/sacola.test.ts src/components/carrinho/abrirPagamento.test.ts",
     "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts"
   },
   "dependencies": {

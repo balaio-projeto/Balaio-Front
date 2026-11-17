@@ -18,7 +18,8 @@ const QUANTIDADES = ['1', '2', '3']
 export default function ItensSacola() {
   const { mapaPecas, carregando, erro } = usePecas()
   const { artesaos, fretes, carregando: carregandoFretes, erroFretes } = useDados()
-  const { itens, pronto, erro: erroSacola, recarregar, remover, repor, alterarQuantidade } = useSacola()
+  const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar,
+    remover, removerParaMesclar, repor, alterarQuantidade } = useSacola()
 
   const detalhados = itens.flatMap((item) => {
     const peca = mapaPecas.get(item.slug)
@@ -32,6 +33,7 @@ export default function ItensSacola() {
   const frete = fretes[0]?.valor ?? 0
 
   function removerItem(slug: string, nome: string) {
+    if (conflito) { removerParaMesclar(slug); return }
     const posicao = itens.findIndex((i) => i.slug === slug)
     const item = itens[posicao]
     remover(slug)
@@ -39,11 +41,14 @@ export default function ItensSacola() {
   }
 
   if (!pronto || carregando || carregandoFretes) return <EstadoCarregando />
-  if (erroSacola) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
-  if (erro || erroFretes || !fretes.length) return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
+  if (erroSacola && !conflito) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
+  if ((erro || erroFretes || !fretes.length) && !conflito)
+    return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
 
   if (itens.length === 0) {
     return (
+      <>
+      {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
       <EstadoVazio
         icone={<IconeSacola tamanho={34} />}
         titulo="Sua sacola está vazia"
@@ -54,11 +59,17 @@ export default function ItensSacola() {
           </Link>
         }
       />
+      </>
     )
   }
 
   return (
     <>
+      {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
+      {conflito && <div className="aviso abaixo-4" role="alert">
+        <p>Não foi possível mesclar a sacola: {erroSacola} Retire o item indisponível ou tente novamente.</p>
+        <button type="button" className="botao-texto" onClick={recarregar}>Tentar novamente</button>
+      </div>}
       <p className="subtitulo-pagina">
         {itens.length} {itens.length === 1 ? 'peça na sacola' : 'peças na sacola'}.
       </p>
@@ -79,7 +90,7 @@ export default function ItensSacola() {
                   className="botao-texto botao-texto-perigo acima-3"
                   onClick={() => removerItem(item.slug, item.slug.replace(/-/g, ' '))}
                 >
-                  Remover
+                  {conflito ? 'Retirar e tentar mesclar' : 'Remover'}
                 </button>
               </div>
             </article>
@@ -116,7 +127,7 @@ export default function ItensSacola() {
                         {peca.desconto}%<span className="so-leitor"> de desconto da plataforma</span>
                       </span>
                     )}
-                    {peca.disponibilidade !== 'unica' && (
+                    {peca.disponibilidade !== 'unica' && !conflito && (
                       <div className="linha-flex" style={{ gap: 8, fontSize: 14 }}>
                         <span id={`quantidade-${peca.slug}`}>Quantidade</span>
                         <Seletor
@@ -134,7 +145,7 @@ export default function ItensSacola() {
                       className="botao-texto botao-texto-perigo"
                       onClick={() => removerItem(peca.slug, peca.nome)}
                     >
-                      Remover
+                      {conflito ? 'Retirar e tentar mesclar' : 'Remover'}
                     </button>
                   </div>
                 </div>
@@ -178,10 +189,10 @@ export default function ItensSacola() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(subtotal + frete)}</span>
             </p>
-            <Link href="/checkout" className="botao botao-primario botao-largo">
+            {!conflito && <Link href="/checkout" className="botao botao-primario botao-largo">
               Ir para o pagamento
               <IconeSetaDireita />
-            </Link>
+            </Link>}
           </div>
 
           <p className="campo-ajuda acima-3" style={{ textAlign: 'center' }}>

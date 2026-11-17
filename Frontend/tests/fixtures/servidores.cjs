@@ -12,6 +12,7 @@ const fake = criarServidor(path.join(pasta, 'db.json'))
 const eventos = []
 const tokens = new Set()
 const contas = new Map()
+const sacolas = new Map()
 let configuracao = {}
 const senhaTeste = 'SenhaDeTeste123!'
 for (const papel of ['comprador', 'artesao', 'admin']) {
@@ -48,7 +49,7 @@ const gateway = createServer(async (req, res) => {
   for await (const parte of req) texto += parte
   const dados = texto ? JSON.parse(texto) : {}
   if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/isolamento') {
     const banco = JSON.parse(readFileSync(path.join(pasta, 'db.json'), 'utf8'))
@@ -61,6 +62,29 @@ const gateway = createServer(async (req, res) => {
   }
   if (req.url === '/__test/saude') return json(res, 200, true)
   eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method })
+  if (configuracao.sacolaTeste) {
+    const caminho = new URL(req.url, 'http://127.0.0.1').pathname
+    const peca = { slug: 'peca-valida', nome: 'Peça válida', preco: 50, desconto: 0,
+      disponibilidade: 'disponivel', artesao: 'atelie-qa', territorio: 'CE', imagem: '',
+      tecnica: 'Cerâmica & Barro', categoria: 'Casa', tipo: 'Cerâmica', historia: ['Peça de teste.'] }
+    if (req.method === 'GET' && caminho === '/api/v1/pecas') return json(res, 200, [peca])
+    if (req.method === 'GET' && caminho.startsWith('/api/v1/pecas/'))
+      return caminho.endsWith('/peca-valida') ? json(res, 200, peca) : json(res, 404, null, 'RECURSO_NAO_ENCONTRADO')
+    if (req.method === 'GET' && caminho === '/api/v1/fretes')
+      return json(res, 200, [{ id: 'padrao', nome: 'Entrega regional', prazo: '10 dias', valor: 38.90 }])
+    if (caminho === '/api/v1/estado/sacola') {
+      const conta = validar(req)
+      if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+      if (req.method === 'GET') return json(res, 200, sacolas.get(conta.id) ?? [])
+      if (req.method === 'PUT') {
+        if (dados.sacola?.some((item) => item.slug !== 'peca-valida')) return json(res, 409, null, 'PECA_INDISPONIVEL')
+        sacolas.set(conta.id, dados.sacola)
+        return json(res, 200, dados.sacola)
+      }
+    }
+    if (req.method === 'POST' && caminho === '/api/v1/checkout')
+      return json(res, 202, { id: randomUUID(), checkoutUrl: 'https://sandbox.mercadopago.com/checkout/pay?pref_id=qa' })
+  }
   if (req.method === 'GET' && req.url === '/api/v1/usuario') {
     const conta = validar(req)
     if (configuracao.statusUsuario) return json(res, configuracao.statusUsuario, null, 'SEM_PERMISSAO')
