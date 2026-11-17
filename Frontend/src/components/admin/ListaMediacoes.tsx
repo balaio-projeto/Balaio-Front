@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeAviso } from '@/components/ui/Icones'
-import { enviar } from '@/services/api/cliente'
+import {
+  DECISOES_DE_MEDIACAO, decidirMediacao as registrarDecisao, ehDecisaoDeMediacao, iniciarAnaliseDaMediacao,
+  type DecisaoMediacao,
+} from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
 
 export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
@@ -13,16 +16,26 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
   const [processando, definirProcessando] = useState<string[]>([])
   const emAndamento = useRef(new Set<string>())
 
+  function comecar(id: string): boolean {
+    if (emAndamento.current.has(id)) return false
+    emAndamento.current.add(id)
+    definirProcessando((atuais) => [...atuais, id])
+    return true
+  }
+
+  function terminar(id: string) {
+    emAndamento.current.delete(id)
+    definirProcessando((atuais) => atuais.filter((item) => item !== id))
+  }
+
   useEffect(() => {
     definirLista(iniciais)
   }, [iniciais])
 
   async function abrirMediacao(m: Mediacao) {
-    if (m.emAnalise || m.estado === 'emAnalise' || abertas.includes(m.id) || emAndamento.current.has(m.id)) return
-    emAndamento.current.add(m.id)
-    definirProcessando((atuais) => [...atuais, m.id])
+    if (m.emAnalise || m.estado === 'emAnalise' || abertas.includes(m.id) || !comecar(m.id)) return
     try {
-      const resposta = await enviar<Mediacao>(`/admin/mediacoes/${m.id}`, { estado: 'emAnalise' }, 'PATCH')
+      const resposta = await iniciarAnaliseDaMediacao(m.id)
       if (resposta.erro || !resposta.dados) { avisar.erro('Não foi possível atualizar', resposta.erro?.mensagem); return }
       definirLista((atual) => atual.map((item) => item.id === m.id ? resposta.dados! : item))
       definirAbertas((atuais) => [...new Set([...atuais, m.id])])
@@ -30,20 +43,27 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
     } catch {
       avisar.erro('Não foi possível atualizar', 'Tente novamente.')
     } finally {
-      emAndamento.current.delete(m.id)
-      definirProcessando((atuais) => atuais.filter((id) => id !== m.id))
+      terminar(m.id)
     }
   }
 
-  async function decidirMediacao(m: Mediacao, decisao: string) {
-    const resposta = await enviar<Mediacao>(`/admin/mediacoes/${m.id}/decisao`, { decisao })
-    if (resposta.erro || !resposta.dados) {
-      avisar.erro('Não foi possível registrar a decisão', resposta.erro?.mensagem)
-      return
+  async function decidirMediacao(m: Mediacao, decisao: DecisaoMediacao) {
+    if (!comecar(m.id)) return
+    try {
+      const resposta = await registrarDecisao(m.id, decisao)
+      if (resposta.erro || !resposta.dados) {
+        avisar.erro('Não foi possível registrar a decisão', resposta.erro?.mensagem)
+        return
+      }
+      const atualizada = resposta.dados
+      definirLista((atual) => atual.map((item) => item.id === m.id ? atualizada : item))
+      avisar.info('Decisão registrada', atualizada.estado === 'decisao_pendente'
+        ? 'O comando ao serviço de pedidos está pendente de confirmação.' : 'O serviço de pedidos recebeu a decisão.')
+    } catch {
+      avisar.erro('Não foi possível registrar a decisão', 'Tente novamente.')
+    } finally {
+      terminar(m.id)
     }
-    definirLista((atual) => atual.map((item) => item.id === m.id ? resposta.dados! : item))
-    avisar.info('Decisão registrada', resposta.dados.estado === 'decisao_pendente'
-      ? 'O comando ao serviço de pedidos está pendente de confirmação.' : 'O serviço de pedidos recebeu a decisão.')
   }
 
   if (lista.length === 0) {
@@ -79,21 +99,24 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
               <p className="autoria">
                 {m.partes} · pedido {m.pedido}
               </p>
+              {m.relato && <p className="texto-suave acima-2" style={{ whiteSpace: 'pre-line' }}>{m.relato}</p>}
             </div>
 
             <footer className="acoes-linha acoes-empilhaveis cartao-curadoria-acoes">
               {decidida || pendente ? (
-                <p className="campo-ajuda">{pendente ? 'Entrega ao serviço de pedidos em processamento.' : `Decisão: ${m.decisao ?? 'registrada'}`}</p>
+                <p className="campo-ajuda">{pendente
+                  ? `Entrega ao serviço de pedidos em processamento${m.tentativas ? ` (${m.tentativas} ${m.tentativas === 1 ? 'tentativa' : 'tentativas'})` : ''}.`
+                  : `Decisão: ${m.decisao ? DECISOES_DE_MEDIACAO[m.decisao] : 'registrada'}`}</p>
               ) : emAnalise ? (
-                <form onSubmit={(evento) => { evento.preventDefault(); const dados = new FormData(evento.currentTarget); void decidirMediacao(m, String(dados.get('decisao'))) }}>
+                <form onSubmit={(evento) => { evento.preventDefault(); const dados = new FormData(evento.currentTarget); const decisao = dados.get('decisao'); if (ehDecisaoDeMediacao(decisao)) void decidirMediacao(m, decisao) }}>
                   <label htmlFor={`decisao-${m.id}`}>Decisão</label>
                   <select id={`decisao-${m.id}`} name="decisao" required defaultValue="">
                     <option value="" disabled>Selecione</option>
-                    <option value="cancelar_reembolsar">Cancelar e reembolsar (simulado)</option>
-                    <option value="negar">Negar solicitação</option>
-                    <option value="manter_conversa">Manter conversa</option>
+                    {Object.entries(DECISOES_DE_MEDIACAO).map(([valor, rotulo]) => (
+                      <option key={valor} value={valor}>{rotulo}</option>
+                    ))}
                   </select>
-                  <button type="submit" className="botao botao-primario">Registrar decisão</button>
+                  <button type="submit" className="botao botao-primario" disabled={processando.includes(m.id)}>Registrar decisão</button>
                 </form>
               ) : (
                 <button type="button" className="botao botao-primario" disabled={processando.includes(m.id)} onClick={() => abrirMediacao(m)}>

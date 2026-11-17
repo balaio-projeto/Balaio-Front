@@ -15,6 +15,7 @@ import { IconeEtiqueta, IconeMapa, IconeSelo, IconeSetaDireita } from '@/compone
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { obterPeca, pecasPorArtesao, pecasPorTipo, pecasRelacionadas } from '@/services/api/pecas.servico'
 import { listarPerguntas } from '@/services/api/perguntas.servico'
+import { obterReputacao } from '@/services/api/avaliacoes.servico'
 import type { Peca } from '@/types/dominio'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { hrefListagem } from '@/utils/filtrosUrl'
@@ -40,14 +41,17 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
   if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
   if (!peca) notFound()
 
-  const [artesaoResposta, doArtesaoResposta, mesmoTipoResposta, relacionadasResposta] = await Promise.all([
+  const [artesaoResposta, doArtesaoResposta, mesmoTipoResposta, relacionadasResposta, perguntasResposta, reputacaoResposta] = await Promise.all([
     obterArtesao(peca.artesao),
     pecasPorArtesao(peca.artesao),
     pecasPorTipo(peca.tipo, { excluir: peca.slug, limite: LIMITE_CARROSSEL }),
     pecasRelacionadas(peca.slug, LIMITE_CARROSSEL),
+    listarPerguntas(peca.slug),
+    obterReputacao(peca.artesao),
   ])
   const artesao = artesaoResposta.dados
-  const perguntas = (await listarPerguntas(peca.slug)).dados ?? []
+  const perguntas = perguntasResposta.dados ?? []
+  const notaMedia = reputacaoResposta.dados?.media ?? artesao?.avaliacaoMedia ?? 0
   const [doArtesao, mesmoTipo, mesmaTecnica] = semRepetir(
     [
       (doArtesaoResposta.dados ?? []).filter((p) => !p.situacao || p.situacao === 'publicada'),
@@ -172,9 +176,9 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
               {artesao.atelie} · {artesao.territorio}
             </p>
             <div className="sobre-artesao-metricas">
-              {artesao.avaliacaoMedia > 0 && (
+              {notaMedia > 0 && (
                 <span>
-                  <strong>{artesao.avaliacaoMedia.toFixed(1)}</strong>
+                  <strong>{notaMedia.toFixed(1)}</strong>
                   nota média
                 </span>
               )}

@@ -10,6 +10,7 @@ import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { IconeConversa, IconeMapa, IconePacote, IconeSelo } from '@/components/ui/Icones'
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { obterReputacao } from '@/services/api/avaliacoes.servico'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,12 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
   if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
   if (!artesao) notFound()
 
-  const { dados: pecasArtesao, erro: erroPecas } = await pecasPorArtesao(artesao.slug)
+  const [{ dados: pecasArtesao, erro: erroPecas }, { dados: reputacao }] = await Promise.all([
+    pecasPorArtesao(artesao.slug),
+    obterReputacao(artesao.slug),
+  ])
+  const media = reputacao ? reputacao.media : artesao.avaliacaoMedia
+  const totalAvaliacoes = reputacao?.total
   if (erroPecas) return <Pagina><EstadoErro mensagem={erroPecas.mensagem} /></Pagina>
   const pecas = (pecasArtesao ?? []).filter((peca) => !peca.inativadoEm && (!peca.situacao || peca.situacao === 'publicada'))
 
@@ -73,8 +79,10 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
           {pecas.length === 1 ? 'peça à venda' : 'peças à venda'}
         </li>
         <li>
-          <strong>{artesao.avaliacaoMedia > 0 ? `★ ${artesao.avaliacaoMedia.toFixed(1)}` : '—'}</strong>
-          {artesao.avaliacaoMedia > 0 ? 'avaliação média' : 'sem avaliações'}
+          <strong>{media > 0 ? `★ ${media.toFixed(1)}` : '—'}</strong>
+          {media > 0
+            ? totalAvaliacoes ? `média de ${totalAvaliacoes} ${totalAvaliacoes === 1 ? 'avaliação' : 'avaliações'}` : 'avaliação média'
+            : 'sem avaliações'}
         </li>
         <li>
           <strong>{artesao.obrasComercializadas > 0 ? `${artesao.obrasComercializadas}+` : '0'}</strong>

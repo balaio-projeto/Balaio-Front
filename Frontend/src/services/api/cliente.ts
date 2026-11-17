@@ -34,6 +34,10 @@ export async function buscar<T>(caminho: string, opcoes?: RequestInit, baseUrl?:
   }
 }
 
+export function comToken(token?: string): RequestInit | undefined {
+  return token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+}
+
 export function enviar<T>(caminho: string, corpo: unknown, metodo = 'POST'): Promise<RespostaApi<T>> {
   return buscar<T>(caminho, { method: metodo, body: JSON.stringify(corpo) })
 }

@@ -2,7 +2,7 @@ import LayoutAdmin from '@/components/admin/LayoutAdmin'
 import { Migalhas } from '@/components/ui/Basicos'
 import ListaMediacoes from '@/components/admin/ListaMediacoes'
 import EstadoErro from '@/components/feedback/EstadoErro'
-import { listarMediacoes } from '@/services/api/pedidos.servico'
+import { listarMediacoes } from '@/services/api/mediacoes.servico'
 import { exigirSessao } from '@/services/autenticacao'
 
 export default async function Mediacoes() {

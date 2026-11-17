@@ -219,7 +219,7 @@ test('foto persistida mantém bytes e Content-Type ao passar pelo Gateway', asyn
   }
 })
 
-test('consultas server-side demonstrativas usam Fake API e pedido usa Gateway', async () => {
+test('consultas server-side demonstrativas usam Fake API; vídeos e pedido usam Gateway', async () => {
   const gatewayAnterior = process.env.API_GATEWAY_URL
   const fakeAnterior = process.env.API_URL
   process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
@@ -236,7 +236,7 @@ test('consultas server-side demonstrativas usam Fake API e pedido usa Gateway', 
     }
     assert.deepEqual(destinos, [
       'http://fake.local/api/v1/eventos',
-      'http://fake.local/api/v1/videos',
+      'http://gateway.local/api/v1/videos',
       'http://fake.local/api/v1/pecas/peca-teste/historico',
       'http://gateway.local/api/v1/pedidos/pedido-1',
     ])
