@@ -1,11 +1,12 @@
 # API do Balaio
 
-Na etapa 6, cadastro, login/alias, logout e `GET /usuario` usam **gateway/profile reais**.
-O dispatcher mantém capacidades públicas, estado de visitante e os itens da conta na Fake API (`fake-api/server.cjs`).
-`GET /conta/perfil`, `PATCH /usuario`, endereços e consulta de pedidos usam o Fake após validar a sessão real no gateway. Demais recursos privados pendentes retornam 404. Consulte [autenticação real e execução local](auth-local.md).
-Os dados simulados ficam em `fake-api/db.json`, separados por UUID em `perfisExternos`; edições não alteram as credenciais ou o perfil do backend real.
+O frontend consome **somente o `api-gateway`** da plataforma. Não existe mais Fake API,
+dados simulados nem destino alternativo: se o gateway estiver fora do ar, o navegador
+recebe `502 API_INDISPONIVEL`. Consulte [autenticação e execução local](auth-local.md).
 
-- **URL no navegador:** `/api/v1`; autenticação usa `API_GATEWAY_URL` no servidor. `API_URL` mantém o destino Fake.
+- **URL no navegador:** `/api/v1`, na mesma origem do Next. O Route Handler
+  `src/app/api/v1/[...caminho]/route.ts` encaminha toda requisição ao gateway.
+- **URL no servidor (SSR):** `API_GATEWAY_URL` (padrão `http://127.0.0.1:8080/api/v1`).
 - **Formato:** JSON
 - **Acesso no frontend:** todas as chamadas passam por `src/services/api/`
 
@@ -32,26 +33,36 @@ Toda resposta segue o mesmo envelope:
 | 403 | `SEM_PERMISSAO` | Papel ou dono do recurso não confere |
 | 404 | `RECURSO_NAO_ENCONTRADO` | Recurso inexistente |
 | 409 | `EMAIL_EM_USO` e outros | Conflito de estado |
+| 502 | `API_INDISPONIVEL` | Gateway fora do ar (gerado pelo Route Handler do Next) |
 
 ---
 
 ## Autenticação
 
 - `POST /auth/login` e alias `/auth/entrar` usam a senha bcrypt persistida no profile e
-  emitem JWT RS256 no cookie **`balaio_sessao`** (HttpOnly, SameSite=Lax, Path=/api/v1,
-  60 minutos; Secure em HTTPS). Cadastro também emite o cookie. JWT não vai no JSON.
-- O gateway aceita cookie/Bearer e encaminha Bearer validado. `GET /usuario` revalida
-  no profile e devolve a conta atual; no navegador a consulta restaura a sessão após reload.
-- Não há modo demo, seleção de fixture ou sessão Fake no frontend. Cookies antigos de demonstração são expirados pelo proxy e nunca encaminhados.
+  emitem JWT RS256 no cookie **`balaio_sessao`** (HttpOnly, SameSite=Lax, 60 minutos;
+  Secure em HTTPS). Cadastro também emite o cookie. JWT não vai no JSON.
+- O Route Handler regrava o cookie de sessão devolvido pelo gateway com `Path=/`, para
+  que o SSR das páginas protegidas receba a sessão.
+- Em cada requisição, o Route Handler converte o cookie `balaio_sessao` em
+  `Authorization: Bearer`; um `Authorization` explícito tem prioridade. O gateway valida
+  o token e encaminha o Bearer aos serviços.
+- `GET /usuario` revalida no profile e devolve a conta atual; no navegador a consulta
+  restaura a sessão após reload.
 - **Papéis:** `comprador`, `artesao` e `admin`. O cadastro público só cria comprador ou
   artesão.
-- `/account`, `/account/details`, `/account/addresses` e `/orders` exigem sessão real. O hub e o menu de perfil oferecem os itens anteriores, sem seletor demo ou aviso de integração. Alterar senha mantém o link de recuperação simulado preexistente, que não muda a senha real.
-- Para os itens Fake da conta, o proxy consulta `GET /usuario` real a cada requisição. Só depois envia identidade limitada em contexto interno HMAC, vinculado ao método/caminho e válido por até 30 segundos. JWT, cookie de autenticação e senha nunca vão ao Fake. Mutações por cookie exigem Origin permitido; Bearer puro segue a validação do gateway. Pedidos e endereços de outras contas não são expostos.
-- Checkout, detalhes/ações de pedidos, publicação e painéis continuam bloqueados e suas páginas redirecionam para `/account` sem avisos. A consulta HTTP de um pedido por ID é limitada ao próprio comprador; não habilita suas ações.
+
+### Regras do Route Handler
+
+- Rejeita caminhos ambíguos (`%2f`, `%5c`, `%2e`, barras duplas) e query com parâmetro
+  começando com `_`, sem chamar o gateway.
+- As rotas `/auth/*` só aceitam `POST`.
+- Escrita autenticada por cookie exige `Origin` presente em `AUTH_ALLOWED_ORIGINS`;
+  Bearer puro segue a validação do gateway.
+- Limite de corpo: 64 KB no JSON das rotas do community e 100 MB no upload de vídeo.
 
 **Acesso** nas tabelas abaixo: 🌐 público · 🔑 logado · 🧑‍🎨 artesão · 🛡️ admin.
-Na Fake API, algumas rotas de painel e de mediação ainda não conferem o papel. O backend
-real fará essa checagem.
+A checagem de papel é feita no backend.
 
 ---
 
@@ -84,20 +95,21 @@ Todas com o prefixo `/api/v1`.
 | GET | `/coletivos`, `/coletivos/:slug` | 🌐 | Coletivos |
 | GET | `/referencias` | 🌐 | Técnicas, territórios, categorias e tipos para os filtros |
 
-### Sacola e favoritos
+### Sacola e coleções
 
-Visitantes guardam a sacola em `localStorage`. No primeiro uso sem chave local, o frontend importa uma vez `dados.sacola` de `GET /estado` da Fake API. A sacola de comprador autenticado é carregada e substituída no commerce pelo Gateway, usando o JWT da sessão. No login, itens locais e remotos são mesclados por slug; a cópia local só é removida após confirmação do PUT. Não há reserva antes do checkout.
+Visitantes guardam sacola, favoritos, histórico de busca e vídeos curtidos e salvos só
+em `localStorage`. Ao entrar, o frontend mescla os itens locais com os da conta pelo
+gateway (sacola no commerce, demais coleções no community) e só remove a cópia local
+após a confirmação do PUT. Não há reserva antes do checkout.
 Se a mesclagem encontrar uma peça indisponível, a página mantém os itens visíveis para o comprador retirar o item e tentar novamente; falha de rede permite repetir sem descartar a cópia local. Se o navegador bloquear o armazenamento, a sacola visitante continua em memória e exibe aviso de que não persistirá após fechar a página. Essa cópia atravessa o login por navegação cliente e só é descartada após o PUT de mesclagem confirmar; nenhuma sacola privada de outra conta é transportada. Depois de registrar o pedido, a navegação ao pagamento aguarda a confirmação do PUT que limpa a sacola remota; uma falha oferece nova tentativa sem criar outro pedido.
 
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| GET | `/estado` | 🌐 | Estado agregado da Fake API, usado para favoritos, histórico e importação inicial da sacola visitante |
-| GET | `/estado/sacola` | 🔑 | `{dados:[{slug,quantidade}],erro:null}` da conta autenticada; o adaptador Fake traduz a leitura para `GET /estado` |
-| PUT | `/estado/sacola` | 🔑 | `{ sacola: [{ slug, quantidade }] }`, substituição completa no commerce; em modo Fake, permanece o PUT existente |
-| PUT | `/estado/favoritos` | 🌐 | `{ favoritos: ["slug"] }` |
+| GET | `/estado/sacola` | 🔑 | `{dados:[{slug,quantidade}],erro:null}` da conta autenticada (commerce) |
+| PUT | `/estado/sacola` | 🔑 | `{ sacola: [{ slug, quantidade }] }`, substituição completa no commerce |
+| GET / PUT | `/estado/{colecao}` | 🔑 | `favoritos`, `historicoBusca`, `videosCurtidos` ou `videosSalvos` da conta (community); o PUT recebe `{ <colecao>: ["..."] }` |
 
-O endpoint de domínio da sacola é `/estado/sacola`; não existe rota `/sacola`. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout.
-No modo Fake, as rotas antigas continuam públicas e com o mesmo formato; o frontend visitante usa localStorage após a importação inicial.
+O endpoint de domínio da sacola é `/estado/sacola`; não existe rota `/sacola`. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout. Hoje o commerce ainda não implementa essa rota (veja [Pendências no backend](#pendências-no-backend)).
 
 ### Pedidos
 
@@ -117,6 +129,7 @@ Estados financeiros incluem `aguardando_pagamento`, `confirmacao_pendente`, `can
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
 | GET / PATCH | `/artesao/me` | 🧑‍🎨 | Dados do ateliê |
+| GET | `/artesao/vendas` | 🧑‍🎨 | Faturamento do gráfico do painel |
 | POST | `/pecas` | 🧑‍🎨 | Cadastra peça (até 5 fotos) |
 | PATCH / DELETE | `/pecas/:slug` | 🧑‍🎨 | Edita, publica, inativa ou apaga a própria peça |
 | GET | `/artesao/pedidos-pendentes` | 🧑‍🎨 | Pedidos aguardando aceite |
@@ -124,7 +137,7 @@ Estados financeiros incluem `aguardando_pagamento`, `confirmacao_pendente`, `can
 | PATCH | `/pedidos/:id/recusar` | 🧑‍🎨 | `{ motivo }` |
 | GET / POST | `/artesao/selo` | 🧑‍🎨 | Consulta ou pede o selo de verificado |
 
-No `catalog-service` real, `POST /pecas`, `PATCH /pecas/:slug` e `DELETE /pecas/:slug` exigem Bearer JWT de artesão e usam o UUID autenticado para determinar a titularidade. O slug público provisório vem de `GET /artesao/me` do profile-service (`artesao-<UUID>`). `POST` retorna 201, `PATCH` retorna 200 e `DELETE` retorna 204 sem corpo. Erro de validação pode trazer `erro.campo` além de `codigo` e `mensagem`; o formulário destaca `nome`, `preco` e `prazoProducaoDias`. Fotos novas são data URIs JPG/PNG/WebP de até 5 MB, persistidas no catálogo e devolvidas com URL pública. O Route Handler envia as escritas e `GET`/`HEAD /arquivos/pecas/:nome` ao Gateway quando `API_GATEWAY_URL` está configurada; a seleção das consultas feitas no servidor segue a mesma matriz de rotas.
+No `catalog-service` real, `POST /pecas`, `PATCH /pecas/:slug` e `DELETE /pecas/:slug` exigem Bearer JWT de artesão e usam o UUID autenticado para determinar a titularidade. O slug público provisório vem de `GET /artesao/me` do profile-service (`artesao-<UUID>`). `POST` retorna 201, `PATCH` retorna 200 e `DELETE` retorna 204 sem corpo. Erro de validação pode trazer `erro.campo` além de `codigo` e `mensagem`; o formulário destaca `nome`, `preco` e `prazoProducaoDias`. Fotos novas são data URIs JPG/PNG/WebP de até 5 MB, persistidas no catálogo e devolvidas com URL pública. O Route Handler envia as escritas e `GET`/`HEAD /arquivos/pecas/:nome` ao Gateway como qualquer outra rota.
 
 O formulário consulta `GET /referencias` no catálogo real. Se as listas não carregarem, ele exibe o erro e bloqueia o cadastro até uma nova tentativa bem sucedida.
 
@@ -154,7 +167,7 @@ O formulário consulta `GET /referencias` no catálogo real. Se as listas não c
 
 `POST /api/v1/auth/recuperacao` recebe `{ "email": "ana@exemplo.com" }`. O resultado é igual para conta existente ou ausente. Para conta existente, o e-mail contém `/login/reset?token=...`; o link expira em 1 hora. `POST /api/v1/auth/redefinicao` recebe `{ "token": "...", "novaSenha": "senha-com-8-ou-mais-caracteres" }` e devolve `{ "dados": { "redefinida": true }, "erro": null }`. Token desconhecido, vencido ou usado devolve `400` com `TOKEN_INVALIDO`. E-mail inválido ou senha curta devolve `400 REQUISICAO_INVALIDA`.
 
-O backend real implementa estas rotas. A Fake API atual só simula a solicitação; a conclusão exige apontar `API_URL` ao backend real. No Compose, use `platform/docker-compose.recovery.yml` para isso. Esse modo é limitado a cadastro, login e recuperação de senha; as demais telas ainda usam a Fake API no Compose padrão.
+O profile-service implementa as duas rotas.
 
 ### Login
 
@@ -162,11 +175,11 @@ O backend real implementa estas rotas. A Fake API atual só simula a solicitaç�
 POST /api/v1/auth/login
 Content-Type: application/json
 
-{ "email": "carlos@exemplo.com", "senha": "balaio123" }
+{ "email": "ana@exemplo.com", "senha": "<senha com 12 ou mais caracteres>" }
 ```
 
 ```json
-{ "dados": { "id": "…", "nome": "Carlos …", "email": "carlos@exemplo.com", "papel": "comprador" }, "erro": null }
+{ "dados": { "id": "…", "nome": "Ana …", "email": "ana@exemplo.com", "papel": "comprador" }, "erro": null }
 ```
 
 ### Busca
@@ -219,18 +232,33 @@ Sem login, a mesma chamada retorna **401** com `NAO_AUTENTICADO`.
 
 ---
 
-## Rotas planejadas para o backend real
+## Rotas planejadas
 
 | Método | Rota | Para quê |
 |---|---|---|
 | GET | `/recomendacoes?peca=slug` | Recomendações do módulo de IA na página da peça |
 | GET | `/recomendacoes/para-mim` | Recomendações pelo histórico do usuário |
 | GET | `/admin/indicadores` | Indicadores do painel administrativo |
-| GET | `/artesao/vendas` | Faturamento do gráfico do painel do artesão |
 
-## Troca da Fake API pelo backend real
+## Roteamento no gateway
 
-1. O backend implementa as rotas deste documento com o mesmo prefixo e o mesmo formato
-   de resposta.
-2. Migre método/caminho específico no dispatcher para `API_GATEWAY_URL`; preserve `API_URL` para capacidades ainda simuladas.
-3. Ajuste carregadores/identidade da capacidade e teste os contratos. Não encaminhe JWT real ao validador opaco do Fake.
+Definido em `api-gateway/src/main/resources/application.yaml`:
+
+| Serviço | Rotas |
+|---|---|
+| catalog | `/pecas`, `/referencias`, arquivos de peças, `/artesaos/{slug}/pecas` |
+| profile | `/auth/**`, `/usuario/**`, `/conta/**`, `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria` |
+| commerce | `/checkout`, `/fretes`, `/pedidos`, `/artesao/vendas`, `/artesao/pedidos-pendentes`, `/estado/sacola` |
+| community | Perguntas, conversa, avaliação, vídeos, mediações, `/estado/favoritos`, `/estado/videosCurtidos`, `/estado/videosSalvos`, `/estado/historicoBusca` e reputação |
+| events | `/eventos` |
+
+## Pendências no backend
+
+Enquanto estes endpoints não existem, as telas correspondentes mostram erro ou estado vazio:
+
+- **events-service:** nenhum endpoint implementado.
+- **profile-service:** só implementa `/auth/cadastro`, `/auth/login`, `/auth/entrar`,
+  `/auth/logout`, `/auth/recuperacao`, `/auth/redefinicao` e `GET /usuario`. Faltam
+  `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria`,
+  `PATCH /usuario`, endereços e `/conta`.
+- **commerce-service:** não implementa `/estado/sacola`.
