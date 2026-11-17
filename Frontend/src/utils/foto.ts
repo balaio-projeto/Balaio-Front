@@ -4,6 +4,7 @@ export const TAMANHO_MAXIMO_FOTO_MB = 2
 const BYTES_POR_MB = 1024 * 1024
 
 export function validarFoto(arquivo: File): string | null {
+  if (arquivo.size === 0) return 'Escolha uma foto com conteúdo'
   if (!FORMATOS_FOTO.includes(arquivo.type)) return 'Use uma foto em JPG, PNG ou WebP'
   if (arquivo.size > TAMANHO_MAXIMO_FOTO_MB * BYTES_POR_MB) {
     return `A foto precisa ter no máximo ${TAMANHO_MAXIMO_FOTO_MB} MB`
