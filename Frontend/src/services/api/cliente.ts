@@ -1,17 +1,13 @@
 import { falha, type RespostaApi } from './tipos'
-import { usaBackendReal } from './rotas-proxy'
+import { urlDoGateway } from './gateway'
 
-function baseDaRota(caminho: string, metodo: string): string {
-  if (typeof window !== 'undefined') return '/api/v1'
-  const rota = caminho.split('?')[0]
-  return process.env.API_GATEWAY_URL && usaBackendReal(metodo, rota)
-    ? process.env.API_GATEWAY_URL
-    : process.env.API_URL ?? 'http://127.0.0.1:3001/api/v1'
+function baseDaApi(): string {
+  return typeof window === 'undefined' ? urlDoGateway() : '/api/v1'
 }
 
-export async function buscar<T>(caminho: string, opcoes?: RequestInit, baseUrl?: string): Promise<RespostaApi<T>> {
+export async function buscar<T>(caminho: string, opcoes?: RequestInit): Promise<RespostaApi<T>> {
   try {
-    const resposta = await fetch(`${baseUrl ?? baseDaRota(caminho, (opcoes?.method ?? 'GET').toUpperCase())}${caminho}`, {
+    const resposta = await fetch(`${baseDaApi()}${caminho}`, {
       cache: 'no-store',
       credentials: 'same-origin',
       ...opcoes,

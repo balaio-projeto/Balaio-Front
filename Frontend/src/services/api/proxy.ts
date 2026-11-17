@@ -1,11 +1,14 @@
-// Executado apenas pelo Route Handler. As URLs nunca são enviadas ao navegador.
-import { createHmac } from 'node:crypto'
-import {
-  CAMINHOS_DE_AUTENTICACAO, ehRotaDeMidia, limiteDoCorpo, rotaContaFake, rotaPublicaFake, usaBackendReal,
-} from './rotas-proxy'
+import { urlDoGateway } from './gateway'
+import { CAMINHOS_DE_AUTENTICACAO, ehRotaDeMidia, limiteDoCorpo } from './rotas-proxy'
 
 const AUTENTICACAO = new Set(CAMINHOS_DE_AUTENTICACAO)
-export { usaBackendReal } from './rotas-proxy'
+const PREFIXO_DA_API = '/api/v1'
+const COOKIE_DE_SESSAO = 'balaio_sessao='
+const PRAZO_PADRAO_MS = 10_000
+const PRAZO_CABECALHOS_MIDIA_MS = 10 * 60_000
+const CABECALHOS_ENCAMINHADOS = ['accept', 'content-type', 'origin', 'idempotency-key']
+const CABECALHOS_DE_RESPOSTA = ['content-type', 'content-disposition', 'www-authenticate']
+const CABECALHOS_DE_MIDIA = ['content-range', 'accept-ranges', 'content-length']
 
 function erro(status: number, codigo: string, mensagem: string) {
   return Response.json({ dados: null, erro: { codigo, mensagem } }, {
@@ -13,23 +16,10 @@ function erro(status: number, codigo: string, mensagem: string) {
   })
 }
 
-function limparSessaoLegada(resposta: Response, secure: boolean) {
-  for (const path of ['/api/v1', '/']) {
-    resposta.headers.append('set-cookie', `balaio_demo_sessao=; HttpOnly; Path=${path}; Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`)
-  }
-  return resposta
-}
-
-function destinoConfigurado(real: boolean) {
-  const valor = real
-    ? process.env.API_GATEWAY_URL ?? 'http://127.0.0.1:8080/api/v1'
-    : process.env.API_URL ?? 'http://127.0.0.1:3001/api/v1'
-  const url = new URL(valor)
+function destinoDoGateway() {
+  const url = new URL(urlDoGateway())
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
     throw new Error('Destino da API inválido')
-  }
-  if (real && url.href.replace(/\/$/, '') === new URL(process.env.API_URL ?? 'http://127.0.0.1:3001/api/v1').href.replace(/\/$/, '')) {
-    throw new Error('Gateway e simulador precisam de destinos distintos')
   }
   return url.href.replace(/\/$/, '')
 }
@@ -43,80 +33,25 @@ function origemPermitida(requisicao: Request) {
   return ['GET', 'HEAD'].includes(requisicao.method) || !porCookie || origem !== null
 }
 
-async function contextoDaConta(requisicao: Request, metodo: string, caminho: string): Promise<Headers | Response> {
-  if (!origemPermitida(requisicao)) return erro(403, 'SEM_PERMISSAO', 'Origem não permitida.')
-  const chave = process.env.BALAIO_FAKE_INTERNAL_KEY
-  if (!chave || chave.length < 32) return erro(503, 'API_INDISPONIVEL', 'Não foi possível acessar os dados da conta.')
-  const credenciais = new Headers()
-  const cookies = (requisicao.headers.get('cookie') ?? '').split(';').map((item) => item.trim())
-    .filter((item) => item.startsWith('balaio_sessao='))
-  if (cookies.length) credenciais.set('cookie', cookies.join('; '))
-  for (const nome of ['authorization', 'origin']) {
-    const valor = requisicao.headers.get(nome)
-    if (valor) credenciais.set(nome, valor)
-  }
-  const resposta = await fetch(`${destinoConfigurado(true)}/usuario`, {
-    headers: credenciais, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(10000),
-  })
-  if (!resposta.ok) {
-    if (![401, 403].includes(resposta.status)) return erro(502, 'API_INDISPONIVEL', 'Não foi possível validar sua sessão.')
-    const falha = erro(resposta.status, resposta.status === 401 ? 'NAO_AUTENTICADO' : 'SEM_PERMISSAO',
-      resposta.status === 401 ? 'Entre na sua conta para continuar.' : 'Acesso não permitido.')
-    if (resposta.status === 401) falha.headers.set('X-Balaio-Sessao', 'invalida')
-    return falha
-  }
-  const { dados, erro: falha } = await resposta.json()
-  if (falha || !dados || typeof dados.id !== 'string'
-    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dados.id)
-    || typeof dados.nome !== 'string' || !dados.nome || dados.nome.length > 200
-    || typeof dados.email !== 'string' || !dados.email || dados.email.length > 320
-    || !['comprador', 'artesao', 'admin'].includes(dados.papel)) {
-    return erro(502, 'API_INDISPONIVEL', 'Não foi possível validar sua sessão.')
-  }
-  const contexto = Buffer.from(JSON.stringify({
-    sub: dados.id, nome: dados.nome, email: dados.email, papel: dados.papel,
-    metodo, caminho, exp: Math.floor(Date.now() / 1000) + 30,
-  })).toString('base64url')
-  return new Headers({
-    'x-balaio-contexto': contexto,
-    'x-balaio-assinatura': createHmac('sha256', chave).update(contexto).digest('hex'),
-  })
-}
-
-async function corpoDaConta(requisicao: Request, caminho: string): Promise<ArrayBuffer | Response | undefined> {
-  if (['GET', 'HEAD'].includes(requisicao.method)) return undefined
-  if (Number(requisicao.headers.get('content-length')) > 16384) return erro(413, 'REQUISICAO_INVALIDA', 'Requisição inválida.')
-  const corpo = await requisicao.arrayBuffer()
-  if (corpo.byteLength > 16384) return erro(413, 'REQUISICAO_INVALIDA', 'Requisição inválida.')
-  let dados
-  try { dados = corpo.byteLength ? JSON.parse(Buffer.from(corpo).toString('utf8')) : {} } catch {
-    return erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.')
-  }
-  const campos = caminho === '/usuario' ? ['nome', 'email', 'telefone', 'tipoComprador']
-    : requisicao.method === 'DELETE' ? [] : ['apelido', 'rua', 'bairro', 'cep', 'principal']
-  if (!dados || Array.isArray(dados) || typeof dados !== 'object'
-    || Object.entries(dados).some(([campo, valor]) => !campos.includes(campo)
-      || (campo === 'principal' ? typeof valor !== 'boolean' : typeof valor !== 'string'))) {
-    return erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.')
-  }
-  return corpo.byteLength ? corpo : undefined
-}
-
 function cookieDeSessaoNaRaiz(cookie: string) {
   if (!/^balaio_sessao=/i.test(cookie)) return cookie
   const atributos = cookie.split(';').map((parte) => parte.trim()).filter((parte) => !/^path=/i.test(parte))
   return [...atributos, 'Path=/'].join('; ')
 }
 
-const PRAZO_PADRAO_MS = 10_000
-const PRAZO_CABECALHOS_MIDIA_MS = 10 * 60_000
-const CABECALHOS_DE_MIDIA = ['content-range', 'accept-ranges', 'content-length']
+function cookiesDeSessao(requisicao: Request): string[] {
+  return (requisicao.headers.get('cookie') ?? '').split(';').map((item) => item.trim())
+    .filter((item) => item.startsWith(COOKIE_DE_SESSAO))
+}
 
 function tokenDoCookie(requisicao: Request): string | null {
-  const cookie = (requisicao.headers.get('cookie') ?? '').split(';').map((item) => item.trim())
-    .find((item) => item.startsWith('balaio_sessao='))
-  const token = cookie?.slice('balaio_sessao='.length)
+  const token = cookiesDeSessao(requisicao)[0]?.slice(COOKIE_DE_SESSAO.length)
   return token ? token : null
+}
+
+function caminhoInvalido(url: URL, caminho: string) {
+  return !url.pathname.startsWith(`${PREFIXO_DA_API}/`) || /%2f|%5c|%2e|\\|\/\//i.test(caminho)
+    || [...url.searchParams.keys()].some((chave) => chave.startsWith('_'))
 }
 
 async function buscarComPrazoNosCabecalhos(url: string, opcoes: RequestInit, prazoMs: number): Promise<Response> {
@@ -129,91 +64,62 @@ async function buscarComPrazoNosCabecalhos(url: string, opcoes: RequestInit, pra
   }
 }
 
-const HEADERS_DE_TRANSPORTE = new Set(['host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive', 'upgrade', 'accept-encoding'])
-
-async function encaminharSimulador(requisicao: Request, url: URL): Promise<Response> {
+function cabecalhosParaOGateway(requisicao: Request, midia: boolean): Headers {
   const headers = new Headers()
-  requisicao.headers.forEach((valor, nome) => { if (!HEADERS_DE_TRANSPORTE.has(nome)) headers.set(nome, valor) })
-  try {
-    const sacolaFake = requisicao.method === 'GET' && url.pathname === '/api/v1/estado/sacola'
-    const caminho = sacolaFake ? '/estado' : url.pathname.slice('/api/v1'.length)
-    const resposta = await fetch(`${destinoConfigurado(false)}${caminho}${url.search}`, {
-      method: requisicao.method, headers, cache: 'no-store', redirect: 'manual',
-      body: ['GET', 'HEAD'].includes(requisicao.method.toUpperCase()) ? undefined : await requisicao.arrayBuffer(),
-    })
-    const saida = new Headers()
-    resposta.headers.forEach((valor, nome) => {
-      if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie'].includes(nome)) saida.set(nome, valor)
-    })
-    for (const cookie of resposta.headers.getSetCookie()) saida.append('set-cookie', cookie)
-    if (sacolaFake && resposta.ok) {
-      const estado = await resposta.json()
-      return Response.json({ dados: estado?.dados?.sacola ?? [], erro: estado?.erro ?? null }, { status: resposta.status, headers: saida })
-    }
-    return new Response(resposta.body, { status: resposta.status, headers: saida })
-  } catch {
-    return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.')
+  for (const nome of [...CABECALHOS_ENCAMINHADOS, ...(midia ? ['range'] : [])]) {
+    const valor = requisicao.headers.get(nome)
+    if (valor) headers.set(nome, valor)
   }
+  const sessao = cookiesDeSessao(requisicao)
+  if (sessao.length) headers.set('cookie', sessao.join('; '))
+  const autorizacao = requisicao.headers.get('authorization')
+  const token = autorizacao ? null : tokenDoCookie(requisicao)
+  if (autorizacao) headers.set('authorization', autorizacao)
+  else if (token) headers.set('authorization', `Bearer ${token}`)
+  return headers
+}
+
+function respostaAoNavegador(resposta: Response, url: URL, midia: boolean): Response {
+  const saida = new Headers({ 'Cache-Control': 'no-store' })
+  for (const nome of [...CABECALHOS_DE_RESPOSTA, ...(midia ? CABECALHOS_DE_MIDIA : [])]) {
+    const valor = resposta.headers.get(nome)
+    if (valor) saida.set(nome, valor)
+  }
+  const cookies = resposta.headers.getSetCookie()
+  for (const cookie of cookies) saida.append('set-cookie', cookieDeSessaoNaRaiz(cookie))
+  const secure = url.protocol === 'https:' || cookies.some((cookie) => /;\s*Secure(?:;|$)/i.test(cookie))
+  const sufixo = `Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`
+  saida.append('set-cookie', `balaio_sessao=; HttpOnly; Path=${PREFIXO_DA_API}; ${sufixo}`)
+  saida.append('set-cookie', `balaio-sessao=; Path=/; ${sufixo}`)
+  return new Response(resposta.body, { status: resposta.status, headers: saida })
 }
 
 export async function encaminharApi(requisicao: Request): Promise<Response> {
   const url = new URL(requisicao.url)
-  if (!process.env.API_GATEWAY_URL?.trim()) return encaminharSimulador(requisicao, url)
-  const finalizar = (resposta: Response) => limparSessaoLegada(resposta, url.protocol === 'https:')
-  const caminho = url.pathname.slice('/api/v1'.length)
-  if (!url.pathname.startsWith('/api/v1/') || /%2f|%5c|%2e|\\|\/\//i.test(caminho)
-    || [...url.searchParams.keys()].some((chave) => chave.startsWith('_'))) {
-    return finalizar(erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.'))
-  }
+  const caminho = url.pathname.slice(PREFIXO_DA_API.length)
+  if (caminhoInvalido(url, caminho)) return erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.')
   const metodo = requisicao.method.toUpperCase()
   if (AUTENTICACAO.has(caminho) && metodo !== 'POST') {
-    return finalizar(erro(405, 'METODO_NAO_PERMITIDO', 'Método não permitido.'))
+    return erro(405, 'METODO_NAO_PERMITIDO', 'Método não permitido.')
   }
-  const real = usaBackendReal(metodo, caminho)
-  const contaFake = !real && rotaContaFake(metodo, caminho)
-  if (!real && !contaFake && !rotaPublicaFake(metodo, caminho)) {
-    return finalizar(erro(404, 'RECURSO_NAO_ENCONTRADO', 'Recurso não encontrado.'))
-  }
-  if (contaFake && url.search) return finalizar(erro(400, 'REQUISICAO_INVALIDA', 'Requisição inválida.'))
-  const headers = new Headers()
-  const midia = real && ehRotaDeMidia(caminho)
-  for (const nome of ['accept', 'content-type', 'origin', 'idempotency-key', ...(midia ? ['range'] : [])]) {
-    const valor = requisicao.headers.get(nome)
-    if (valor) headers.set(nome, valor)
-  }
-  const cookies = (requisicao.headers.get('cookie') ?? '').split(';').map((item) => item.trim())
-  const permitidos = cookies.filter((item) => real
-    ? item.startsWith('balaio_sessao=') : !contaFake && item.startsWith('balaio_cliente='))
-  if (permitidos.length) headers.set('cookie', permitidos.join('; '))
-  const autorizacao = requisicao.headers.get('authorization')
-  const tokenDaSessao = real && !autorizacao ? tokenDoCookie(requisicao) : null
-  if (real && autorizacao) headers.set('authorization', autorizacao)
-  else if (tokenDaSessao) headers.set('authorization', `Bearer ${tokenDaSessao}`)
   const semCorpo = ['GET', 'HEAD'].includes(metodo)
-  if (tokenDaSessao && !semCorpo && !origemPermitida(requisicao)) {
-    return finalizar(erro(403, 'SEM_PERMISSAO', 'Origem não permitida.'))
+  if (!semCorpo && tokenDoCookie(requisicao) && !requisicao.headers.get('authorization') && !origemPermitida(requisicao)) {
+    return erro(403, 'SEM_PERMISSAO', 'Origem não permitida.')
   }
-  const limite = real && !semCorpo ? limiteDoCorpo(metodo, caminho) : null
+  const midia = ehRotaDeMidia(caminho)
+  const limite = semCorpo ? null : limiteDoCorpo(metodo, caminho)
   if (limite !== null && Number(requisicao.headers.get('content-length')) > limite) {
-    return finalizar(erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.'))
+    return erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.')
   }
+  const headers = cabecalhosParaOGateway(requisicao, midia)
 
   try {
-    const caminhoFake = contaFake && caminho === '/conta/perfil' ? '/usuario' : caminho
+    const destino = `${destinoDoGateway()}${caminho}${url.search}`
     let corpo: ArrayBuffer | undefined
-    if (contaFake) {
-      const validado = await corpoDaConta(requisicao, caminho)
-      if (validado instanceof Response) return finalizar(validado)
-      corpo = validado
-      const contexto = await contextoDaConta(requisicao, metodo, `/api/v1${caminhoFake}${url.search}`)
-      if (contexto instanceof Response) return finalizar(contexto)
-      contexto.forEach((valor, nome) => headers.set(nome, valor))
-    }
-    const destino = `${destinoConfigurado(real)}${caminhoFake}${url.search}`
-    if (!contaFake && !semCorpo && !midia) {
+    if (!semCorpo && !midia) {
       corpo = await requisicao.arrayBuffer()
       if (limite !== null && corpo.byteLength > limite) {
-        return finalizar(erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.'))
+        return erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.')
       }
     }
     const resposta = midia
@@ -226,32 +132,11 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
         body: corpo,
         signal: AbortSignal.timeout(PRAZO_PADRAO_MS),
       })
-    if (contaFake && resposta.status === 401) {
-      return finalizar(erro(502, 'API_INDISPONIVEL', 'Não foi possível acessar os dados da conta.'))
-    }
     if (resposta.status >= 300 && resposta.status < 400) {
-      return finalizar(erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.'))
+      return erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.')
     }
-    const saida = new Headers({ 'Cache-Control': 'no-store' })
-    for (const nome of ['content-type', 'content-disposition', 'www-authenticate', ...(midia ? CABECALHOS_DE_MIDIA : [])]) {
-      const valor = resposta.headers.get(nome)
-      if (valor) saida.set(nome, valor)
-    }
-    for (const cookie of resposta.headers.getSetCookie()) {
-      if (real) saida.append('set-cookie', cookieDeSessaoNaRaiz(cookie))
-      else if (/^balaio_cliente=/i.test(cookie)) saida.append('set-cookie', cookie)
-    }
-    if (real) {
-      const secure = url.protocol === 'https:' || resposta.headers.getSetCookie().some((cookie) => /;\s*Secure(?:;|$)/i.test(cookie))
-      const atributos = `Path=/; Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`
-      saida.append('set-cookie', `balaio_sessao=; HttpOnly; Path=/api/v1; Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`)
-      saida.append('set-cookie', `balaio-sessao=; ${atributos}`)
-      if (metodo === 'POST' && caminho === '/auth/logout' && resposta.ok) {
-        saida.append('set-cookie', `balaio_cliente=; HttpOnly; ${atributos}`)
-      }
-    }
-    return finalizar(new Response(resposta.body, { status: resposta.status, headers: saida }))
+    return respostaAoNavegador(resposta, url, midia)
   } catch {
-    return finalizar(erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.'))
+    return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.')
   }
 }

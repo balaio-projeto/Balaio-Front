@@ -296,16 +296,6 @@
   @apply w-[60px] h-[60px] rounded-caixa overflow-hidden flex-none;
 }
 
-.qr-simulado {
-  width: 180px;
-  height: 180px;
-  border-radius: var(--raio-s);
-  background: repeating-conic-gradient(var(--tinta-fixa) 0% 25%, var(--branco) 0% 50%);
-  background-size: 20px 20px;
-  border: 8px solid var(--branco);
-  box-shadow: var(--sombra);
-}
-
 .linha-pedido .acoes-linha > .botao {
   flex: 1 1 auto;
 }

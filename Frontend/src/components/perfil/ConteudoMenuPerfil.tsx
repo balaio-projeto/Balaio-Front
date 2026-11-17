@@ -6,7 +6,7 @@ import BotaoSair from '@/components/conta/BotaoSair'
 import { itensAdmin } from '@/components/admin/itensAdmin'
 import { itensPainel, type ChavePainel } from '@/components/painel/itensPainel'
 import { Retrato } from '@/components/ui/Basicos'
-import { IconeCoracao, IconeEditar, IconeGrade, IconeMapa, IconePacote, IconeSelo, IconeUsuario } from '@/components/ui/Icones'
+import { IconeCoracao, IconeEditar, IconeMapa, IconePacote, IconeSelo, IconeUsuario } from '@/components/ui/Icones'
 import type { ResumoPerfil } from '@/hooks/useResumoPerfil'
 import type { Sessao } from '@/services/sessao/cookie'
 import { useFavoritos } from '@/store/favoritos'
@@ -52,10 +52,7 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
     return [
       {
         rotulo: 'Administração',
-        itens: [
-          ...itensAdmin({ curadoria: resumo.filaCuradoria ?? 0, mediacoes: resumo.mediacoes ?? 0 }),
-          { chave: 'telas', texto: 'Mapa de telas', href: '/screens', icone: <IconeGrade /> },
-        ],
+        itens: itensAdmin({ curadoria: resumo.filaCuradoria ?? 0, mediacoes: resumo.mediacoes ?? 0 }),
       },
       { itens: [salvas] },
     ]

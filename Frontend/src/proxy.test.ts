@@ -71,32 +71,7 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
   }
 })
 
-test('sacola Fake lê o agregado existente e preserva PUT existente', async () => {
-  const anterior = process.env.API_GATEWAY_URL
-  delete process.env.API_GATEWAY_URL
-  const chamadas: string[] = []
-  globalThis.fetch = async (entrada, opcoes) => {
-    chamadas.push(`${opcoes?.method} ${entrada}`)
-    return Response.json({ dados: opcoes?.method === 'GET'
-      ? { sacola: [{ slug: 'peca-teste', quantidade: 1 }], favoritos: [] }
-      : [{ slug: 'peca-teste', quantidade: 1 }], erro: null })
-  }
-  try {
-    const get = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola'))
-    assert.deepEqual((await get.json()).dados, [{ slug: 'peca-teste', quantidade: 1 }])
-    const put = await encaminharApi(new Request('http://localhost:4321/api/v1/estado/sacola', {
-      method: 'PUT', body: JSON.stringify({ sacola: [{ slug: 'peca-teste', quantidade: 1 }] }),
-    }))
-    assert.equal(put.status, 200)
-    assert.deepEqual(chamadas, ['GET http://127.0.0.1:3001/api/v1/estado',
-      'PUT http://127.0.0.1:3001/api/v1/estado/sacola'])
-  } finally {
-    if (anterior === undefined) delete process.env.API_GATEWAY_URL
-    else process.env.API_GATEWAY_URL = anterior
-  }
-})
-
-test('sacola autenticada encaminha GET e PUT com Bearer e envelope; falha não lê Fake API', async () => {
+test('sacola autenticada encaminha GET e PUT com Bearer e envelope ao gateway', async () => {
   const anterior = process.env.API_GATEWAY_URL
   process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
   const chamadas: string[] = []
@@ -219,11 +194,9 @@ test('foto persistida mantém bytes e Content-Type ao passar pelo Gateway', asyn
   }
 })
 
-test('consultas server-side demonstrativas usam Fake API; vídeos e pedido usam Gateway', async () => {
+test('consultas server-side vão todas ao gateway', async () => {
   const gatewayAnterior = process.env.API_GATEWAY_URL
-  const fakeAnterior = process.env.API_URL
-  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
-  process.env.API_URL = 'http://fake.local/api/v1'
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1/'
   const destinos: string[] = []
   globalThis.fetch = async (entrada) => {
     destinos.push(String(entrada))
@@ -235,15 +208,13 @@ test('consultas server-side demonstrativas usam Fake API; vídeos e pedido usam 
       assert.equal(resposta.erro, null)
     }
     assert.deepEqual(destinos, [
-      'http://fake.local/api/v1/eventos',
+      'http://gateway.local/api/v1/eventos',
       'http://gateway.local/api/v1/videos',
-      'http://fake.local/api/v1/pecas/peca-teste/historico',
+      'http://gateway.local/api/v1/pecas/peca-teste/historico',
       'http://gateway.local/api/v1/pedidos/pedido-1',
     ])
   } finally {
     if (gatewayAnterior === undefined) delete process.env.API_GATEWAY_URL
     else process.env.API_GATEWAY_URL = gatewayAnterior
-    if (fakeAnterior === undefined) delete process.env.API_URL
-    else process.env.API_URL = fakeAnterior
   }
 })

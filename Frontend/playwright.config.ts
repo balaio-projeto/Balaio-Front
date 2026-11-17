@@ -1,7 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
 const ambienteTeste = {
-  BALAIO_FAKE_INTERNAL_KEY: 'balaio-auth-e2e-chave-interna-apenas-para-testes-2026',
   AUTH_ALLOWED_ORIGINS: 'http://127.0.0.1:14321',
 }
 
@@ -17,7 +16,6 @@ export default defineConfig({
       env: {
         ...ambienteTeste,
         NEXT_TELEMETRY_DISABLED: '1', API_GATEWAY_URL: 'http://127.0.0.1:18080/api/v1',
-        API_URL: 'http://127.0.0.1:13001/api/v1',
       },
     },
   ],
