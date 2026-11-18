@@ -141,7 +141,7 @@ export type Mensagem = {
 
 export type Mediacao = {
   emAnalise?: boolean
-  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida'
+  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida' | 'falha_entrega'
   decisao?: 'cancelar_reembolsar' | 'negar' | 'manter_conversa' | null
   id: string
   pedido: string
@@ -150,6 +150,7 @@ export type Mediacao = {
   aberta: string
   relato?: string
   tentativas?: number
+  ultimoErro?: string | null
 }
 
 export type Reputacao = {

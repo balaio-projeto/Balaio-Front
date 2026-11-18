@@ -21,6 +21,8 @@ test('rotas JSON do community têm limite de corpo e as demais seguem sem limite
     ['POST', '/pecas/vaso/perguntas'], ['PATCH', '/pecas/vaso/perguntas/1'], ['PUT', '/estado/videosSalvos'],
     ['POST', '/videos'], ['PATCH', '/videos/1'], ['POST', '/videos/1/comentarios'],
     ['POST', '/pedidos/1/avaliacao'], ['POST', '/pedidos/1/conversa'], ['POST', '/admin/mediacoes/1/decisao'],
+    ['PATCH', '/estado/favoritos'], ['POST', '/videos/1/visualizacoes'], ['POST', '/pedidos/1/conversa/leitura'],
+    ['POST', '/admin/mediacoes/1/reprocessar-entrega'],
   ]) assert.equal(limiteDoCorpo(metodo, caminho), 64 * 1024, `${metodo} ${caminho}`)
   assert.equal(limiteDoCorpo('PUT', '/videos/1/arquivo'), 100 * 1024 * 1024)
   assert.equal(limiteDoCorpo('POST', '/pecas'), null)
