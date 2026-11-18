@@ -4,6 +4,16 @@ const chaves = generateKeyPairSync('rsa', { modulusLength: 3072 })
 const eventos = []
 const contas = new Map()
 const sacolas = new Map()
+const perfis = new Map()
+const imagens = new Map()
+function perfilDaConta(conta) {
+  if (!perfis.has(conta.id)) perfis.set(conta.id, {
+    id: conta.id, slug: `artesao-${conta.id}`, nome: conta.nome, atelie: `Atelie de ${conta.nome}`,
+    historia: '', territorio: '', tecnica: '', imagem: '/fotos/ImagemBase.webp',
+    obrasComercializadas: 0, avaliacaoMedia: 0, selo: false,
+  })
+  return perfis.get(conta.id)
+}
 let configuracao = {}
 const SENHA_TESTE = 'SenhaDeTeste123!'
 for (const papel of ['comprador', 'artesao', 'admin']) {
@@ -35,11 +45,13 @@ function validar(req) {
 }
 const cookie = (token, expirar = false) => `balaio_sessao=${token}; Path=/api/v1; HttpOnly; SameSite=Lax; Max-Age=${expirar ? 0 : 3600}`
 const gateway = createServer(async (req, res) => {
-  let texto = ''
-  for await (const parte of req) texto += parte
-  const dados = texto ? JSON.parse(texto) : {}
+  const partes = []
+  for await (const parte of req) partes.push(Buffer.from(parte))
+  const corpo = Buffer.concat(partes)
+  const multipart = req.headers['content-type']?.startsWith('multipart/form-data')
+  const dados = corpo.length && !multipart ? JSON.parse(corpo.toString()) : {}
   if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/saude') return json(res, 200, true)
   eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method })
@@ -76,6 +88,44 @@ const gateway = createServer(async (req, res) => {
     }
     if (req.method === 'POST' && caminho === '/api/v1/checkout')
       return json(res, 202, { id: randomUUID(), checkoutUrl: 'https://sandbox.mercadopago.com/checkout/pay?pref_id=qa' })
+  }
+  if (/^\/api\/v1\/arquivos\/perfis\/[^/]+$/.test(req.url) && ['GET', 'HEAD'].includes(req.method)) {
+    const arquivo = imagens.get(req.url)
+    if (!arquivo || ![...perfis.values()].some((perfil) => perfil.imagem === req.url)) return json(res, 404, null, 'MIDIA_NAO_ENCONTRADA')
+    res.writeHead(200, { 'Content-Type': arquivo.tipo, 'Content-Length': arquivo.bytes.length,
+      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+    res.end(req.method === 'HEAD' ? undefined : arquivo.bytes)
+    return
+  }
+  if (req.method === 'GET' && /^\/api\/v1\/artesaos\/[^/]+$/.test(req.url)) {
+    const perfil = [...perfis.values()].find((item) => req.url.endsWith('/' + item.slug))
+    return perfil ? json(res, 200, perfil) : json(res, 404, null, 'RECURSO_NAO_ENCONTRADO')
+  }
+  if (req.url.startsWith('/api/v1/artesao/me') || (req.method === 'PATCH' && /^\/api\/v1\/artesaos\/[^/]+$/.test(req.url))) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao') return json(res, 403, null, 'SEM_PERMISSAO')
+    const perfil = perfilDaConta(conta)
+    if (req.url === '/api/v1/artesao/me' && req.method === 'GET') return json(res, 200, perfil)
+    if (req.url === '/api/v1/artesao/me/imagem') {
+      if (configuracao.falhaImagem) return json(res, 503, null, 'STORAGE_INDISPONIVEL')
+      if (req.method === 'PUT') {
+        const form = await new Request('http://fixture.test/upload', { method: 'PUT', headers: { 'Content-Type': req.headers['content-type'] }, body: corpo }).formData()
+        const arquivo = form.get('arquivo')
+        if (!arquivo || !arquivo.size) return json(res, 400, null, 'ARQUIVO_INVALIDO')
+        if (arquivo.size > 2 * 1024 * 1024) return json(res, 413, null, 'ARQUIVO_MUITO_GRANDE')
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type)) return json(res, 415, null, 'FORMATO_NAO_SUPORTADO')
+        perfil.imagem = `/api/v1/arquivos/perfis/${randomUUID()}`
+        imagens.set(perfil.imagem, { tipo: arquivo.type, bytes: Buffer.from(await arquivo.arrayBuffer()) })
+      } else if (req.method === 'DELETE') perfil.imagem = '/fotos/ImagemBase.webp'
+      else return json(res, 405, null, 'METODO_NAO_PERMITIDO')
+      return json(res, 200, perfil)
+    }
+    if (req.method === 'PATCH' && (req.url === '/api/v1/artesao/me' || req.url.endsWith('/' + perfil.slug))) {
+      for (const campo of ['nome', 'atelie', 'historia', 'territorio', 'tecnica']) if (typeof dados[campo] === 'string') perfil[campo] = dados[campo]
+      return json(res, 200, perfil)
+    }
+    return json(res, 403, null, 'SEM_PERMISSAO')
   }
   if (req.method === 'GET' && req.url === '/api/v1/usuario') {
     const conta = validar(req)

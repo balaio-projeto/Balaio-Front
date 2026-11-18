@@ -4,22 +4,19 @@ import FormEnvioProducao from '@/components/painel/FormEnvioProducao'
 import FormRecebimento from '@/components/painel/FormRecebimento'
 import CartaoSelo from '@/components/painel/CartaoSelo'
 import { IconeAviso } from '@/components/ui/Icones'
-import { notFound } from 'next/navigation'
-import { obterArtesao, obterConfiguracoes } from '@/services/api/artesaos.servico'
+import EstadoErro from '@/components/feedback/EstadoErro'
+import { obterConfiguracoes } from '@/services/api/artesaos.servico'
 import { obterMeuSelo } from '@/services/api/curadoria.servico'
 import { obterReferencias } from '@/services/api/referencias.servico'
 import { exigirArtesao } from '@/services/autenticacao'
 
 export default async function Configuracoes() {
-  const { artesao: atelie, token } = await exigirArtesao()
-  const [{ dados: artesao }, refs, { dados: configuracoes, erro: erroConfiguracoes }, { dados: estadoSelo }] = await Promise.all([
-    obterArtesao(atelie.slug),
+  const { artesao, token } = await exigirArtesao()
+  const [refs, { dados: configuracoes, erro: erroConfiguracoes }, { dados: estadoSelo }] = await Promise.all([
     obterReferencias(),
-    obterConfiguracoes(atelie.slug),
+    obterConfiguracoes(artesao.slug),
     obterMeuSelo(token),
   ])
-  if (!artesao) notFound()
-  if (!configuracoes) throw new Error(erroConfiguracoes?.mensagem ?? 'Não foi possível carregar as configurações.')
   const tecnicas = refs.dados?.tecnicas ?? []
   const territorios = refs.dados?.territorios ?? []
 
@@ -35,13 +32,14 @@ export default async function Configuracoes() {
         <div>
           <FormPerfilAtelie artesao={artesao} tecnicas={tecnicas} territorios={territorios} />
 
-          <FormEnvioProducao slug={artesao.slug} configuracoes={configuracoes} />
+          {configuracoes ? <FormEnvioProducao slug={artesao.slug} configuracoes={configuracoes} />
+            : <EstadoErro mensagem={erroConfiguracoes?.mensagem ?? 'Não foi possível carregar as configurações de envio e recebimento.'} />}
         </div>
 
         <aside>
           <CartaoSelo estadoInicial={estadoSelo ?? { selo: artesao.selo, solicitacao: null }} />
 
-          <FormRecebimento slug={artesao.slug} chavePix={configuracoes.chavePix} />
+          {configuracoes && <FormRecebimento slug={artesao.slug} chavePix={configuracoes.chavePix} />}
 
           <p className="aviso">
             <IconeAviso />

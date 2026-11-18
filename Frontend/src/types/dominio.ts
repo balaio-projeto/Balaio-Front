@@ -41,6 +41,7 @@ export type Peca = {
 }
 
 export type Artesao = {
+  id?: string
   slug: string
   nome: string
   atelie: string

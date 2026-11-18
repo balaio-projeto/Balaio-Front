@@ -38,7 +38,6 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
   ])
   const media = reputacao ? reputacao.media : artesao.avaliacaoMedia
   const totalAvaliacoes = reputacao?.total
-  if (erroPecas) return <Pagina><EstadoErro mensagem={erroPecas.mensagem} /></Pagina>
   const pecas = (pecasArtesao ?? []).filter((peca) => !peca.inativadoEm && (!peca.situacao || peca.situacao === 'publicada'))
 
   return (
@@ -60,7 +59,7 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
             )}
           </div>
           <p style={{ opacity: 0.9, marginTop: 6 }}>
-            {artesao.nome} · {artesao.territorio} · {artesao.tecnica}
+            {[artesao.nome, artesao.territorio, artesao.tecnica].filter(Boolean).join(' · ')}
           </p>
         </div>
         <div className="acoes-linha">
@@ -120,7 +119,7 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
 
       <section className="secao">
         <h2 className="secao-titulo">Coleção viva do atelier</h2>
-        {pecas.length ? (
+        {erroPecas ? <EstadoErro mensagem={erroPecas.mensagem} /> : pecas.length ? (
           <ListaEscalonada className="grade-pecas">
             {pecas.map((p) => <CartaoPeca key={p.slug} peca={p} />)}
           </ListaEscalonada>
