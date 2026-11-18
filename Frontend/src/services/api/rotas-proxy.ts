@@ -19,18 +19,21 @@ const ROTA_DE_MIDIA = rota('/videos/:id/(arquivo|capa)')
 const ROTAS_COMMUNITY: Regra[] = [
   [['GET', 'POST'], rota('/pecas/:id/perguntas')],
   [['PATCH'], rota('/pecas/:id/perguntas/:id')],
-  [['GET', 'PUT'], rota(`/estado/(${COLECOES.join('|')})`)],
+  [['GET', 'PUT', 'PATCH'], rota(`/estado/(${COLECOES.join('|')})`)],
   [[...LEITURA, 'POST'], /^\/videos$/],
   [[...LEITURA, 'PATCH', 'DELETE'], rota('/videos/:id')],
   [[...LEITURA, 'PUT'], ROTA_DE_MIDIA],
   [['GET', 'POST'], rota('/videos/:id/comentarios')],
+  [['POST'], rota('/videos/:id/visualizacoes')],
   [['GET', 'POST'], rota('/pedidos/:id/avaliacao')],
   [['GET', 'POST'], rota('/pedidos/:id/conversa')],
+  [['POST'], rota('/pedidos/:id/conversa/leitura')],
   [['GET'], /^\/artesao\/conversas$/],
   [['GET'], rota('/artesaos/:id/reputacao')],
   [['GET', 'POST'], /^\/admin\/mediacoes$/],
   [['PATCH'], rota('/admin/mediacoes/:id')],
   [['POST'], rota('/admin/mediacoes/:id/decisao')],
+  [['POST'], rota('/admin/mediacoes/:id/reprocessar-entrega')],
 ]
 
 function atende(regras: Regra[], metodo: string, caminho: string): boolean {

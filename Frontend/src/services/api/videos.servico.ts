@@ -15,6 +15,10 @@ export async function listarVideos(painel = false, token?: string): Promise<Resp
   return buscar<Video[]>(`/videos${painel ? '?painel=true' : ''}`, comToken(token))
 }
 
+export async function registrarVisualizacao(id: string): Promise<RespostaApi<null>> {
+  return buscar<null>(`${caminhoDoVideo(id)}/visualizacoes`, { method: 'POST' })
+}
+
 export type NovoVideo = Pick<Video, 'legenda' | 'etiquetas' | 'duracao'> & { peca?: string }
 
 export function criarRascunho(video: NovoVideo): Promise<RespostaApi<Video>> {

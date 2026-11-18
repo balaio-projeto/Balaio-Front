@@ -46,6 +46,10 @@ export async function conversaDoPedido(id: string): Promise<RespostaApi<Mensagem
   return buscar<Mensagem[]>(`/pedidos/${encodeURIComponent(id)}/conversa`)
 }
 
+export async function confirmarLeituraDaConversa(id: string): Promise<RespostaApi<null>> {
+  return buscar<null>(`/pedidos/${encodeURIComponent(id)}/conversa/leitura`, { method: 'POST' })
+}
+
 export async function listarConversasArtesao(artesao?: string): Promise<RespostaApi<ConversaArtesao[]>> {
   return buscar<ConversaArtesao[]>(`/artesao/conversas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`)
 }

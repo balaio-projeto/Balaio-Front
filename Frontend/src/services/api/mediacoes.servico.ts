@@ -29,3 +29,7 @@ export function iniciarAnaliseDaMediacao(id: string): Promise<RespostaApi<Mediac
 export function decidirMediacao(id: string, decisao: DecisaoMediacao): Promise<RespostaApi<Mediacao>> {
   return enviar(`/admin/mediacoes/${encodeURIComponent(id)}/decisao`, { decisao })
 }
+
+export function reprocessarEntregaDaMediacao(id: string): Promise<RespostaApi<Mediacao>> {
+  return enviar(`/admin/mediacoes/${encodeURIComponent(id)}/reprocessar-entrega`, {})
+}

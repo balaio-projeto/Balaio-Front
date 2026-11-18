@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  COLECOES, obterColecao, salvarColecao as salvarColecaoRemota,
+  COLECOES, alterarColecao as alterarColecaoRemota, obterColecao, salvarColecao as salvarColecaoRemota,
   type Colecao, type ColecoesDoUsuario, type EstadoCliente,
 } from '@/services/api/estado.servico'
 import { falha, sucesso, type RespostaApi } from '@/services/api/tipos'
@@ -55,6 +55,12 @@ async function migrarColecoesDoVisitante(remotas: ColecoesDoUsuario): Promise<Co
   return mescladas
 }
 
+function alternarNoVisitante(colecao: Colecao, item: string, incluir: boolean): RespostaApi<string[]> {
+  const atuais = (lerColecoesVisitante() ?? colecoesVazias())[colecao]
+  const proximos = incluir ? [...new Set([...atuais, item])] : atuais.filter((atual) => atual !== item)
+  return gravarColecaoVisitante(colecao, proximos) ? sucesso(proximos) : falha('ARMAZENAMENTO_INDISPONIVEL', ERRO_ARMAZENAMENTO)
+}
+
 function estadoDoVisitante(): EstadoCliente {
   return { ...(lerColecoesVisitante() ?? colecoesVazias()), id: 'visitante' }
 }
@@ -98,10 +104,9 @@ export function EstadoClienteProvider({ children }: { children: ReactNode }) {
 
   const alternarNaColecao = useCallback((colecao: Colecao, item: string, incluir: boolean) => {
     const operacao = (filas.current.get(colecao) ?? Promise.resolve()).catch(() => {}).then(async () => {
-      const atuais = usuarioId ? await obterColecao(colecao) : sucesso((lerColecoesVisitante() ?? colecoesVazias())[colecao])
-      if (atuais.erro || !atuais.dados) return falha(atuais.erro?.codigo ?? 'RESPOSTA_INVALIDA', atuais.erro?.mensagem ?? 'Não foi possível ler seus dados.')
-      const proximos = incluir ? [...new Set([...atuais.dados, item])] : atuais.dados.filter((atual) => atual !== item)
-      const salva = await salvadorDaColecao(colecao)(proximos)
+      const salva = usuarioId
+        ? await alterarColecaoRemota(colecao, incluir ? { adicionar: [item] } : { remover: [item] })
+        : alternarNoVisitante(colecao, item, incluir)
       if (salva.dados) atualizarEstado({ [colecao]: salva.dados })
       return salva
     })
@@ -110,7 +115,7 @@ export function EstadoClienteProvider({ children }: { children: ReactNode }) {
       if (filas.current.get(colecao) === operacao) filas.current.delete(colecao)
     })
     return operacao
-  }, [usuarioId, salvadorDaColecao, atualizarEstado])
+  }, [usuarioId, atualizarEstado])
 
   return (
     <Contexto.Provider value={{ ...leitura, recarregar, salvadorDaColecao, alternarNaColecao }}>
