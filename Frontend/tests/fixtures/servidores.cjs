@@ -6,6 +6,7 @@ const contas = new Map()
 const sacolas = new Map()
 const perfis = new Map()
 const imagens = new Map()
+const preferencias = new Map()
 function perfilDaConta(conta) {
   if (!perfis.has(conta.id)) perfis.set(conta.id, {
     id: conta.id, slug: `artesao-${conta.id}`, nome: conta.nome, atelie: `Atelie de ${conta.nome}`,
@@ -51,10 +52,39 @@ const gateway = createServer(async (req, res) => {
   const multipart = req.headers['content-type']?.startsWith('multipart/form-data')
   const dados = corpo.length && !multipart ? JSON.parse(corpo.toString()) : {}
   if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/saude') return json(res, 200, true)
-  eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method })
+  eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method, bearer: Boolean(req.headers.authorization) })
+  if (/^\/api\/v1\/artesaos\/[^/]+\/configuracoes$/.test(req.url)) {
+    const conta = validar(req)
+    if (!conta || !req.headers.authorization) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao' || req.url !== `/api/v1/artesaos/artesao-${conta.id}/configuracoes`)
+      return json(res, 403, null, 'SEM_PERMISSAO')
+    const atual = preferencias.get(conta.id) ?? { cepOrigem: '', prazoPadraoDias: 1, aceitaEncomendas: false, encomendasPausadas: false, chavePix: '' }
+    if (req.method === 'PATCH') {
+      Object.assign(atual, dados)
+      preferencias.set(conta.id, atual)
+    }
+    return json(res, 200, atual)
+  }
+  if ((req.method === 'PATCH' && (req.url === '/api/v1/usuario' || req.url.startsWith('/api/v1/conta/')))
+      || (req.method === 'POST' && req.url === '/api/v1/auth/alterar-senha')) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (req.url.startsWith('/api/v1/conta/') && req.url !== `/api/v1/conta/${conta.id}`) return json(res, 403, null, 'SEM_PERMISSAO')
+    if (req.url === '/api/v1/auth/alterar-senha') {
+      if (dados.senhaAtual !== conta.senha) return json(res, 400, null, 'ALTERACAO_SENHA_INVALIDA')
+      conta.senha = dados.novaSenha
+      return json(res, 200, { alterada: true })
+    }
+    if (dados.email && contas.has(dados.email) && dados.email !== conta.email) return json(res, 409, null, 'EMAIL_EM_USO')
+    contas.delete(conta.email)
+    if (dados.nome) conta.nome = dados.nome
+    if (dados.email) conta.email = dados.email
+    contas.set(conta.email, conta)
+    return json(res, 200, publico(conta))
+  }
   if (configuracao.sacolaTeste) {
     const caminho = new URL(req.url, 'http://127.0.0.1').pathname
     const peca = { slug: 'peca-valida', nome: 'Peça válida', preco: 50, desconto: 0,

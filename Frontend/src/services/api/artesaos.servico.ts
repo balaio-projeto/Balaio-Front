@@ -35,8 +35,8 @@ export type ConfiguracoesAtelie = {
   chavePix: string
 }
 
-export function obterConfiguracoes(slug: string): Promise<RespostaApi<ConfiguracoesAtelie>> {
-  return buscar<ConfiguracoesAtelie>(`/artesaos/${encodeURIComponent(slug)}/configuracoes`)
+export function obterConfiguracoes(slug: string, token?: string): Promise<RespostaApi<ConfiguracoesAtelie>> {
+  return buscar<ConfiguracoesAtelie>(`/artesaos/${encodeURIComponent(slug)}/configuracoes`, comToken(token))
 }
 
 export function atualizarConfiguracoes(slug: string, alteracoes: Partial<ConfiguracoesAtelie>): Promise<RespostaApi<ConfiguracoesAtelie>> {

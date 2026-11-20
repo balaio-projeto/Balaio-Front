@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:auth": "tsx --test tests/auth.test.ts",
     "test:media": "tsx --test tests/media.test.ts",
+    "test:pi209": "tsx --test tests/pi209.test.ts",
     "test:e2e:auth": "playwright test",
     "test:session": "tsx --test src/proxy.test.ts",
     "test:sacola": "tsx --test src/store/sacola.test.ts src/components/carrinho/abrirPagamento.test.ts",

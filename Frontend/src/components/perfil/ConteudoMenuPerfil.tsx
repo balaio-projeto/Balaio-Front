@@ -43,10 +43,14 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
         itens: [
           ...doPainel,
           { chave: 'nova-peca', texto: 'Cadastrar peça', href: '/dashboard/pieces/new', icone: <IconeEditar /> },
-          { chave: 'loja', texto: 'Ver minha loja', href: `/artisans/${sessao.artesao}`, icone: <IconeSelo /> },
+          ...(resumo.artesao?.slug ? [{ chave: 'loja', texto: 'Ver minha loja', href: `/artisans/${resumo.artesao.slug}`, icone: <IconeSelo /> }] : []),
         ],
       },
       { rotulo: 'Compras', itens: [salvas] },
+      {
+        rotulo: 'Minha conta',
+        itens: [{ chave: 'dados', texto: 'Meus dados', href: '/account/details', icone: <IconeUsuario /> }],
+      },
     ]
   }
   if (sessao.papel === 'admin') {

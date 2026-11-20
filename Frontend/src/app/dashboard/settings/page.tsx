@@ -14,7 +14,7 @@ export default async function Configuracoes() {
   const { artesao, token } = await exigirArtesao()
   const [refs, { dados: configuracoes, erro: erroConfiguracoes }, { dados: estadoSelo }] = await Promise.all([
     obterReferencias(),
-    obterConfiguracoes(artesao.slug),
+    obterConfiguracoes(artesao.slug, token),
     obterMeuSelo(token),
   ])
   const tecnicas = refs.dados?.tecnicas ?? []

@@ -3,7 +3,7 @@ import type { EnderecoUsuario, OpcaoFrete, Usuario } from '@/types/dominio'
 
 export type Cadastro = { nome: string; email: string; senha: string; perfil: 'comprador' | 'artesao'; territorio?: string; tecnica?: string }
 export type Credenciais = { email: string; senha: string }
-export type AtualizacaoUsuario = Pick<Usuario, 'nome' | 'email' | 'telefone' | 'tipoComprador'>
+export type AtualizacaoUsuario = Partial<Pick<Usuario, 'nome' | 'email'>>
 
 export const enviarAutenticacao = <T>(caminho: string, corpo: unknown) => enviar<T>(caminho, corpo)
 

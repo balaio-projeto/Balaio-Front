@@ -80,7 +80,7 @@ Todas com o prefixo `/api/v1`.
 | POST | `/auth/recuperacao` | 🌐 | `{ email }`: solicita link, sempre `201` e `{ dados: { recebida: true }, erro: null }` para endereço válido, cadastrado ou não |
 | POST | `/auth/redefinicao` | 🌐 | `{ token, novaSenha }`: redefine senha com link de uso único; `200` ou `400 TOKEN_INVALIDO` |
 | GET / PATCH | `/usuario` | 🔑 | Consulta ou altera o usuário logado |
-| POST | `/conta/:id/senha` | 🔑 | `{ senhaAtual, novaSenha }` |
+| POST | `/auth/alterar-senha` | 🔑 | `{ senhaAtual, novaSenha }`; resposta `{ alterada: true }` |
 | GET / POST / PATCH / DELETE | `/usuario/enderecos` | 🔑 | Endereços de entrega |
 
 ### Catálogo
@@ -258,7 +258,31 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 Enquanto estes endpoints não existem, as telas correspondentes mostram erro ou estado vazio:
 
 - **events-service:** nenhum endpoint implementado.
-- **profile-service:** implementa autenticação, recuperação de senha, `GET /usuario`,
-  `/artesaos`, `/artesaos/{slug}` e `/artesao/me`. Faltam `/artesao/selo`,
-  `/artesaos/{slug}/configuracoes`, `/coletivos`, `/admin/curadoria`, `PATCH /usuario`,
-  endereços e `/conta`.
+- **profile-service:** faltam `/artesao/selo`, `/coletivos`, `/admin/curadoria`
+  e endereços. Conta e configurações operacionais são atendidas pelo PI-209.
+
+## PI-209 — conta e configurações operacionais
+
+`PATCH /usuario` e `PATCH /conta/:id` aceitam somente `nome` e `email`, ambos
+opcionais, mas com ao menos um campo enviado. O alvo é sempre a própria conta.
+Não enviamos telefone, papel, UUID ou credenciais nessa edição. Campos omitidos
+permanecem intactos; e-mail duplicado retorna `409 EMAIL_EM_USO` e campos inválidos
+retornam `400 REQUISICAO_INVALIDA`, com `erro.campos`. Recarregar e entrar novamente
+obtém os dados persistidos por `GET /usuario` e pelo login existentes.
+
+`GET/PATCH /artesaos/:slug/configuracoes` é privado do artesão proprietário e
+retorna `{ cepOrigem, prazoPadraoDias, aceitaEncomendas, encomendasPausadas, chavePix }`.
+CEP aceita oito dígitos com hífen opcional; prazo é inteiro de 1 a 120 dias;
+as opções são booleanas e a chave Pix é texto não vazio. PATCH preserva campos
+omitidos. A chave não faz parte de respostas públicas. Respostas usam `no-store`.
+Na primeira consulta, CEP/Pix estão vazios, prazo em 1 e opções desmarcadas,
+para preenchimento; GET não grava essas configurações iniciais.
+
+No SSR de `/dashboard/settings`, `exigirArtesao()` fornece a sessão e
+`obterConfiguracoes(slug, token)` encaminha Bearer explicitamente. O token não é
+passado aos formulários cliente, nem é alterado o cookie HttpOnly. As escritas
+do navegador passam pelo proxy existente com verificação de Origin.
+
+Troca de senha usa somente `POST /auth/alterar-senha`, com `senhaAtual` e
+`novaSenha`, reutilizando a implementação existente. A rota legada
+`/conta/:id/senha` não é chamada e não ganhou um segundo caso de uso.
