@@ -166,7 +166,11 @@ O formulário consulta `GET /referencias` no catálogo real. Se as listas não c
 
 ### Recuperação de senha
 
-`POST /api/v1/auth/recuperacao` recebe `{ "email": "ana@exemplo.com" }`. O resultado é igual para conta existente ou ausente. Para conta existente, o e-mail contém `/login/reset?token=...`; o link expira em 1 hora. `POST /api/v1/auth/redefinicao` recebe `{ "token": "...", "novaSenha": "senha-com-8-ou-mais-caracteres" }` e devolve `{ "dados": { "redefinida": true }, "erro": null }`. Token desconhecido, vencido ou usado devolve `400` com `TOKEN_INVALIDO`. E-mail inválido ou senha curta devolve `400 REQUISICAO_INVALIDA`.
+`POST /api/v1/auth/recuperacao` recebe `{ "email": "ana@exemplo.com" }`. O resultado é igual para conta existente ou ausente: `201` e `{ "dados": { "recebida": true }, "erro": null }`. Isso confirma o pedido, não a entrega pelo provedor SMTP. Para conta existente, o e-mail contém `/login/reset?token=...`; o link expira em 1 hora por padrão. A origem do link é `PROFILE_FRONTEND_BASE_URL`, absoluta e HTTPS em homologação; loopback HTTP é reservado ao desenvolvimento local.
+
+`POST /api/v1/auth/redefinicao` mantém `{ "token": "...", "novaSenha": "NovaSenhaSegura123!" }` e devolve `{ "dados": { "redefinida": true }, "erro": null }`. Token desconhecido, vencido ou usado devolve `400 TOKEN_INVALIDO`. A senha segue a política já existente: pelo menos 12 codepoints Unicode, no máximo 72 bytes UTF-8 e nenhum controle ou UTF-16 inválido. Não há trim. 36 letras `é` ou 18 emojis de quatro bytes atingem 72 bytes; 37 letras `é`, 19 emojis ou 11 emojis são recusados. E-mail inválido ou senha fora da política devolve `400 REQUISICAO_INVALIDA`.
+
+As telas existentes usam a validação compartilhada; nenhum endpoint ou fluxo JWT novo foi criado. Testes `tests/recovery.test.ts` cobrem os contratos e Unicode. `tests/pi170-real-browser.cjs`, iniciado pelo script descartável do Profile, valida SMTP real com Mailpit e as telas desktop/mobile pelo Gateway. A entrega em caixa Gmail deve ser comprovada separadamente com as credenciais do ambiente.
 
 O profile-service implementa as duas rotas.
 
