@@ -263,7 +263,7 @@ Resumo dos recursos (prefixo `/api/v1`):
 | Artesãos e coletivos | `GET /artesaos`, `/artesaos/:slug`, `/artesaos/:slug/pecas`, `/coletivos` |
 | Sacola e coleções | `GET/PUT /estado/sacola`, `GET/PUT /estado/favoritos`, `/estado/historicoBusca`, `/estado/videosCurtidos`, `/estado/videosSalvos` |
 | Pedidos | `POST /checkout`, `GET /pedidos`, `PATCH /pedidos/:id/cancelar`, `POST /pedidos/:id/avaliacao` |
-| Painel do artesão | `POST/PATCH/DELETE /pecas`, `GET /artesao/pedidos-pendentes`, `/artesao/vendas`, `/artesao/selo` |
+| Painel do artesão | `POST/PATCH/DELETE /pecas`, `GET /artesao/pedidos-pendentes`, `PATCH /pedidos/{id}/estado` com `{estado:"producao"}`, `/artesao/vendas`, `/artesao/selo` |
 | Administração | `GET /admin/curadoria`, `POST /admin/curadoria/:id/decisao`, `/admin/mediacoes` |
 | Apoio | `GET /referencias`, `/fretes`, `/eventos`, `/videos` |
 

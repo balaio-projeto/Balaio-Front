@@ -74,7 +74,7 @@ export function useContagensPainel(): ContagensPainel {
     if (!slug) return
     let vivo = true
     function carregar() {
-      Promise.all([listarPedidosPendentes(slug), listarConversasArtesao(slug)]).then(([pendentes, conversas]) => {
+      Promise.all([listarPedidosPendentes(), listarConversasArtesao(slug)]).then(([pendentes, conversas]) => {
         if (!vivo) return
         definirContagens({
           pendentes: pendentes.dados?.length ?? 0,
