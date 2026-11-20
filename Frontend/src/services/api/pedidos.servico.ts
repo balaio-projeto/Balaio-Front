@@ -54,9 +54,8 @@ export async function listarConversasArtesao(artesao?: string): Promise<Resposta
   return buscar<ConversaArtesao[]>(`/artesao/conversas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`)
 }
 
-export async function listarPedidosPendentes(artesao?: string, token?: string): Promise<RespostaApi<PedidoPendente[]>> {
-  return buscar<PedidoPendente[]>(`/artesao/pedidos-pendentes${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
-    comToken(token))
+export async function listarPedidosPendentes(token?: string): Promise<RespostaApi<PedidoPendente[]>> {
+  return buscar<PedidoPendente[]>('/artesao/pedidos-pendentes', comToken(token))
 }
 
 export async function listarVendasArtesao(artesao?: string, token?: string): Promise<RespostaApi<Pedido[]>> {

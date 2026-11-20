@@ -16,6 +16,7 @@ function perfilDaConta(conta) {
   return perfis.get(conta.id)
 }
 let configuracao = {}
+let pedidosPendentes = []
 const SENHA_TESTE = 'SenhaDeTeste123!'
 for (const papel of ['comprador', 'artesao', 'admin']) {
   const email = `${papel}@auth.test`
@@ -51,11 +52,29 @@ const gateway = createServer(async (req, res) => {
   const corpo = Buffer.concat(partes)
   const multipart = req.headers['content-type']?.startsWith('multipart/form-data')
   const dados = corpo.length && !multipart ? JSON.parse(corpo.toString()) : {}
-  if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
+  if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; if (dados.pedidosPendentes) pedidosPendentes = dados.pedidosPendentes; return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; pedidosPendentes = []; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/saude') return json(res, 200, true)
   eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method, bearer: Boolean(req.headers.authorization) })
+  if (req.method === 'GET' && req.url === '/api/v1/artesao/pedidos-pendentes') {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    return conta.papel === 'artesao' ? json(res, 200, pedidosPendentes) : json(res, 403, null, 'SEM_PERMISSAO')
+  }
+  if (req.method === 'PATCH' && /^\/api\/v1\/pedidos\/[^/]+\/estado$/.test(req.url)) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao' || configuracao.falhaAceite) return json(res, 403, null, 'SEM_PERMISSAO')
+    if (dados.estado !== 'producao') return json(res, 400, null, 'REQUISICAO_INVALIDA')
+    const id = req.url.split('/')[4]
+    if (!pedidosPendentes.some((pedido) => pedido.id === id)) return json(res, 409, null, 'PEDIDO_CONFLITANTE')
+    pedidosPendentes = pedidosPendentes.filter((pedido) => pedido.id !== id)
+    return json(res, 200, { id, estado: 'producao' })
+  }
+  if (req.method === 'GET' && req.url.startsWith('/api/v1/artesao/vendas')) return json(res, 200, [])
+  if (req.method === 'GET' && req.url.startsWith('/api/v1/artesao/conversas')) return json(res, 200, [])
+  if (req.method === 'GET' && /^\/api\/v1\/artesaos\/[^/]+\/pecas$/.test(req.url)) return json(res, 200, [])
   if (/^\/api\/v1\/artesaos\/[^/]+\/configuracoes$/.test(req.url)) {
     const conta = validar(req)
     if (!conta || !req.headers.authorization) return json(res, 401, null, 'NAO_AUTENTICADO')

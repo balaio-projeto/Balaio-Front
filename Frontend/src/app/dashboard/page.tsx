@@ -9,8 +9,8 @@ import { ESTADOS_ENCERRADOS, faturamentoNoMes, vendasDoArtesao } from '@/utils/v
 
 export default async function Painel() {
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: pend }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
-    listarPedidosPendentes(artesao.slug, token),
+  const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
+    listarPedidosPendentes(token),
     listarConversasArtesao(artesao.slug),
     pecasPorArtesao(artesao.slug, token),
     listarVendasArtesao(artesao.slug, token),
@@ -32,10 +32,7 @@ export default async function Painel() {
   })
 
   const naoLidas = conversasArtesao.filter((c) => c.naoLida).length
-  const slugsDoArtesao = new Set((pecas ?? []).filter((peca) => peca.artesao === artesao.slug).map((peca) => peca.slug))
-  const pedidosDoArtesao = (pedidos ?? []).filter((pedido) =>
-    (pedido.itens ?? [{ slug: pedido.pecaSlug }]).some((item) => slugsDoArtesao.has(item.slug)),
-  )
+  const pedidosDoArtesao = pedidos ?? []
   const pecasUnicasVendidas = new Set(
     pedidosDoArtesao.filter((pedido) => !ESTADOS_ENCERRADOS.has(pedido.estado)).flatMap((pedido) =>
       (pedido.itens ?? [{ slug: pedido.pecaSlug }])
@@ -67,6 +64,7 @@ export default async function Painel() {
 
       <PedidosPendentes
         iniciais={pendentes}
+        erroCarregamento={erroPendentes?.mensagem}
         emProducao={pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length}
         pecasAtivas={pecasAtivas}
         avisosPecas={avisosPecas}

@@ -23,12 +23,14 @@ export type PedidoPendente = {
 
 export default function PedidosPendentes({
   iniciais,
+  erroCarregamento,
   faturamentoMes,
   emProducao,
   pecasAtivas,
   avisosPecas,
 }: {
   iniciais: PedidoPendente[]
+  erroCarregamento?: string
   faturamentoMes: number
   emProducao: number
   pecasAtivas: number
@@ -78,7 +80,8 @@ export default function PedidosPendentes({
     if (!iniciarAtualizacao(pedido.id)) return
     try {
       const resposta = await atualizarEstadoPedido(pedido.id, 'producao')
-      if (!resposta.dados) return avisar.erro('Não foi possível aceitar', resposta.erro?.mensagem)
+      if (resposta.erro || resposta.dados?.estado !== 'producao')
+        return avisar.erro('Não foi possível aceitar', resposta.erro?.mensagem)
       definirResolvidos((atuais) => [...new Set([...atuais, pedido.id])])
       avisarPainelAtualizado()
       roteador.refresh()
@@ -158,7 +161,8 @@ export default function PedidosPendentes({
       <section className="secao">
         <h2 className="secao-titulo">Novos pedidos recebidos</h2>
 
-        {pendentes.length === 0 && (
+        {erroCarregamento && <p role="alert">Não foi possível carregar os pedidos: {erroCarregamento}</p>}
+        {!erroCarregamento && pendentes.length === 0 && (
           <EstadoVazio
             icone={<IconePacote tamanho={34} />}
             titulo="Nenhum pedido aguardando"
