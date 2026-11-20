@@ -290,7 +290,7 @@ As telas abaixo mostram erro ou estado vazio até o backend implementar os endpo
 | Serviço | O que falta |
 |---|---|
 | `events-service` | Nenhum endpoint implementado (agenda, detalhe e criação de evento) |
-| `profile-service` | Só implementa autenticação (`/auth/cadastro`, `login`, `entrar`, `logout`, `recuperacao`, `redefinicao`) e `GET /usuario`. Faltam `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria`, `PATCH /usuario`, endereços e `/conta` |
+| `profile-service` | Autenticação, conta, perfil/foto, configurações do ateliê e selo/curadoria implementados. Faltam coletivos e endereços. |
 | `commerce-service` | Não implementa `/estado/sacola` (a sacola da conta não é lida nem salva) |
 
 ## Arquitetura

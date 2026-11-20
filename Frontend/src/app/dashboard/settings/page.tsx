@@ -12,7 +12,7 @@ import { exigirArtesao } from '@/services/autenticacao'
 
 export default async function Configuracoes() {
   const { artesao, token } = await exigirArtesao()
-  const [refs, { dados: configuracoes, erro: erroConfiguracoes }, { dados: estadoSelo }] = await Promise.all([
+  const [refs, { dados: configuracoes, erro: erroConfiguracoes }, { dados: estadoSelo, erro: erroSelo }] = await Promise.all([
     obterReferencias(),
     obterConfiguracoes(artesao.slug, token),
     obterMeuSelo(token),
@@ -37,7 +37,8 @@ export default async function Configuracoes() {
         </div>
 
         <aside>
-          <CartaoSelo estadoInicial={estadoSelo ?? { selo: artesao.selo, solicitacao: null }} />
+          {estadoSelo && !erroSelo ? <CartaoSelo key={`${estadoSelo.selo}-${estadoSelo.solicitacao?.id}-${estadoSelo.solicitacao?.situacao}`} estadoInicial={estadoSelo} />
+            : <EstadoErro mensagem={erroSelo?.mensagem ?? 'Não foi possível consultar a solicitação do selo. Tente novamente.'} />}
 
           {configuracoes && <FormRecebimento slug={artesao.slug} chavePix={configuracoes.chavePix} />}
 

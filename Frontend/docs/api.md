@@ -258,8 +258,30 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 Enquanto estes endpoints não existem, as telas correspondentes mostram erro ou estado vazio:
 
 - **events-service:** nenhum endpoint implementado.
-- **profile-service:** faltam `/artesao/selo`, `/coletivos`, `/admin/curadoria`
-  e endereços. Conta e configurações operacionais são atendidas pelo PI-209.
+- **profile-service:** faltam `/coletivos` e endereços. Conta e configurações
+  operacionais são atendidas pelo PI-209; solicitação e curadoria do selo pelo PI-177.
+
+## PI-177 — selo e curadoria reais
+
+`GET/POST /artesao/selo`, `GET /admin/curadoria` e
+`POST /admin/curadoria/:id/decisao` são persistidos no Profile. O artesão acessa
+somente seu estado; admin é conferido no banco, inclusive troca obrigatória da
+senha. POST de solicitação recebe `{ mensagem }` opcional, até 1.000 caracteres.
+Decisão recebe `{ decisao: "aprovada" | "ajuste", motivo }`; ajuste exige motivo
+não vazio de até 1.000 caracteres. Sucesso retorna 200 com envelopes existentes.
+
+Reenvio após ajuste cria novo ID e preserva o histórico. Solicitação duplicada
+pendente ou após aprovação recebe 409. Repetir decisão/motivo iguais retorna o
+resultado anterior; decisão conflitante retorna 409, inclusive sob concorrência.
+Aprovação aparece em `selo` nas listagens, perfil público e `/artesao/me`, sem
+alterar `autentica`, publicação ou visibilidade das peças.
+
+`pecasPublicadas` da fila vem da API pública real do Catalog; aprovação exige ao
+menos uma peça publicada/ativa. Falha do Catalog gera 503, não contagem fictícia.
+Falha em `/coletivos` mostra aviso no admin e não bloqueia a fila (backend PI-183
+continua separado). Erro ao consultar o selo nas configurações mostra erro sem
+apresentar formulário para nova solicitação. Consultas SSR encaminham Bearer
+explicitamente; navegador usa o proxy/cookie HttpOnly existente.
 
 ## PI-209 — conta e configurações operacionais
 
