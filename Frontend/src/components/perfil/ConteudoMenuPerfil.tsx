@@ -11,6 +11,7 @@ import type { ResumoPerfil } from '@/hooks/useResumoPerfil'
 import type { Sessao } from '@/services/sessao/cookie'
 import { useFavoritos } from '@/store/favoritos'
 import type { EstadoSelo } from '@/types/dominio'
+import { useImagemConta } from '@/hooks/useArtesaoLogado'
 
 const ITENS_DO_PAINEL_NO_MENU: ChavePainel[] = ['pedidos', 'conversas', 'pecas', 'config']
 
@@ -42,10 +43,14 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
         itens: [
           ...doPainel,
           { chave: 'nova-peca', texto: 'Cadastrar peça', href: '/dashboard/pieces/new', icone: <IconeEditar /> },
-          { chave: 'loja', texto: 'Ver minha loja', href: `/artisans/${sessao.artesao}`, icone: <IconeSelo /> },
+          ...(resumo.artesao?.slug ? [{ chave: 'loja', texto: 'Ver minha loja', href: `/artisans/${resumo.artesao.slug}`, icone: <IconeSelo /> }] : []),
         ],
       },
       { rotulo: 'Compras', itens: [salvas] },
+      {
+        rotulo: 'Minha conta',
+        itens: [{ chave: 'dados', texto: 'Meus dados', href: '/account/details', icone: <IconeUsuario /> }],
+      },
     ]
   }
   if (sessao.papel === 'admin') {
@@ -78,6 +83,7 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
 
 export default function ConteudoMenuPerfil({ sessao, resumo, idTitulo }: Props) {
   const { slugs, pronto } = useFavoritos()
+  const imagem = useImagemConta(sessao)
   const salvas: ItemMenu = {
     chave: 'salvas',
     texto: 'Peças salvas',
@@ -109,7 +115,7 @@ export default function ConteudoMenuPerfil({ sessao, resumo, idTitulo }: Props) 
   return (
     <div className="menu-perfil-conteudo">
       <div className="menu-perfil-topo">
-        <Retrato imagem={resumo.artesao?.imagem ?? sessao.imagem} tamanho={44} />
+        <Retrato imagem={imagem} tamanho={44} />
         <div className="encolhivel">
           <p className="menu-perfil-nome" id={idTitulo}>{sessao.nome}</p>
           <p className="menu-perfil-detalhe">{detalhe}</p>

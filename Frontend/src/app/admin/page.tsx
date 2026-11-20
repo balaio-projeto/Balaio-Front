@@ -19,7 +19,7 @@ export default async function Admin() {
     listarColetivos(),
   ])
   const pecasDaFila = await Promise.all((fila.dados ?? []).map((item) => pecasPorArtesao(item.artesaoSlug)))
-  const falha = [fila, artesaos, coletivos, ...pecasDaFila].find((resposta) => resposta.erro || !resposta.dados)
+  const falha = [fila, artesaos, ...pecasDaFila].find((resposta) => resposta.erro || !resposta.dados)
 
   return (
     <LayoutAdmin ativo="curadoria">
@@ -32,6 +32,10 @@ export default async function Admin() {
           <IconeSetaDireita tamanho={14} />
         </Link>
       </div>
+
+      {(coletivos.erro || !coletivos.dados) && (
+        <p className="aviso" role="status">Não foi possível consultar os coletivos. Confira o vínculo com a associação durante a análise.</p>
+      )}
 
       {falha ? (
         <EstadoErro mensagem={falha.erro?.mensagem} />

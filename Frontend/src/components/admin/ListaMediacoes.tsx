@@ -6,6 +6,7 @@ import { avisar } from '@/components/feedback/Avisos'
 import { IconeAviso } from '@/components/ui/Icones'
 import {
   DECISOES_DE_MEDIACAO, decidirMediacao as registrarDecisao, ehDecisaoDeMediacao, iniciarAnaliseDaMediacao,
+  reprocessarEntregaDaMediacao,
   type DecisaoMediacao,
 } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
@@ -66,6 +67,29 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
     }
   }
 
+  async function reenviarDecisao(m: Mediacao) {
+    if (!comecar(m.id)) return
+    try {
+      const resposta = await reprocessarEntregaDaMediacao(m.id)
+      if (resposta.erro || !resposta.dados) {
+        avisar.erro('Não foi possível reenviar a decisão', resposta.erro?.mensagem)
+        return
+      }
+      const atualizada = resposta.dados
+      definirLista((atual) => atual.map((item) => item.id === m.id ? atualizada : item))
+      if (atualizada.estado === 'falha_entrega') {
+        avisar.erro('O serviço de pedidos recusou a decisão de novo', atualizada.ultimoErro ?? undefined)
+      } else {
+        avisar.info('Decisão reenviada', atualizada.estado === 'decisao_pendente'
+          ? 'O comando ao serviço de pedidos está pendente de confirmação.' : 'O serviço de pedidos recebeu a decisão.')
+      }
+    } catch {
+      avisar.erro('Não foi possível reenviar a decisão', 'Tente novamente.')
+    } finally {
+      terminar(m.id)
+    }
+  }
+
   if (lista.length === 0) {
     return (
       <EstadoVazio
@@ -82,12 +106,13 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
         const emAnalise = m.emAnalise || m.estado === 'emAnalise' || abertas.includes(m.id)
         const decidida = m.estado === 'decidida'
         const pendente = m.estado === 'decisao_pendente'
+        const falhou = m.estado === 'falha_entrega'
         return (
           <li className="cartao-curadoria" key={m.id}>
             <header className="cartao-curadoria-topo">
               <span className={`selo ${emAnalise ? 'selo-neutro' : 'selo-unica'}`}>
                 <span className="selo-ponto" />
-                {decidida ? 'Decidida' : pendente ? 'Decisão pendente' : emAnalise ? 'Em análise' : 'Aguardando abertura'}
+                {decidida ? 'Decidida' : pendente ? 'Decisão pendente' : falhou ? 'Falha na entrega' : emAnalise ? 'Em análise' : 'Aguardando abertura'}
               </span>
               <span className="dado-rotulo">
                 {m.id} · aberta {m.aberta}
@@ -103,7 +128,17 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
             </div>
 
             <footer className="acoes-linha acoes-empilhaveis cartao-curadoria-acoes">
-              {decidida || pendente ? (
+              {falhou ? (
+                <>
+                  <p className="campo-ajuda">
+                    {`O serviço de pedidos não aplicou a decisão (${m.decisao ? DECISOES_DE_MEDIACAO[m.decisao] : 'registrada'}).`}
+                    {m.ultimoErro ? ` Motivo: ${m.ultimoErro}.` : ''}
+                  </p>
+                  <button type="button" className="botao botao-primario" disabled={processando.includes(m.id)} onClick={() => void reenviarDecisao(m)}>
+                    Reenviar ao serviço de pedidos
+                  </button>
+                </>
+              ) : decidida || pendente ? (
                 <p className="campo-ajuda">{pendente
                   ? `Entrega ao serviço de pedidos em processamento${m.tentativas ? ` (${m.tentativas} ${m.tentativas === 1 ? 'tentativa' : 'tentativas'})` : ''}.`
                   : `Decisão: ${m.decisao ? DECISOES_DE_MEDIACAO[m.decisao] : 'registrada'}`}</p>

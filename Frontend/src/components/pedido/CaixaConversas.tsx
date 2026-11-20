@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import { IconeEnviar, IconeSetaEsquerda } from '@/components/ui/Icones'
 import type { ConversaArtesao, Mensagem } from '@/types/dominio'
-import { conversaDoPedido, enviarMensagem } from '@/services/api/pedidos.servico'
+import { confirmarLeituraDaConversa, conversaDoPedido, enviarMensagem } from '@/services/api/pedidos.servico'
 import { avisar } from '@/components/feedback/Avisos'
 
 type Props = { fios: ConversaArtesao[]; conversaInicial: Mensagem[] }
@@ -44,6 +44,7 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
     definirFioAtivo(id)
     definirFioAberto(true)
     definirLidas((atuais) => atuais.includes(id) ? atuais : [...atuais, id])
+    void confirmarLeituraDaConversa(id)
     if (mensagens[id] || carregamentosEmAndamento.current.has(id)) return
     carregamentosEmAndamento.current.add(id)
     definirCarregando((atuais) => [...atuais, id])

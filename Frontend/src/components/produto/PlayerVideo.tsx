@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 
-type Props = { url: string; capa: string; ativo: boolean }
+type Props = { url: string; capa: string; ativo: boolean; aoIniciar?: () => void }
 
-export default function PlayerVideo({ url, capa, ativo }: Props) {
+export default function PlayerVideo({ url, capa, ativo, aoIniciar }: Props) {
   const refVideo = useRef<HTMLVideoElement>(null)
+  const jaIniciou = useRef(false)
   const refProgresso = useRef<HTMLSpanElement>(null)
   const [tocando, definirTocando] = useState(false)
 
@@ -41,7 +42,12 @@ export default function PlayerVideo({ url, capa, ativo }: Props) {
         playsInline
         loop
         onClick={alternarReproducao}
-        onPlay={() => definirTocando(true)}
+        onPlay={() => {
+          definirTocando(true)
+          if (jaIniciou.current) return
+          jaIniciou.current = true
+          aoIniciar?.()
+        }}
         onPause={() => definirTocando(false)}
         onTimeUpdate={(evento) => atualizarProgresso(evento.currentTarget)}
       />

@@ -80,7 +80,7 @@ Todas com o prefixo `/api/v1`.
 | POST | `/auth/recuperacao` | 🌐 | `{ email }`: solicita link, sempre `201` e `{ dados: { recebida: true }, erro: null }` para endereço válido, cadastrado ou não |
 | POST | `/auth/redefinicao` | 🌐 | `{ token, novaSenha }`: redefine senha com link de uso único; `200` ou `400 TOKEN_INVALIDO` |
 | GET / PATCH | `/usuario` | 🔑 | Consulta ou altera o usuário logado |
-| POST | `/conta/:id/senha` | 🔑 | `{ senhaAtual, novaSenha }` |
+| POST | `/auth/alterar-senha` | 🔑 | `{ senhaAtual, novaSenha }`; resposta `{ alterada: true }` |
 | GET / POST / PATCH / DELETE | `/usuario/enderecos` | 🔑 | Endereços de entrega |
 
 ### Catálogo
@@ -107,9 +107,10 @@ Se a mesclagem encontrar uma peça indisponível, a página mantém os itens vis
 |---|---|---|---|
 | GET | `/estado/sacola` | 🔑 | `{dados:[{slug,quantidade}],erro:null}` da conta autenticada (commerce) |
 | PUT | `/estado/sacola` | 🔑 | `{ sacola: [{ slug, quantidade }] }`, substituição completa no commerce |
+| POST | `/sacola/revalidar` | 🔑 | Revalida os itens persistidos da conta no commerce; devolve preço final por unidade, disponibilidade, `podeProsseguir` e `revalidadoEm` |
 | GET / PUT | `/estado/{colecao}` | 🔑 | `favoritos`, `historicoBusca`, `videosCurtidos` ou `videosSalvos` da conta (community); o PUT recebe `{ <colecao>: ["..."] }` |
 
-O endpoint de domínio da sacola é `/estado/sacola`; não existe rota `/sacola`. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout. Hoje o commerce ainda não implementa essa rota (veja [Pendências no backend](#pendências-no-backend)).
+O endpoint de persistência da sacola é `/estado/sacola`; a rota `/sacola/revalidar` faz apenas a verificação anterior ao checkout. O commerce persiste somente slug e quantidade por `sub` do JWT, valida a peça no catálogo e volta a cotar no checkout. Uma peça indisponível bloqueia o avanço; falha ou timeout invalida a consulta inteira e oferece retry. A interface usa `precoAtual` já descontado, exibe alterações e consulta novamente antes de registrar o pedido. Revalidar não reserva estoque.
 
 ### Pedidos
 
@@ -165,7 +166,11 @@ O formulário consulta `GET /referencias` no catálogo real. Se as listas não c
 
 ### Recuperação de senha
 
-`POST /api/v1/auth/recuperacao` recebe `{ "email": "ana@exemplo.com" }`. O resultado é igual para conta existente ou ausente. Para conta existente, o e-mail contém `/login/reset?token=...`; o link expira em 1 hora. `POST /api/v1/auth/redefinicao` recebe `{ "token": "...", "novaSenha": "senha-com-8-ou-mais-caracteres" }` e devolve `{ "dados": { "redefinida": true }, "erro": null }`. Token desconhecido, vencido ou usado devolve `400` com `TOKEN_INVALIDO`. E-mail inválido ou senha curta devolve `400 REQUISICAO_INVALIDA`.
+`POST /api/v1/auth/recuperacao` recebe `{ "email": "ana@exemplo.com" }`. O resultado é igual para conta existente ou ausente: `201` e `{ "dados": { "recebida": true }, "erro": null }`. Isso confirma o pedido, não a entrega pelo provedor SMTP. Para conta existente, o e-mail contém `/login/reset?token=...`; o link expira em 1 hora por padrão. A origem do link é `PROFILE_FRONTEND_BASE_URL`, absoluta e HTTPS em homologação; loopback HTTP é reservado ao desenvolvimento local.
+
+`POST /api/v1/auth/redefinicao` mantém `{ "token": "...", "novaSenha": "NovaSenhaSegura123!" }` e devolve `{ "dados": { "redefinida": true }, "erro": null }`. Token desconhecido, vencido ou usado devolve `400 TOKEN_INVALIDO`. A senha segue a política já existente: pelo menos 12 codepoints Unicode, no máximo 72 bytes UTF-8 e nenhum controle ou UTF-16 inválido. Não há trim. 36 letras `é` ou 18 emojis de quatro bytes atingem 72 bytes; 37 letras `é`, 19 emojis ou 11 emojis são recusados. E-mail inválido ou senha fora da política devolve `400 REQUISICAO_INVALIDA`.
+
+As telas existentes usam a validação compartilhada; nenhum endpoint ou fluxo JWT novo foi criado. Testes `tests/recovery.test.ts` cobrem os contratos e Unicode. `tests/pi170-real-browser.cjs`, iniciado pelo script descartável do Profile, valida SMTP real com Mailpit e as telas desktop/mobile pelo Gateway. A entrega em caixa Gmail deve ser comprovada separadamente com as credenciais do ambiente.
 
 O profile-service implementa as duas rotas.
 
@@ -248,7 +253,7 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 |---|---|
 | catalog | `/pecas`, `/referencias`, arquivos de peças, `/artesaos/{slug}/pecas` |
 | profile | `/auth/**`, `/usuario/**`, `/conta/**`, `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria` |
-| commerce | `/checkout`, `/fretes`, `/pedidos`, `/artesao/vendas`, `/artesao/pedidos-pendentes`, `/estado/sacola` |
+| commerce | `/checkout`, `/fretes`, `/pedidos`, `/artesao/vendas`, `/artesao/pedidos-pendentes`, `/estado/sacola`, `/sacola/revalidar` |
 | community | Perguntas, conversa, avaliação, vídeos, mediações, `/estado/favoritos`, `/estado/videosCurtidos`, `/estado/videosSalvos`, `/estado/historicoBusca` e reputação |
 | events | `/eventos` |
 
@@ -257,8 +262,53 @@ Definido em `api-gateway/src/main/resources/application.yaml`:
 Enquanto estes endpoints não existem, as telas correspondentes mostram erro ou estado vazio:
 
 - **events-service:** nenhum endpoint implementado.
-- **profile-service:** só implementa `/auth/cadastro`, `/auth/login`, `/auth/entrar`,
-  `/auth/logout`, `/auth/recuperacao`, `/auth/redefinicao` e `GET /usuario`. Faltam
-  `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria`,
-  `PATCH /usuario`, endereços e `/conta`.
-- **commerce-service:** não implementa `/estado/sacola`.
+- **profile-service:** faltam `/coletivos` e endereços. Conta e configurações
+  operacionais são atendidas pelo PI-209; solicitação e curadoria do selo pelo PI-177.
+
+## PI-177 — selo e curadoria reais
+
+`GET/POST /artesao/selo`, `GET /admin/curadoria` e
+`POST /admin/curadoria/:id/decisao` são persistidos no Profile. O artesão acessa
+somente seu estado; admin é conferido no banco, inclusive troca obrigatória da
+senha. POST de solicitação recebe `{ mensagem }` opcional, até 1.000 caracteres.
+Decisão recebe `{ decisao: "aprovada" | "ajuste", motivo }`; ajuste exige motivo
+não vazio de até 1.000 caracteres. Sucesso retorna 200 com envelopes existentes.
+
+Reenvio após ajuste cria novo ID e preserva o histórico. Solicitação duplicada
+pendente ou após aprovação recebe 409. Repetir decisão/motivo iguais retorna o
+resultado anterior; decisão conflitante retorna 409, inclusive sob concorrência.
+Aprovação aparece em `selo` nas listagens, perfil público e `/artesao/me`, sem
+alterar `autentica`, publicação ou visibilidade das peças.
+
+`pecasPublicadas` da fila vem da API pública real do Catalog; aprovação exige ao
+menos uma peça publicada/ativa. Falha do Catalog gera 503, não contagem fictícia.
+Falha em `/coletivos` mostra aviso no admin e não bloqueia a fila (backend PI-183
+continua separado). Erro ao consultar o selo nas configurações mostra erro sem
+apresentar formulário para nova solicitação. Consultas SSR encaminham Bearer
+explicitamente; navegador usa o proxy/cookie HttpOnly existente.
+
+## PI-209 — conta e configurações operacionais
+
+`PATCH /usuario` e `PATCH /conta/:id` aceitam somente `nome` e `email`, ambos
+opcionais, mas com ao menos um campo enviado. O alvo é sempre a própria conta.
+Não enviamos telefone, papel, UUID ou credenciais nessa edição. Campos omitidos
+permanecem intactos; e-mail duplicado retorna `409 EMAIL_EM_USO` e campos inválidos
+retornam `400 REQUISICAO_INVALIDA`, com `erro.campos`. Recarregar e entrar novamente
+obtém os dados persistidos por `GET /usuario` e pelo login existentes.
+
+`GET/PATCH /artesaos/:slug/configuracoes` é privado do artesão proprietário e
+retorna `{ cepOrigem, prazoPadraoDias, aceitaEncomendas, encomendasPausadas, chavePix }`.
+CEP aceita oito dígitos com hífen opcional; prazo é inteiro de 1 a 120 dias;
+as opções são booleanas e a chave Pix é texto não vazio. PATCH preserva campos
+omitidos. A chave não faz parte de respostas públicas. Respostas usam `no-store`.
+Na primeira consulta, CEP/Pix estão vazios, prazo em 1 e opções desmarcadas,
+para preenchimento; GET não grava essas configurações iniciais.
+
+No SSR de `/dashboard/settings`, `exigirArtesao()` fornece a sessão e
+`obterConfiguracoes(slug, token)` encaminha Bearer explicitamente. O token não é
+passado aos formulários cliente, nem é alterado o cookie HttpOnly. As escritas
+do navegador passam pelo proxy existente com verificação de Origin.
+
+Troca de senha usa somente `POST /auth/alterar-senha`, com `senhaAtual` e
+`novaSenha`, reutilizando a implementação existente. A rota legada
+`/conta/:id/senha` não é chamada e não ganhou um segundo caso de uso.

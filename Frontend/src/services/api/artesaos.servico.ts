@@ -13,6 +13,14 @@ export async function obterArtesao(slug: string): Promise<RespostaApi<Artesao>> 
 export const obterMeuAtelie = (token?: string) => buscar<Artesao>('/artesao/me', comToken(token))
 export const atualizarMeuAtelie = (alteracoes: Partial<Artesao>) => enviar<Artesao>('/artesao/me', alteracoes, 'PATCH')
 
+export function enviarImagemPerfil(arquivo: File): Promise<RespostaApi<Artesao>> {
+  const dados = new FormData()
+  dados.append('arquivo', arquivo)
+  return enviar<Artesao>('/artesao/me/imagem', dados, 'PUT')
+}
+
+export const removerImagemPerfil = () => buscar<Artesao>('/artesao/me/imagem', { method: 'DELETE' })
+
 export type PerfilArtesao = Pick<Artesao, 'nome' | 'atelie' | 'historia' | 'territorio' | 'tecnica' | 'imagem'>
 
 export function atualizarArtesao(slug: string, perfil: Partial<PerfilArtesao>): Promise<RespostaApi<Artesao>> {
@@ -27,8 +35,8 @@ export type ConfiguracoesAtelie = {
   chavePix: string
 }
 
-export function obterConfiguracoes(slug: string): Promise<RespostaApi<ConfiguracoesAtelie>> {
-  return buscar<ConfiguracoesAtelie>(`/artesaos/${encodeURIComponent(slug)}/configuracoes`)
+export function obterConfiguracoes(slug: string, token?: string): Promise<RespostaApi<ConfiguracoesAtelie>> {
+  return buscar<ConfiguracoesAtelie>(`/artesaos/${encodeURIComponent(slug)}/configuracoes`, comToken(token))
 }
 
 export function atualizarConfiguracoes(slug: string, alteracoes: Partial<ConfiguracoesAtelie>): Promise<RespostaApi<ConfiguracoesAtelie>> {

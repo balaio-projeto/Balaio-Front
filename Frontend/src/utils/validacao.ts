@@ -11,7 +11,9 @@ export function validarEmail(valor: string): string | null {
 }
 
 export function validarSenha(valor: string): string | null {
-  if (!valor.trim()) return 'Crie uma senha'
+  // Mesmo conjunto de espaços de String.isBlank() usado pela política Java; não faz trim da senha.
+  const somenteBrancosJava = /^[\u0009-\u000d\u001c-\u0020\u1680\u2000-\u2006\u2008-\u200a\u2028\u2029\u205f\u3000]*$/u
+  if (somenteBrancosJava.test(valor)) return 'Crie uma senha'
   if (Array.from(valor).length < 12) return 'A senha precisa de no mínimo 12 caracteres'
   if (new TextEncoder().encode(valor).length > 72) return 'A senha deve ter no máximo 72 bytes em UTF-8'
   if (/[\p{Cc}\p{Cs}]/u.test(valor)) return 'A senha não pode conter caracteres de controle ou inválidos'

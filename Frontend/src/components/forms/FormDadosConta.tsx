@@ -4,16 +4,8 @@ import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { avisar } from '@/components/feedback/Avisos'
 import { Campo } from '@/components/ui/Basicos'
-import Seletor from '@/components/ui/Seletor'
 import { atualizarUsuario } from '@/services/api/conta.servico'
 import type { Usuario } from '@/types/dominio'
-
-const opcoesTipoComprador = [
-  { valor: 'final', rotulo: 'Compro para mim' },
-  { valor: 'presente', rotulo: 'Compro para presentear' },
-  { valor: 'lojista', rotulo: 'Sou lojista e revendo' },
-  { valor: 'turista', rotulo: 'Conheci em uma viagem a PE' },
-]
 
 export default function FormDadosConta({ usuario }: { usuario: Usuario }) {
   const roteador = useRouter()
@@ -28,8 +20,6 @@ export default function FormDadosConta({ usuario }: { usuario: Usuario }) {
     const resposta = await atualizarUsuario({
       nome: String(dados.get('nome') ?? ''),
       email: String(dados.get('email') ?? ''),
-      telefone: String(dados.get('telefone') ?? ''),
-      tipoComprador: String(dados.get('tipoComprador') ?? 'final'),
     })
     definirEnviando(false)
     if (!resposta.dados) {
@@ -48,17 +38,6 @@ export default function FormDadosConta({ usuario }: { usuario: Usuario }) {
         </Campo>
         <Campo rotulo="E-mail" id="conta-email">
           <input id="conta-email" name="email" type="email" defaultValue={usuario.email} autoComplete="email" required />
-        </Campo>
-        <Campo rotulo="Telefone" ajuda="Usado só para avisos sobre a entrega." id="conta-telefone">
-          <input id="conta-telefone" name="telefone" type="tel" defaultValue={usuario.telefone ?? ''} autoComplete="tel" />
-        </Campo>
-        <Campo rotulo="Que tipo de comprador você é?" ajuda="Ajuda a plataforma a sugerir peças mais úteis para você." id="conta-tipo">
-          <Seletor
-            id="conta-tipo"
-            name="tipoComprador"
-            opcoes={opcoesTipoComprador}
-            defaultValue={usuario.tipoComprador ?? 'final'}
-          />
         </Campo>
         <button type="submit" className="botao botao-primario" disabled={enviando}>
           {enviando ? 'Salvando…' : 'Salvar alterações'}

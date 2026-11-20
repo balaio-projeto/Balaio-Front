@@ -22,6 +22,53 @@ test.beforeEach(async ({ request }) => {
   await request.post(`${controle}/__test/config`, { data: { sacolaTeste: true } })
 })
 
+test('exibe preço revalidado sem aplicar desconto novamente', async ({ page, request }) => {
+  await login(page, [{ slug: 'peca-valida', quantidade: 1 }])
+  await request.post(`${controle}/__test/config`, { data: { precoRevalidado: 72.5 } })
+  await page.goto('/cart')
+  await expect(page.getByText(/Preço atualizado:.*72,50/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ir para o pagamento' })).toBeVisible()
+  await expect.poll(async () => (await (await page.request.get('/api/v1/estado/sacola')).json()).dados)
+    .toEqual([{ slug: 'peca-valida', quantidade: 1 }])
+})
+
+test('peça indisponível impede avançar na sacola e no checkout', async ({ page, request }) => {
+  await login(page, [{ slug: 'peca-valida', quantidade: 1 }])
+  await request.post(`${controle}/__test/config`, { data: { pecaIndisponivel: true } })
+  await page.goto('/cart')
+  await expect(page.getByText('Peça indisponível na revalidação.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ir para o pagamento' })).toHaveCount(0)
+  await page.goto('/checkout')
+  await expect(page.getByRole('button', { name: /Confirmar compra/ })).toBeDisabled()
+})
+
+test('falha da revalidação bloqueia checkout até nova consulta válida', async ({ page, request }) => {
+  await login(page, [{ slug: 'peca-valida', quantidade: 1 }])
+  await request.post(`${controle}/__test/config`, { data: { falhaRevalidacao: true } })
+  await page.goto('/checkout')
+  await expect(page.getByRole('alert').filter({ hasText: 'Não foi possível revalidar' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Confirmar compra/ })).toBeDisabled()
+  await request.post(`${controle}/__test/config`, { data: { falhaRevalidacao: false } })
+  await page.getByRole('button', { name: 'Conferir novamente' }).click()
+  await expect(page.getByRole('button', { name: /Confirmar compra/ })).toBeEnabled()
+})
+
+test('preço mudado após abrir checkout exige revisar antes de criar pedido', async ({ page, request }) => {
+  await login(page, [{ slug: 'peca-valida', quantidade: 1 }])
+  await page.goto('/checkout')
+  await expect(page.getByRole('button', { name: /Confirmar compra/ })).toBeEnabled()
+  await page.locator('#cep-checkout').fill('50000-000')
+  await page.locator('#endereco').fill('Rua de teste')
+  await page.locator('#cidade').fill('Recife')
+  await page.locator('#estado').fill('PE')
+  await request.post(`${controle}/__test/config`, { data: { precoRevalidado: 72.5 } })
+  await page.getByRole('button', { name: /Confirmar compra/ }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'O preço ou a disponibilidade mudou' })).toBeVisible()
+  await expect(page.getByText(/Preço atualizado:.*72,50/)).toBeVisible()
+  const eventos = (await (await request.get(`${controle}/__test/eventos`)).json()).dados
+  expect(eventos.filter((evento: { caminho: string }) => evento.caminho === '/api/v1/checkout')).toHaveLength(0)
+})
+
 test('login com peça excluída permite removê-la, repetir a mesclagem e limpar cópia local', async ({ page }) => {
   await login(page, [{ slug: 'peca-excluida', quantidade: 1 }, { slug: 'peca-valida', quantidade: 1 }])
   await page.goto('/cart')
