@@ -30,8 +30,10 @@ export function concluirCheckoutPendente() {
   if (typeof window !== 'undefined') sessionStorage.removeItem('balaio-checkout-pendente')
 }
 
-export function enviarMensagem(id: string, mensagem: Mensagem): Promise<RespostaApi<Mensagem>> {
-  return enviar(`/pedidos/${encodeURIComponent(id)}/conversa`, mensagem)
+export function enviarMensagem(id: string, mensagem: Pick<Mensagem, 'texto'>, chave = crypto.randomUUID()): Promise<RespostaApi<Mensagem>> {
+  return buscar<Mensagem>(`/pedidos/${encodeURIComponent(id)}/conversa`, {
+    method: 'POST', body: JSON.stringify({ texto: mensagem.texto }), headers: { 'Idempotency-Key': chave },
+  })
 }
 
 export async function listarPedidos(token?: string): Promise<RespostaApi<Pedido[]>> {
@@ -42,8 +44,8 @@ export async function obterPedido(id: string, token?: string): Promise<RespostaA
   return buscar<Pedido>(`/pedidos/${encodeURIComponent(id)}`, comToken(token))
 }
 
-export async function conversaDoPedido(id: string): Promise<RespostaApi<Mensagem[]>> {
-  return buscar<Mensagem[]>(`/pedidos/${encodeURIComponent(id)}/conversa`)
+export async function conversaDoPedido(id: string, token?: string): Promise<RespostaApi<Mensagem[]>> {
+  return buscar<Mensagem[]>(`/pedidos/${encodeURIComponent(id)}/conversa`, comToken(token))
 }
 
 export async function confirmarLeituraDaConversa(id: string): Promise<RespostaApi<null>> {

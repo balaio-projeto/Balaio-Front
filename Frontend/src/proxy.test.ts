@@ -5,7 +5,7 @@ import { proxy } from './proxy'
 import { encaminharApi } from './services/api/proxy'
 import { buscar } from './services/api/cliente'
 import { excluirPeca } from './services/api/pecas.servico'
-import { listarPedidosPendentes, atualizarEstadoPedido } from './services/api/pedidos.servico'
+import { listarPedidosPendentes, atualizarEstadoPedido, listarPedidos, obterPedido, conversaDoPedido, enviarMensagem } from './services/api/pedidos.servico'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -62,6 +62,8 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     ['/api/v1/sacola/revalidar', 'POST'],
     ['/api/v1/pedidos/123/cancelar', 'PATCH'],
     ['/api/v1/pedidos/123/estado', 'PATCH'],
+    ['/api/v1/pedidos/123/conversa', 'GET'],
+    ['/api/v1/pedidos/123/conversa', 'POST'],
     ['/api/v1/admin/mediacoes/123/decisao', 'POST'],
     ['/api/v1/artesao/pedidos-pendentes', 'GET'],
     ['/api/v1/artesao/vendas', 'GET'],
@@ -71,6 +73,31 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     })
     const resposta = await proxy(requisicao)
     assert.equal(resposta.headers.get('x-middleware-request-authorization'), 'Bearer jwt-assinado')
+  }
+})
+
+test('comprador consulta pedidos e conversa e envia texto pelo contrato público', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const chamadas: string[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    chamadas.push(`${opcoes?.method ?? 'GET'} ${entrada} ${new Headers(opcoes?.headers).get('authorization')} ${opcoes?.body ?? ''}`)
+    return Response.json({ dados: opcoes?.method === 'POST' ? { autor: 'comprador', texto: 'Olá', hora: '09:00' } : [], erro: null })
+  }
+  try {
+    await listarPedidos('jwt-comprador')
+    await obterPedido('123', 'jwt-comprador')
+    await conversaDoPedido('123', 'jwt-comprador')
+    assert.equal((await enviarMensagem('123', { texto: 'Olá' })).dados?.texto, 'Olá')
+    assert.deepEqual(chamadas, [
+      'GET http://gateway.local/api/v1/pedidos Bearer jwt-comprador ',
+      'GET http://gateway.local/api/v1/pedidos/123 Bearer jwt-comprador ',
+      'GET http://gateway.local/api/v1/pedidos/123/conversa Bearer jwt-comprador ',
+      'POST http://gateway.local/api/v1/pedidos/123/conversa null {"texto":"Olá"}',
+    ])
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
   }
 })
 

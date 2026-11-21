@@ -17,6 +17,7 @@ function perfilDaConta(conta) {
 }
 let configuracao = {}
 let pedidosPendentes = []
+let mensagensPedido = []
 const SENHA_TESTE = 'SenhaDeTeste123!'
 for (const papel of ['comprador', 'artesao', 'admin']) {
   const email = `${papel}@auth.test`
@@ -53,10 +54,28 @@ const gateway = createServer(async (req, res) => {
   const multipart = req.headers['content-type']?.startsWith('multipart/form-data')
   const dados = corpo.length && !multipart ? JSON.parse(corpo.toString()) : {}
   if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; if (dados.pedidosPendentes) pedidosPendentes = dados.pedidosPendentes; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; pedidosPendentes = []; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; pedidosPendentes = []; mensagensPedido = []; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/saude') return json(res, 200, true)
   eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method, bearer: Boolean(req.headers.authorization) })
+  if (configuracao.pedidoComprador && (req.url === '/api/v1/pedidos'
+      || req.url === `/api/v1/pedidos/${configuracao.pedidoComprador.id}`
+      || /^\/api\/v1\/pedidos\/[^/]+\/conversa(?:\/leitura)?$/.test(req.url))) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'comprador') return json(res, 404, null, 'PEDIDO_NAO_ENCONTRADO')
+    const pedido = configuracao.pedidoComprador
+    if (req.url === '/api/v1/pedidos') return json(res, 200, [pedido])
+    if (req.url === `/api/v1/pedidos/${pedido.id}`) return json(res, 200, pedido)
+    if (!req.url.startsWith(`/api/v1/pedidos/${pedido.id}/conversa`)) return json(res, 404, null, 'CONVERSA_NAO_ENCONTRADA')
+    if (req.url.endsWith('/leitura')) return json(res, 200, null)
+    if (req.method === 'GET') return json(res, 200, mensagensPedido)
+    if (req.method === 'POST') {
+      const mensagem = { id: randomUUID(), autor: 'comprador', texto: dados.texto, hora: '09:30' }
+      mensagensPedido.push(mensagem)
+      return json(res, 201, mensagem)
+    }
+  }
   if (req.method === 'GET' && req.url === '/api/v1/artesao/pedidos-pendentes') {
     const conta = validar(req)
     if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')

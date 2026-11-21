@@ -67,6 +67,7 @@ export type EtapaPedido = {
   concluida: boolean
   atual: boolean
   nota?: string
+  criadaEm?: string
 }
 
 export type Pedido = {
@@ -87,6 +88,8 @@ export type Pedido = {
   previsaoEntrega?: string
   etapas: EtapaPedido[]
   motivoEncerramento?: string
+  endereco?: { cep: string; endereco: string; cidade: string; estado: string }
+  historicoInferido?: boolean
 }
 
 export type PedidoPendente = {
@@ -134,6 +137,7 @@ export type EstadoSelo = {
 }
 
 export type Mensagem = {
+  id?: string
   autor: 'comprador' | 'artesao'
   texto: string
   hora: string
