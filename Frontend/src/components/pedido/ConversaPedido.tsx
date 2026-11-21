@@ -10,28 +10,31 @@ import { type Mensagem } from '@/types/dominio'
 type Props = {
   pedidoId: string
   iniciais: Mensagem[]
+  erroCarregamento?: string
   atelie?: string
   imagem?: string
   id?: string
 }
 
-export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId }: Props) {
+export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId, erroCarregamento }: Props) {
   const [salvando, definirSalvando] = useState(false)
   const [mensagens, definirMensagens] = useState(iniciais)
   const [rascunho, definirRascunho] = useState('')
   const [erroEnvio, definirErroEnvio] = useState<string | null>(null)
   const envioEmAndamento = useRef(false)
+  const tentativaPendente = useRef<{ texto: string; chave: string } | null>(null)
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     const rascunhoEnviado = rascunho
     const texto = rascunho.trim()
     if (!texto || envioEmAndamento.current) return
+    if (tentativaPendente.current?.texto !== texto) tentativaPendente.current = { texto, chave: crypto.randomUUID() }
     envioEmAndamento.current = true
     definirSalvando(true)
     definirErroEnvio(null)
     try {
-      const resposta = await enviarMensagem(pedidoId, { autor: 'comprador', texto, hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) })
+      const resposta = await enviarMensagem(pedidoId, { texto }, tentativaPendente.current.chave)
       if (resposta.erro || !resposta.dados) {
         const mensagem = resposta.erro?.mensagem ?? 'Tente novamente em instantes.'
         definirErroEnvio(mensagem)
@@ -39,7 +42,9 @@ export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId 
         return
       }
       const enviada = resposta.dados
-      definirMensagens((atuais) => [...atuais, enviada])
+      definirMensagens((atuais) => atuais.some((atual) => atual.id === enviada.id && enviada.id)
+        ? atuais : [...atuais, enviada])
+      tentativaPendente.current = null
       definirRascunho((atual) => atual === rascunhoEnviado ? '' : atual)
     } finally {
       envioEmAndamento.current = false
@@ -58,6 +63,7 @@ export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId 
       </div>
 
       <div className="conversa">
+        {erroCarregamento && <p role="alert">Não foi possível carregar a conversa: {erroCarregamento}</p>}
         {mensagens.map((m, i) => (
           <div key={i} className={`balao ${m.autor === 'comprador' ? 'balao-meu' : 'balao-deles'}`}>
             {m.texto}

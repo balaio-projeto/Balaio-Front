@@ -12,52 +12,24 @@ import { obterArtesao } from '@/services/api/artesaos.servico'
 import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
-import type { EstadoPedido, EtapaPedido } from '@/types/dominio'
 import CancelarPedido from '@/components/pedido/CancelarPedido'
 import { acaoCancelamentoPedido } from '@/components/pedido/acaoCancelamentoPedido'
 import EstadoPagamento from '@/components/pedido/EstadoPagamento'
 
 export const dynamic = 'force-dynamic'
 
-const etapasPadrao: { estado: EstadoPedido; titulo: string; pendente: string }[] = [
-  { estado: 'confirmado', titulo: 'Pedido confirmado', pendente: 'Aguardando confirmação da compra.' },
-  { estado: 'producao', titulo: 'Em produção', pendente: 'O artesão ainda não iniciou esta etapa.' },
-  { estado: 'enviado', titulo: 'Enviado', pendente: 'O envio ainda não foi registrado.' },
-  { estado: 'entregue', titulo: 'Entregue no seu endereço', pendente: 'A entrega ainda não foi confirmada.' },
-]
-
-function linhaDoTempo(estado: EstadoPedido, registradas: EtapaPedido[]): EtapaPedido[] {
-  if (['recusado', 'cancelado', 'reembolsado'].includes(estado)) return registradas
-  const indiceAtual = etapasPadrao.findIndex((etapa) => etapa.estado === estado)
-  const etapas = etapasPadrao.map((etapa, indice) => {
-    const registrada = registradas.find((item) => item.estado === etapa.estado)
-    return {
-      estado: etapa.estado,
-      titulo: registrada?.titulo ?? etapa.titulo,
-      detalhe: registrada?.detalhe ?? (indice === 0 ? 'Compra registrada.' : etapa.pendente),
-      concluida: indice < indiceAtual || (indice === indiceAtual && (estado === 'confirmado' || estado === 'entregue')),
-      atual: indice === indiceAtual,
-      nota: registrada?.nota,
-    }
-  })
-  if (['aguardando_reserva', 'aguardando_pagamento', 'confirmacao_pendente', 'cancelamento_pendente', 'reembolso_pendente', 'encerramento_pendente'].includes(estado)) {
-    return [{ estado, titulo: rotuloEstadoPedido[estado].texto,
-      detalhe: 'O pedido ainda não chegou à etapa de produção.', concluida: false, atual: true }, ...etapas]
-  }
-  return etapas
-}
-
 export default async function Acompanhamento({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { usuario, token } = await exigirSessao()
+  const { token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
-  if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
+  if (erro?.status === 404 || erro?.codigo === 'PEDIDO_NAO_ENCONTRADO') notFound()
+  if (erro) throw new Error(erro.mensagem)
+  if (!pedido) notFound()
 
   const { dados: peca } = await obterPecaHistorico(pedido.pecaSlug)
   const artesao = peca ? (await obterArtesao(peca.artesao)).dados : null
-  const { dados: conversa } = await conversaDoPedido(id)
-  const etapas = linhaDoTempo(pedido.estado, pedido.etapas ?? [])
+  const { dados: conversa, erro: erroConversa } = await conversaDoPedido(id, token)
+  const etapas = pedido.etapas ?? []
   const encerrado = ['recusado', 'cancelado', 'reembolsado'].includes(pedido.estado)
   const acaoCancelamento = acaoCancelamentoPedido(pedido.estado)
   const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null
@@ -111,13 +83,14 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
 
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">Status de produção e entrega</h2>
+            {pedido.historicoInferido && <p className="texto-suave">O histórico anterior deste pedido não está disponível.</p>}
 
             <ol className="linha-tempo">
-              {etapas.map((etapa) => {
+              {etapas.map((etapa, indice) => {
                 const etapaEncerrada = ['recusado', 'cancelado', 'reembolsado'].includes(etapa.estado)
                 return (
                   <li
-                    key={etapa.estado}
+                    key={`${etapa.estado}-${etapa.criadaEm ?? indice}`}
                     className={`etapa${etapa.concluida ? ' etapa-feita' : ''}${etapa.atual ? ' etapa-atual' : ''}${etapaEncerrada ? ' etapa-encerrada' : ''}`}
                   >
                     <span className="etapa-marca">
@@ -129,9 +102,12 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
                         {etapa.atual && <span className={`selo ${etapaEncerrada ? 'selo-unica' : 'selo-encomenda'}`}>{etapaEncerrada ? 'Pedido encerrado' : 'Fase atual'}</span>}
                       </p>
                       <p className="etapa-detalhe">{etapa.detalhe}</p>
+                      {etapa.criadaEm && <p className="autoria">{new Intl.DateTimeFormat('pt-BR', {
+                        dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Recife',
+                      }).format(new Date(etapa.criadaEm))}</p>}
                       {etapa.nota && (
                         <p className="nota-artesao">
-                          <strong>Nota do artesão:</strong> <em>{etapa.nota}</em>
+                          <strong>Observação do pedido:</strong> <em>{etapa.nota}</em>
                         </p>
                       )}
                     </div>
@@ -143,6 +119,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
 
           {!encerrado && <section className="cartao">
             <h2 className="secao-titulo">Informações de envio</h2>
+            {pedido.endereco && <p className="texto-suave abaixo-3">Endereço da compra: {pedido.endereco.endereco}, {pedido.endereco.cidade}/{pedido.endereco.estado} · CEP {pedido.endereco.cep}</p>}
             {!pedido.rastreio && (
               <p className="texto-suave abaixo-3">O código de rastreamento aparece aqui quando o envio for registrado.</p>
             )}
@@ -218,7 +195,8 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
           </section>
         </div>
 
-        <ConversaPedido pedidoId={pedido.id} id="conversa-pedido" iniciais={conversa ?? []} atelie={artesao?.atelie} imagem={artesao?.imagem} />
+        <ConversaPedido pedidoId={pedido.id} id="conversa-pedido" iniciais={conversa ?? []}
+          erroCarregamento={erroConversa?.mensagem} atelie={artesao?.atelie} imagem={artesao?.imagem} />
       </div>
     </Pagina>
   )
