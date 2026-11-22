@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: Balaio/Frontend/package-lock.json
+          cache-dependency-path: Frontend/package-lock.json
 
       - name: Instalar dependências
         run: npm ci
