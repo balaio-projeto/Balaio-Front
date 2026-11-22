@@ -7,10 +7,11 @@ import Seletor from '@/components/ui/Seletor'
 import { avisar } from '@/components/feedback/Avisos'
 import { validarObrigatorio } from '@/utils/validacao'
 import MapaEventosCliente from '@/components/eventos/MapaEventosCliente'
-import { criarEvento } from '@/services/api/eventos.servico'
+import { criarEvento, type SubmissaoEvento } from '@/services/api/eventos.servico'
 import { gerarSlugEvento } from '@/components/eventos/eventosLocais'
+import { mensagemErroSubmissao, TEXTO_PENDENCIA } from '@/components/eventos/mensagensSubmissao'
 import { municipiosPE, rotuloTipoEvento } from '@/constants/eventos'
-import type { Evento, Ponto, TipoEvento } from '@/types/dominio'
+import type { Ponto, TipoEvento } from '@/types/dominio'
 import { useDados } from '@/store/dados'
 
 const idPorCampo: Record<string, string> = {
@@ -50,7 +51,7 @@ export default function FormCriarEvento() {
   const [artesaosEscolhidos, definirArtesaosEscolhidos] = useState<string[]>([])
   const [coletivosEscolhidos, definirColetivosEscolhidos] = useState<string[]>([])
   const [erros, definirErros] = useState<Record<string, string>>({})
-  const [publicado, definirPublicado] = useState<Evento | null>(null)
+  const [enviado, definirEnviado] = useState<string | null>(null)
 
   const municipio = municipiosPE.find((m) => m.nome === cidade)
   const centroEscolha = municipio ? { lat: municipio.lat, lng: municipio.lng } : undefined
@@ -101,7 +102,7 @@ export default function FormCriarEvento() {
     definirArtesaosEscolhidos([])
     definirColetivosEscolhidos([])
     definirErros({})
-    definirPublicado(null)
+    definirEnviado(null)
   }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -133,7 +134,7 @@ export default function FormCriarEvento() {
     const referencia = pino ?? centroEscolha
     if (!referencia) return
 
-    const novoEvento: Evento = {
+    const submissao: SubmissaoEvento = {
       slug: gerarSlugEvento(nome),
       nome: nome.trim(),
       tipo,
@@ -149,35 +150,34 @@ export default function FormCriarEvento() {
       lng: referencia.lng,
       artesaos: artesaosEscolhidos,
       coletivos: coletivosEscolhidos,
-      criadoPorVoce: true,
     }
 
     definirSalvando(true)
-    const resposta = await criarEvento(novoEvento)
+    const resposta = await criarEvento(submissao)
     definirSalvando(false)
-    if (resposta.erro) { avisar.erro('Não foi possível publicar', resposta.erro.mensagem); return }
-    avisar.sucesso('Evento publicado na agenda')
-    definirPublicado(resposta.dados)
+    if (resposta.erro) {
+      const aviso = mensagemErroSubmissao(resposta.erro.codigo)
+      avisar.erro(aviso.titulo, aviso.mensagem)
+      return
+    }
+    avisar.sucesso('Evento enviado para análise')
+    definirEnviado(submissao.nome)
   }
 
-  if (publicado) {
+  if (enviado !== null) {
     return (
       <section className="cartao">
-        <span className="selo selo-disponivel abaixo-3">
+        <span className="selo abaixo-3">
           <span className="selo-ponto" />
-          Publicado
+          Pendente de análise
         </span>
-        <h2 className="secao-titulo">Evento na agenda!</h2>
+        <h2 className="secao-titulo">Evento enviado!</h2>
         <p className="texto-suave abaixo-4">
-          “{publicado.nome}” já aparece no mapa da vitrine e na agenda, com o pino marcado em {publicado.cidade}.
-          O evento foi salvo e está disponível na agenda.
+          “{enviado}” foi recebido. {TEXTO_PENDENCIA}
         </p>
         <div className="acoes-linha acoes-empilhaveis">
-          <Link href={`/events/${publicado.slug}`} className="botao botao-primario">
-            Ver a página do evento
-          </Link>
           <Link href="/events" className="botao botao-secundario">
-            Ver a agenda
+            Ver a agenda pública
           </Link>
           <button type="button" className="botao botao-fantasma" onClick={limparFormulario}>
             Criar outro evento
@@ -373,7 +373,7 @@ export default function FormCriarEvento() {
 
       <div className="acoes-linha acoes-empilhaveis acima-4">
         <button disabled={salvando || !!erroParticipantes} type="submit" className="botao botao-primario">
-          Publicar na agenda
+          Enviar para análise
         </button>
         <Link href="/events" className="botao botao-fantasma">
           Cancelar

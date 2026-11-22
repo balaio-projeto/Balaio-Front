@@ -239,7 +239,7 @@ export type Usuario = {
   email: string
   imagem: string
   perfil?: 'comprador' | 'artesao'
-  papel?: 'comprador' | 'artesao' | 'admin'
+  papel?: 'comprador' | 'artesao' | 'admin' | 'organizador'
   telefone?: string
   tipoComprador?: string
   territorio?: string

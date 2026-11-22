@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Sessao } from '@/services/sessao/cookie'
+import { sessaoAtualizadaDoUsuario, type Sessao } from '@/services/sessao/cookie'
 
 type ContextoSessao = {
   sessao: Sessao | null
@@ -28,7 +28,15 @@ export function SessaoProvider({ inicial, children }: { inicial: Sessao | null; 
     const conferir = async () => {
       try {
         const resposta = await fetch('/api/v1/usuario', { cache: 'no-store' })
-        if (resposta.status === 401) encerrarSessao()
+        if (resposta.status === 401) {
+          encerrarSessao()
+          return
+        }
+        if (!resposta.ok) return
+        // Papel persistido: a claim do JWT atual só muda após novo login; a UI usa o valor do servidor.
+        const corpo = await resposta.json().catch(() => null)
+        const atualizada = sessaoAtualizadaDoUsuario(sessao, corpo?.dados)
+        if (atualizada && atualizada.papel !== sessao.papel) definirSessao(atualizada)
       } catch { /* A próxima navegação tenta novamente. */ }
     }
     void conferir()

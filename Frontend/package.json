@@ -16,7 +16,8 @@
     "test:session": "tsx --test src/proxy.test.ts",
     "test:sacola": "tsx --test src/store/sacola.test.ts src/components/carrinho/abrirPagamento.test.ts",
     "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts",
-    "test:community": "tsx --test src/services/api/community.test.ts"
+    "test:community": "tsx --test src/services/api/community.test.ts",
+    "test:pi210": "tsx --test tests/pi210.test.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
