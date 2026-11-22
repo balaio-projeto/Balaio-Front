@@ -123,7 +123,7 @@ O endpoint de persistência da sacola é `/estado/sacola`; a rota `/sacola/reval
 | GET / POST | `/pedidos/:id/conversa` | 🔑 | Mensagens entre comprador e artesão |
 | POST | `/pedidos/:id/avaliacao` | 🔑 | `{ nota, comentario }`, só depois da entrega |
 
-Estados financeiros incluem `aguardando_pagamento`, `confirmacao_pendente`, `cancelamento_pendente`, `reembolso_pendente`, `falha_pagamento` e `reembolsado`. O navegador consulta `GET /pedidos/:id` depois do retorno do Checkout Pro; parâmetros do redirect não confirmam pagamento.
+Estados pendentes incluem `aguardando_pagamento`, `confirmacao_pendente`, `cancelamento_pendente`, `reembolso_pendente` e `encerramento_pendente`. PATCH de cancelamento/recusa pode retornar 202 com um desses estados; a peça única permanece indisponível até o catálogo confirmar a liberação. Após estorno integral, a causa final do pedido continua `cancelado` ou `recusado`, e `estadoPagamento` indica `refunded`. O navegador consulta `GET /pedidos/:id` depois do retorno do Checkout Pro; parâmetros do redirect não confirmam pagamento.
 
 ### Painel do artesão
 
