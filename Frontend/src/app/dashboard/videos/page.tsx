@@ -4,7 +4,7 @@ import FormPublicarVideo from '@/components/forms/FormPublicarVideo'
 import ListaVideosPainel from '@/components/painel/ListaVideosPainel'
 import { IconeAviso, IconeGrafico } from '@/components/ui/Icones'
 import { listarVideos } from '@/services/api/videos.servico'
-import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { exigirArtesao } from '@/services/autenticacao'
 
 const dicas = [
@@ -18,7 +18,7 @@ export default async function VideosDoAtelie() {
   const { artesao, token } = await exigirArtesao()
   const [{ dados: todosVideos, erro: erroVideos }, { dados: pecasArtesao }] = await Promise.all([
     listarVideos(true, token),
-    pecasPorArtesao(artesao.slug),
+    pecasPainelArtesao(artesao.slug, token),
   ])
   const meus = [...(todosVideos ?? [])].reverse()
   const pecas = (pecasArtesao ?? []).map((peca) => ({ slug: peca.slug, nome: peca.nome }))
@@ -74,3 +74,4 @@ export default async function VideosDoAtelie() {
     </>
   )
 }
+

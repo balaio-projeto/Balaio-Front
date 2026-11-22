@@ -3,7 +3,7 @@ import { Migalhas } from '@/components/ui/Basicos'
 import PedidosPendentes from '@/components/pedido/PedidosPendentes'
 import { IconeSetaDireita } from '@/components/ui/Icones'
 import { listarVendasArtesao, listarPedidosPendentes, listarConversasArtesao } from '@/services/api/pedidos.servico'
-import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { exigirArtesao } from '@/services/autenticacao'
 import { ESTADOS_ENCERRADOS, faturamentoNoMes, vendasDoArtesao } from '@/utils/vendas'
 
@@ -12,7 +12,7 @@ export default async function Painel() {
   const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
     listarPedidosPendentes(token),
     listarConversasArtesao(artesao.slug),
-    pecasPorArtesao(artesao.slug, token),
+    pecasPainelArtesao(artesao.slug, token),
     listarVendasArtesao(artesao.slug, token),
   ])
   const mapaPecas = new Map((pecas ?? []).map((p) => [p.slug, p]))
@@ -87,3 +87,4 @@ export default async function Painel() {
     </>
   )
 }
+

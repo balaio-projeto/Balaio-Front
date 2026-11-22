@@ -4,7 +4,7 @@ import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { Foto, Migalhas } from '@/components/ui/Basicos'
 import { IconePacote, IconeSetaDireita } from '@/components/ui/Icones'
 import InativarPeca from '@/components/painel/InativarPeca'
-import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { emReais } from '@/utils/formato'
 import { exigirArtesao } from '@/services/autenticacao'
 import { listarVendasArtesao } from '@/services/api/pedidos.servico'
@@ -32,7 +32,7 @@ function resumoDasPecas(pecas: Peca[]): string {
 export default async function MinhasPecas() {
   const { artesao, token } = await exigirArtesao()
   const [{ dados: pecas, erro }, { dados: pedidos }] = await Promise.all([
-    pecasPorArtesao(artesao.slug, token),
+    pecasPainelArtesao(artesao.slug, token),
     listarVendasArtesao(artesao.slug, token),
   ])
   const pecasLista = pecas ?? []
@@ -139,3 +139,4 @@ export default async function MinhasPecas() {
     </>
   )
 }
+

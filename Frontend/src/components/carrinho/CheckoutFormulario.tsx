@@ -33,9 +33,11 @@ export default function CheckoutFormulario() {
   const [erroConfirmacao, definirErroConfirmacao] = useState<string | null>(null)
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
   const entregaEditada = useRef(false)
+  const enderecoSalvoId = useRef<string | null>(null)
 
   function atualizarEntrega(campo: keyof typeof entrega, valor: string) {
     entregaEditada.current = true
+    enderecoSalvoId.current = null
     definirEntrega((atual) => ({ ...atual, [campo]: valor }))
     const id = campo === 'cep' ? 'cep-checkout' : campo
     definirErros((atuais) => {
@@ -59,6 +61,7 @@ export default function CheckoutFormulario() {
       if (!vivo || entregaEditada.current) return
       const principal = dados?.enderecos?.find((item) => item.principal) ?? dados?.enderecos?.[0]
       if (!principal) return
+      enderecoSalvoId.current = principal.id
       const partes = principal.bairro.split(',').map((item) => item.trim())
       const estado = partes.at(-1) ?? ''
       const cidade = partes.at(-2) ?? ''
@@ -140,6 +143,7 @@ export default function CheckoutFormulario() {
     const resposta = await finalizarCompra({
       itens, freteId: frete.id, meio: 'checkout_pro',
       endereco: { cep: String(dados.get('cep')), endereco: String(dados.get('endereco')), cidade: String(dados.get('cidade')), estado: String(dados.get('estado')) },
+      ...(enderecoSalvoId.current ? { enderecoId: enderecoSalvoId.current } : {}),
     })
     definirSalvando(false)
     if (resposta.erro || !resposta.dados) {

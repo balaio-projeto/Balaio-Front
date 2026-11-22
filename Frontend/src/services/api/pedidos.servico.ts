@@ -6,6 +6,7 @@ export type Checkout = {
   itens: { slug: string; quantidade: number }[]
   freteId: string
   endereco: { cep: string; endereco: string; cidade: string; estado: string }
+    enderecoId?: string
   meio: 'checkout_pro'
 }
 

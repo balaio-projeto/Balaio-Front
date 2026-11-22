@@ -31,7 +31,10 @@ export async function pecasPorTipo(
   return { ...resposta, dados: resposta.dados.filter((peca) => peca.slug !== excluir).slice(0, limite) }
 }
 export function pecasPorArtesao(slug: string, token?: string): Promise<RespostaApi<Peca[]>> {
-  return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas', comToken(token))
+  return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas')
+}
+export function pecasPainelArtesao(slug: string, token: string): Promise<RespostaApi<Peca[]>> {
+  return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas/painel', comToken(token))
 }
 export type FotoParaEnviar = Pick<FotoPeca, 'id' | 'nome' | 'url'>
 export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categoria' | 'tipo' | 'historia' | 'preco' | 'disponibilidade'> & {

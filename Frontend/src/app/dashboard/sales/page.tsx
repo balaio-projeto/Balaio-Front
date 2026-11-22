@@ -7,14 +7,14 @@ import { emReais } from '@/utils/formato'
 import { faturamentoNoMes, vendasDoArtesao } from '@/utils/vendas'
 import { exigirArtesao } from '@/services/autenticacao'
 import { listarVendasArtesao } from '@/services/api/pedidos.servico'
-import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 
 const MESES_NO_GRAFICO = 6
 
 export default async function Vendas() {
   const { artesao, token } = await exigirArtesao()
   const [{ dados: pedidos, erro: erroPedidos }, { dados: pecas, erro: erroPecas }] = await Promise.all([
-    listarVendasArtesao(artesao.slug, token), pecasPorArtesao(artesao.slug, token),
+    listarVendasArtesao(artesao.slug, token), pecasPainelArtesao(artesao.slug, token),
   ])
   const erro = erroPedidos ?? erroPecas
   const vendas = vendasDoArtesao(pedidos ?? [], pecas ?? [])
@@ -73,3 +73,4 @@ export default async function Vendas() {
     </>
   )
 }
+
