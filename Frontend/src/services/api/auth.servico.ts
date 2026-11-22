@@ -2,9 +2,12 @@ import { enviar } from './cliente'
 import { enviarAutenticacao } from './conta.servico'
 import type { RespostaApi } from './tipos'
 
-export type Papel = 'comprador' | 'artesao' | 'admin'
+export type Papel = 'comprador' | 'artesao' | 'admin' | 'organizador'
 
-export type PapelCadastro = Exclude<Papel, 'admin'>
+// Cadastro público nunca concede organizador (PI-210): o papel é atribuído por operação administrativa.
+export type PapelCadastro = 'comprador' | 'artesao'
+
+export const PAPEIS_CADASTRO: readonly PapelCadastro[] = ['comprador', 'artesao']
 
 export type UsuarioAutenticado = {
   id: string

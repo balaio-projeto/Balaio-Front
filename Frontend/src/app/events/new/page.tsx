@@ -1,8 +1,41 @@
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import Pagina from '@/components/layout/Pagina'
 import { Migalhas } from '@/components/ui/Basicos'
 import FormCriarEvento from '@/components/eventos/FormCriarEvento'
+import { lerSessao } from '@/services/sessao/servidor'
+import { destinoInicial, podeOrganizarEventos, rotaDeLogin } from '@/services/sessao/cookie'
 
-export default function NovoEvento() {
+export default async function NovoEvento() {
+  const sessao = await lerSessao()
+  if (!sessao) redirect(rotaDeLogin('/events/new'))
+
+  if (!podeOrganizarEventos(sessao)) {
+    return (
+      <Pagina>
+        <Migalhas
+          trilha={[
+            { texto: 'Início', href: '/' },
+            { texto: 'Eventos', href: '/events' },
+            { texto: 'Organizar um evento' },
+          ]}
+        />
+        <section className="cartao">
+          <h1 className="titulo-pagina">Acesso negado</h1>
+          <p className="texto-suave abaixo-4">
+            Somente contas de organizador de eventos podem enviar eventos. Se você deveria ter esse acesso, fale com a
+            equipe do Balaio.
+          </p>
+          <div className="acoes-linha acoes-empilhaveis">
+            <Link href={destinoInicial(sessao)} className="botao botao-secundario">
+              Ir para minha área
+            </Link>
+          </div>
+        </section>
+      </Pagina>
+    )
+  }
+
   return (
     <Pagina>
       <Migalhas
@@ -15,8 +48,8 @@ export default function NovoEvento() {
 
       <h1 className="titulo-pagina">Organize um evento</h1>
       <p className="subtitulo-pagina">
-        Publique sua feira, festival ou oficina na agenda: o evento entra no mapa da vitrine e mostra quem da
-        plataforma vai estar lá.
+        Envie sua feira, festival ou oficina. A equipe analisa antes da publicação: o evento aparece na agenda e no
+        mapa somente depois da aprovação.
       </p>
 
       <div className="duas-colunas">
@@ -34,8 +67,8 @@ export default function NovoEvento() {
               Clique no mapa para levá-lo até a entrada do evento.
             </li>
             <li>
-              <strong>Confirme quem participa.</strong> Os artesãos e coletivos marcados aparecem na página do evento
-              com link para as lojas deles.
+              <strong>Aguarde a análise.</strong> Depois da aprovação, os artesãos e coletivos marcados aparecem na página
+              do evento com link para as lojas deles.
             </li>
           </ol>
           <p className="texto-suave acima-4">
