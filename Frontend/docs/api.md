@@ -229,6 +229,12 @@ Content-Type: application/json
 }
 ```
 
+Quando o formulário usa um endereço salvo, também envia `enderecoId`. O commerce-service
+consulta `GET /usuario/enderecos/{id}` no profile-service com o JWT do comprador e
+monta o endereço do pedido a partir da resposta. O pedido guarda esse snapshot, mesmo
+se o endereço salvo for alterado ou removido depois. Sem `enderecoId`, o checkout
+continua aceitando o endereço digitado no formulário.
+
 ```json
 { "dados": { "id": "PE-1758800000000-1a2b3c4d", "total": 416.9, "estado": "confirmado" }, "erro": null }
 ```
