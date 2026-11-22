@@ -41,14 +41,15 @@ export type Peca = {
 }
 
 export type Artesao = {
+  id?: string
   slug: string
   nome: string
   atelie: string
   territorio: string
   tecnica: Tecnica
   historia: string
-  obrasComercializadas: number
-  avaliacaoMedia: number
+  obrasComercializadas?: number | null
+  avaliacaoMedia?: number | null
   selo: boolean
   imagem: string
   cepOrigem?: string
@@ -66,6 +67,7 @@ export type EtapaPedido = {
   concluida: boolean
   atual: boolean
   nota?: string
+  criadaEm?: string
 }
 
 export type Pedido = {
@@ -86,6 +88,8 @@ export type Pedido = {
   previsaoEntrega?: string
   etapas: EtapaPedido[]
   motivoEncerramento?: string
+  endereco?: { cep: string; endereco: string; cidade: string; estado: string }
+  historicoInferido?: boolean
 }
 
 export type PedidoPendente = {
@@ -133,6 +137,7 @@ export type EstadoSelo = {
 }
 
 export type Mensagem = {
+  id?: string
   autor: 'comprador' | 'artesao'
   texto: string
   hora: string
@@ -140,7 +145,7 @@ export type Mensagem = {
 
 export type Mediacao = {
   emAnalise?: boolean
-  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida'
+  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida' | 'falha_entrega'
   decisao?: 'cancelar_reembolsar' | 'negar' | 'manter_conversa' | null
   id: string
   pedido: string
@@ -149,6 +154,7 @@ export type Mediacao = {
   aberta: string
   relato?: string
   tentativas?: number
+  ultimoErro?: string | null
 }
 
 export type Reputacao = {

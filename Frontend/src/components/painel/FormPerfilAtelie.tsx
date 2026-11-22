@@ -2,18 +2,19 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Campo } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
 import SeletorComOutro from '@/components/forms/SeletorComOutro'
 import TrocarFoto from '@/components/forms/TrocarFoto'
 import { IconeAviso, IconeSetaDireita } from '@/components/ui/Icones'
 import { avisarArtesaoAtualizado } from '@/hooks/useArtesaoLogado'
-import { atualizarArtesao, type PerfilArtesao } from '@/services/api/artesaos.servico'
+import { atualizarArtesao, enviarImagemPerfil, removerImagemPerfil, type PerfilArtesao } from '@/services/api/artesaos.servico'
 import ConfirmacaoSalvo, { horarioAgora, type EstadoSalvo } from '@/components/painel/ConfirmacaoSalvo'
 import { camposAlterados, listarRotulos } from '@/utils/alteracoes'
 import type { Artesao } from '@/types/dominio'
 import { validarObrigatorio } from '@/utils/validacao'
+import { useSessao } from '@/store/sessao'
 
 const rotulosPerfil: Record<keyof PerfilArtesao, string> = {
   imagem: 'Foto',
@@ -44,15 +45,18 @@ type Props = {
 
 export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Props) {
   const roteador = useRouter()
+  const { sessao } = useSessao()
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [erroEnvio, definirErroEnvio] = useState<string | null>(null)
   const [salvando, definirSalvando] = useState(false)
+  const [atualizandoFoto, definirAtualizandoFoto] = useState(false)
+  const emVoo = useRef(false)
   const [salvo, definirSalvo] = useState<PerfilArtesao>(() => perfilDe(artesao))
   const [confirmacao, definirConfirmacao] = useState<EstadoSalvo>(null)
 
   async function salvar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    if (salvando) return
+    if (emVoo.current) return
     const dados = new FormData(evento.currentTarget)
     const texto = (campo: string) => String(dados.get(campo) ?? '').trim()
     const proximosErros: Record<string, string> = {}
@@ -73,7 +77,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
     }
 
     const atual: PerfilArtesao = {
-      imagem: texto('imagem') || salvo.imagem,
+      imagem: salvo.imagem,
       atelie: texto('atelie'),
       nome: texto('nome'),
       historia: texto('historia'),
@@ -86,8 +90,10 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
       return
     }
 
+    emVoo.current = true
     definirSalvando(true)
     const { dados: atualizado, erro } = await atualizarArtesao(artesao.slug, alteracoes)
+    emVoo.current = false
     definirSalvando(false)
 
     if (!atualizado) {
@@ -99,9 +105,28 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
 
     definirSalvo(perfilDe(atualizado))
     definirConfirmacao({ tipo: 'salvo', horario: horarioAgora(), campos: listarRotulos(alteracoes, rotulosPerfil) })
-    avisarArtesaoAtualizado(atualizado)
+    if (sessao) avisarArtesaoAtualizado(atualizado, sessao.id)
     avisar.sucesso('Perfil do ateliê salvo', 'Quem visitar sua loja já vê a nova versão.')
     roteador.refresh()
+  }
+
+  async function atualizarFoto(arquivo?: File): Promise<string | null> {
+    if (emVoo.current) return 'Aguarde a operação em andamento.'
+    emVoo.current = true
+    definirAtualizandoFoto(true)
+    try {
+      const { dados: atualizado, erro } = await (arquivo ? enviarImagemPerfil(arquivo) : removerImagemPerfil())
+      if (!atualizado) return erro?.mensagem ?? 'Não foi possível atualizar a foto.'
+      // Preserva os campos de texto ainda não salvos; atualiza somente a foto confirmada.
+      definirSalvo((anterior) => ({ ...anterior, imagem: atualizado.imagem }))
+      if (sessao) avisarArtesaoAtualizado(atualizado, sessao.id)
+      avisar.sucesso(arquivo ? 'Foto atualizada' : 'Foto removida')
+      roteador.refresh()
+      return null
+    } finally {
+      emVoo.current = false
+      definirAtualizandoFoto(false)
+    }
   }
 
   return (
@@ -117,7 +142,8 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
         </p>
       )}
 
-      <TrocarFoto imagemInicial={salvo.imagem} rotulo="Foto do ateliê" nome="imagem" />
+      <TrocarFoto imagemInicial={salvo.imagem} rotulo="Foto do ateliê" desabilitado={salvando}
+        aoEnviar={(arquivo) => atualizarFoto(arquivo)} aoRemover={() => atualizarFoto()} />
 
       <Campo rotulo="Nome do ateliê" erro={erros['cfg-atelie']} id="cfg-atelie">
         <input id="cfg-atelie" name="atelie" defaultValue={artesao.atelie} />
@@ -146,7 +172,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
             id="cfg-territorio"
             name="territorio"
             opcoes={territorios}
-            valorInicial={artesao.territorio || undefined}
+            valorInicial={artesao.territorio}
             rotuloOutro="Outro território…"
             tituloModal="Qual é o seu território?"
             ajudaModal="Nome da cidade ou região onde fica o seu ateliê"
@@ -158,7 +184,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
             id="cfg-tecnica"
             name="tecnica"
             opcoes={tecnicas}
-            valorInicial={artesao.tecnica || undefined}
+            valorInicial={artesao.tecnica}
             rotuloOutro="Outra técnica…"
             tituloModal="Qual é a sua técnica?"
             ajudaModal="Como você chama o que faz"
@@ -168,7 +194,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
       </div>
 
       <div className="acoes-linha">
-        <button type="submit" className="botao botao-primario" disabled={salvando}>
+        <button type="submit" className="botao botao-primario" disabled={salvando || atualizandoFoto}>
           {salvando ? 'Salvando…' : 'Salvar identidade'}
         </button>
         <Link href={`/artisans/${artesao.slug}`} className="botao botao-fantasma">

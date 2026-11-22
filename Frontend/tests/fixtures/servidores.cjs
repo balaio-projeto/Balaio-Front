@@ -4,7 +4,20 @@ const chaves = generateKeyPairSync('rsa', { modulusLength: 3072 })
 const eventos = []
 const contas = new Map()
 const sacolas = new Map()
+const perfis = new Map()
+const imagens = new Map()
+const preferencias = new Map()
+function perfilDaConta(conta) {
+  if (!perfis.has(conta.id)) perfis.set(conta.id, {
+    id: conta.id, slug: `artesao-${conta.id}`, nome: conta.nome, atelie: `Atelie de ${conta.nome}`,
+    historia: '', territorio: '', tecnica: '', imagem: '/fotos/ImagemBase.webp',
+    obrasComercializadas: 0, avaliacaoMedia: 0, selo: false,
+  })
+  return perfis.get(conta.id)
+}
 let configuracao = {}
+let pedidosPendentes = []
+let mensagensPedido = []
 const SENHA_TESTE = 'SenhaDeTeste123!'
 for (const papel of ['comprador', 'artesao', 'admin']) {
   const email = `${papel}@auth.test`
@@ -35,14 +48,81 @@ function validar(req) {
 }
 const cookie = (token, expirar = false) => `balaio_sessao=${token}; Path=/api/v1; HttpOnly; SameSite=Lax; Max-Age=${expirar ? 0 : 3600}`
 const gateway = createServer(async (req, res) => {
-  let texto = ''
-  for await (const parte of req) texto += parte
-  const dados = texto ? JSON.parse(texto) : {}
-  if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; return json(res, 200, true) }
-  if (req.url === '/__test/reset') { configuracao = {}; eventos.length = 0; sacolas.clear(); return json(res, 200, true) }
+  const partes = []
+  for await (const parte of req) partes.push(Buffer.from(parte))
+  const corpo = Buffer.concat(partes)
+  const multipart = req.headers['content-type']?.startsWith('multipart/form-data')
+  const dados = corpo.length && !multipart ? JSON.parse(corpo.toString()) : {}
+  if (req.url === '/__test/config') { configuracao = { ...configuracao, ...dados }; if (dados.pedidosPendentes) pedidosPendentes = dados.pedidosPendentes; return json(res, 200, true) }
+  if (req.url === '/__test/reset') { configuracao = {}; pedidosPendentes = []; mensagensPedido = []; eventos.length = 0; sacolas.clear(); perfis.clear(); imagens.clear(); preferencias.clear(); return json(res, 200, true) }
   if (req.url === '/__test/eventos') return json(res, 200, eventos)
   if (req.url === '/__test/saude') return json(res, 200, true)
-  eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method })
+  eventos.push({ destino: 'gateway', caminho: req.url, metodo: req.method, bearer: Boolean(req.headers.authorization) })
+  if (configuracao.pedidoComprador && (req.url === '/api/v1/pedidos'
+      || req.url === `/api/v1/pedidos/${configuracao.pedidoComprador.id}`
+      || /^\/api\/v1\/pedidos\/[^/]+\/conversa(?:\/leitura)?$/.test(req.url))) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'comprador') return json(res, 404, null, 'PEDIDO_NAO_ENCONTRADO')
+    const pedido = configuracao.pedidoComprador
+    if (req.url === '/api/v1/pedidos') return json(res, 200, [pedido])
+    if (req.url === `/api/v1/pedidos/${pedido.id}`) return json(res, 200, pedido)
+    if (!req.url.startsWith(`/api/v1/pedidos/${pedido.id}/conversa`)) return json(res, 404, null, 'CONVERSA_NAO_ENCONTRADA')
+    if (req.url.endsWith('/leitura')) return json(res, 200, null)
+    if (req.method === 'GET') return json(res, 200, mensagensPedido)
+    if (req.method === 'POST') {
+      const mensagem = { id: randomUUID(), autor: 'comprador', texto: dados.texto, hora: '09:30' }
+      mensagensPedido.push(mensagem)
+      return json(res, 201, mensagem)
+    }
+  }
+  if (req.method === 'GET' && req.url === '/api/v1/artesao/pedidos-pendentes') {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    return conta.papel === 'artesao' ? json(res, 200, pedidosPendentes) : json(res, 403, null, 'SEM_PERMISSAO')
+  }
+  if (req.method === 'PATCH' && /^\/api\/v1\/pedidos\/[^/]+\/estado$/.test(req.url)) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao' || configuracao.falhaAceite) return json(res, 403, null, 'SEM_PERMISSAO')
+    if (dados.estado !== 'producao') return json(res, 400, null, 'REQUISICAO_INVALIDA')
+    const id = req.url.split('/')[4]
+    if (!pedidosPendentes.some((pedido) => pedido.id === id)) return json(res, 409, null, 'PEDIDO_CONFLITANTE')
+    pedidosPendentes = pedidosPendentes.filter((pedido) => pedido.id !== id)
+    return json(res, 200, { id, estado: 'producao' })
+  }
+  if (req.method === 'GET' && req.url.startsWith('/api/v1/artesao/vendas')) return json(res, 200, [])
+  if (req.method === 'GET' && req.url.startsWith('/api/v1/artesao/conversas')) return json(res, 200, [])
+  if (req.method === 'GET' && /^\/api\/v1\/artesaos\/[^/]+\/pecas$/.test(req.url)) return json(res, 200, [])
+  if (/^\/api\/v1\/artesaos\/[^/]+\/configuracoes$/.test(req.url)) {
+    const conta = validar(req)
+    if (!conta || !req.headers.authorization) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao' || req.url !== `/api/v1/artesaos/artesao-${conta.id}/configuracoes`)
+      return json(res, 403, null, 'SEM_PERMISSAO')
+    const atual = preferencias.get(conta.id) ?? { cepOrigem: '', prazoPadraoDias: 1, aceitaEncomendas: false, encomendasPausadas: false, chavePix: '' }
+    if (req.method === 'PATCH') {
+      Object.assign(atual, dados)
+      preferencias.set(conta.id, atual)
+    }
+    return json(res, 200, atual)
+  }
+  if ((req.method === 'PATCH' && (req.url === '/api/v1/usuario' || req.url.startsWith('/api/v1/conta/')))
+      || (req.method === 'POST' && req.url === '/api/v1/auth/alterar-senha')) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (req.url.startsWith('/api/v1/conta/') && req.url !== `/api/v1/conta/${conta.id}`) return json(res, 403, null, 'SEM_PERMISSAO')
+    if (req.url === '/api/v1/auth/alterar-senha') {
+      if (dados.senhaAtual !== conta.senha) return json(res, 400, null, 'ALTERACAO_SENHA_INVALIDA')
+      conta.senha = dados.novaSenha
+      return json(res, 200, { alterada: true })
+    }
+    if (dados.email && contas.has(dados.email) && dados.email !== conta.email) return json(res, 409, null, 'EMAIL_EM_USO')
+    contas.delete(conta.email)
+    if (dados.nome) conta.nome = dados.nome
+    if (dados.email) conta.email = dados.email
+    contas.set(conta.email, conta)
+    return json(res, 200, publico(conta))
+  }
   if (configuracao.sacolaTeste) {
     const caminho = new URL(req.url, 'http://127.0.0.1').pathname
     const peca = { slug: 'peca-valida', nome: 'Peça válida', preco: 50, desconto: 0,
@@ -63,8 +143,57 @@ const gateway = createServer(async (req, res) => {
         return json(res, 200, dados.sacola)
       }
     }
+    if (req.method === 'POST' && caminho === '/api/v1/sacola/revalidar') {
+      const conta = validar(req)
+      if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+      if (configuracao.falhaRevalidacao) return json(res, 503, null, 'CATALOGO_INDISPONIVEL')
+      const itens = (sacolas.get(conta.id) ?? []).map((item) => ({ ...item,
+        precoAtual: configuracao.pecaIndisponivel ? null : (configuracao.precoRevalidado ?? 50),
+        disponibilidade: configuracao.pecaIndisponivel ? 'indisponivel' : 'disponivel',
+        situacao: configuracao.pecaIndisponivel ? 'indisponivel' : 'disponivel' }))
+      return json(res, 200, { itens, podeProsseguir: itens.length > 0 && !configuracao.pecaIndisponivel,
+        revalidadoEm: new Date().toISOString() })
+    }
     if (req.method === 'POST' && caminho === '/api/v1/checkout')
       return json(res, 202, { id: randomUUID(), checkoutUrl: 'https://sandbox.mercadopago.com/checkout/pay?pref_id=qa' })
+  }
+  if (/^\/api\/v1\/arquivos\/perfis\/[^/]+$/.test(req.url) && ['GET', 'HEAD'].includes(req.method)) {
+    const arquivo = imagens.get(req.url)
+    if (!arquivo || ![...perfis.values()].some((perfil) => perfil.imagem === req.url)) return json(res, 404, null, 'MIDIA_NAO_ENCONTRADA')
+    res.writeHead(200, { 'Content-Type': arquivo.tipo, 'Content-Length': arquivo.bytes.length,
+      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+    res.end(req.method === 'HEAD' ? undefined : arquivo.bytes)
+    return
+  }
+  if (req.method === 'GET' && /^\/api\/v1\/artesaos\/[^/]+$/.test(req.url)) {
+    const perfil = [...perfis.values()].find((item) => req.url.endsWith('/' + item.slug))
+    return perfil ? json(res, 200, perfil) : json(res, 404, null, 'RECURSO_NAO_ENCONTRADO')
+  }
+  if (req.url.startsWith('/api/v1/artesao/me') || (req.method === 'PATCH' && /^\/api\/v1\/artesaos\/[^/]+$/.test(req.url))) {
+    const conta = validar(req)
+    if (!conta) return json(res, 401, null, 'NAO_AUTENTICADO')
+    if (conta.papel !== 'artesao') return json(res, 403, null, 'SEM_PERMISSAO')
+    const perfil = perfilDaConta(conta)
+    if (req.url === '/api/v1/artesao/me' && req.method === 'GET') return json(res, 200, perfil)
+    if (req.url === '/api/v1/artesao/me/imagem') {
+      if (configuracao.falhaImagem) return json(res, 503, null, 'STORAGE_INDISPONIVEL')
+      if (req.method === 'PUT') {
+        const form = await new Request('http://fixture.test/upload', { method: 'PUT', headers: { 'Content-Type': req.headers['content-type'] }, body: corpo }).formData()
+        const arquivo = form.get('arquivo')
+        if (!arquivo || !arquivo.size) return json(res, 400, null, 'ARQUIVO_INVALIDO')
+        if (arquivo.size > 2 * 1024 * 1024) return json(res, 413, null, 'ARQUIVO_MUITO_GRANDE')
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(arquivo.type)) return json(res, 415, null, 'FORMATO_NAO_SUPORTADO')
+        perfil.imagem = `/api/v1/arquivos/perfis/${randomUUID()}`
+        imagens.set(perfil.imagem, { tipo: arquivo.type, bytes: Buffer.from(await arquivo.arrayBuffer()) })
+      } else if (req.method === 'DELETE') perfil.imagem = '/fotos/ImagemBase.webp'
+      else return json(res, 405, null, 'METODO_NAO_PERMITIDO')
+      return json(res, 200, perfil)
+    }
+    if (req.method === 'PATCH' && (req.url === '/api/v1/artesao/me' || req.url.endsWith('/' + perfil.slug))) {
+      for (const campo of ['nome', 'atelie', 'historia', 'territorio', 'tecnica']) if (typeof dados[campo] === 'string') perfil[campo] = dados[campo]
+      return json(res, 200, perfil)
+    }
+    return json(res, 403, null, 'SEM_PERMISSAO')
   }
   if (req.method === 'GET' && req.url === '/api/v1/usuario') {
     const conta = validar(req)

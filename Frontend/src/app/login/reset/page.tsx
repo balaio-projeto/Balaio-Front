@@ -8,7 +8,7 @@ export default function RedefinirSenha() {
     titulo="Crie uma nova senha"
     apoio="Digite e confirme a senha que deseja usar para entrar."
     frase="Uma nova senha coloca você de volta no Balaio."
-    destaques={['O link vale por 1 hora', 'Use pelo menos 8 caracteres', 'Depois, entre com sua nova senha']}
+    destaques={['O link vale por 1 hora', 'No mínimo 12 caracteres e no máximo 72 bytes UTF-8', 'Depois, entre com sua nova senha']}
   >
     <Suspense fallback={<p>Carregando...</p>}><FormRedefinirSenha /></Suspense>
   </LayoutAuth>

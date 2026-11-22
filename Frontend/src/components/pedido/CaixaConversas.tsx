@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import { IconeEnviar, IconeSetaEsquerda } from '@/components/ui/Icones'
 import type { ConversaArtesao, Mensagem } from '@/types/dominio'
-import { conversaDoPedido, enviarMensagem } from '@/services/api/pedidos.servico'
+import { confirmarLeituraDaConversa, conversaDoPedido, enviarMensagem } from '@/services/api/pedidos.servico'
 import { avisar } from '@/components/feedback/Avisos'
 
 type Props = { fios: ConversaArtesao[]; conversaInicial: Mensagem[] }
@@ -20,6 +20,7 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
   const [enviando, definirEnviando] = useState<string[]>([])
   const [carregando, definirCarregando] = useState<string[]>([])
   const enviosEmAndamento = useRef(new Set<string>())
+  const tentativasPendentes = useRef(new Map<string, { texto: string; chave: string }>())
   const carregamentosEmAndamento = useRef(new Set<string>())
   const refTituloFio = useRef<HTMLParagraphElement>(null)
   const jaAbriuFio = useRef(false)
@@ -44,6 +45,7 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
     definirFioAtivo(id)
     definirFioAberto(true)
     definirLidas((atuais) => atuais.includes(id) ? atuais : [...atuais, id])
+    void confirmarLeituraDaConversa(id)
     if (mensagens[id] || carregamentosEmAndamento.current.has(id)) return
     carregamentosEmAndamento.current.add(id)
     definirCarregando((atuais) => [...atuais, id])
@@ -75,14 +77,19 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
     const rascunho = rascunhos[id] ?? ''
     const texto = rascunho.trim()
     if (!texto) return
+    if (tentativasPendentes.current.get(id)?.texto !== texto) {
+      tentativasPendentes.current.set(id, { texto, chave: crypto.randomUUID() })
+    }
     enviosEmAndamento.current.add(id)
     definirEnviando((atuais) => [...atuais, id])
     const nova: Mensagem = { autor: 'artesao', texto, hora: 'agora' }
     try {
-      const resposta = await enviarMensagem(id, nova)
+      const resposta = await enviarMensagem(id, nova, tentativasPendentes.current.get(id)!.chave)
       if (!resposta.dados) return avisar.erro('Não foi possível enviar', resposta.erro?.mensagem)
       const enviada = resposta.dados
-      definirMensagens((atuais) => ({ ...atuais, [id]: [...(atuais[id] ?? conversaDo(id)), enviada] }))
+      definirMensagens((atuais) => ({ ...atuais, [id]: (atuais[id] ?? conversaDo(id)).some((m) => m.id === enviada.id && enviada.id)
+        ? (atuais[id] ?? conversaDo(id)) : [...(atuais[id] ?? conversaDo(id)), enviada] }))
+      tentativasPendentes.current.delete(id)
       definirRascunhos((atuais) => atuais[id] === rascunho ? { ...atuais, [id]: '' } : atuais)
     } finally {
       enviosEmAndamento.current.delete(id)

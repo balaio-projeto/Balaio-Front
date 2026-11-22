@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { obterArtesao } from '@/services/api/artesaos.servico'
+import { obterMeuAtelie } from '@/services/api/artesaos.servico'
 import { listarFilaCuradoria, obterMeuSelo } from '@/services/api/curadoria.servico'
 import { listarConversasArtesao, listarPedidos, listarPedidosPendentes } from '@/services/api/pedidos.servico'
 import { listarMediacoes } from '@/services/api/mediacoes.servico'
@@ -21,11 +21,11 @@ export type ResumoPerfil = {
 }
 
 async function carregarResumo(sessao: Sessao): Promise<ResumoPerfil> {
-  if (sessao.papel === 'artesao' && sessao.artesao) {
+  if (sessao.papel === 'artesao') {
     const [pendentes, conversas, artesao, selo] = await Promise.all([
-      listarPedidosPendentes(sessao.artesao),
-      listarConversasArtesao(sessao.artesao),
-      obterArtesao(sessao.artesao),
+      listarPedidosPendentes(),
+      listarConversasArtesao(),
+      obterMeuAtelie(),
       obterMeuSelo(),
     ])
     return {
@@ -44,18 +44,19 @@ async function carregarResumo(sessao: Sessao): Promise<ResumoPerfil> {
 }
 
 export function useResumoPerfil(sessao: Sessao | null, aberto: boolean): ResumoPerfil {
-  const [resumo, definirResumo] = useState<ResumoPerfil>({})
+  const [resultado, definirResultado] = useState<{ chave: string; resumo: ResumoPerfil } | null>(null)
+  const chave = sessao ? `${sessao.id}:${sessao.papel}` : null
 
   useEffect(() => {
     if (!sessao || !aberto) return
     let vivo = true
     carregarResumo(sessao).then((carregado) => {
-      if (vivo) definirResumo(carregado)
+      if (vivo) definirResultado({ chave: `${sessao.id}:${sessao.papel}`, resumo: carregado })
     })
     return () => {
       vivo = false
     }
   }, [sessao, aberto])
 
-  return sessao ? resumo : {}
+  return chave && resultado?.chave === chave ? resultado.resumo : {}
 }

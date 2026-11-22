@@ -3,16 +3,16 @@ import { Migalhas } from '@/components/ui/Basicos'
 import PedidosPendentes from '@/components/pedido/PedidosPendentes'
 import { IconeSetaDireita } from '@/components/ui/Icones'
 import { listarVendasArtesao, listarPedidosPendentes, listarConversasArtesao } from '@/services/api/pedidos.servico'
-import { pecasPorArtesao } from '@/services/api/pecas.servico'
+import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { exigirArtesao } from '@/services/autenticacao'
 import { ESTADOS_ENCERRADOS, faturamentoNoMes, vendasDoArtesao } from '@/utils/vendas'
 
 export default async function Painel() {
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: pend }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
-    listarPedidosPendentes(artesao.slug, token),
+  const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
+    listarPedidosPendentes(token),
     listarConversasArtesao(artesao.slug),
-    pecasPorArtesao(artesao.slug, token),
+    pecasPainelArtesao(artesao.slug, token),
     listarVendasArtesao(artesao.slug, token),
   ])
   const mapaPecas = new Map((pecas ?? []).map((p) => [p.slug, p]))
@@ -32,10 +32,7 @@ export default async function Painel() {
   })
 
   const naoLidas = conversasArtesao.filter((c) => c.naoLida).length
-  const slugsDoArtesao = new Set((pecas ?? []).filter((peca) => peca.artesao === artesao.slug).map((peca) => peca.slug))
-  const pedidosDoArtesao = (pedidos ?? []).filter((pedido) =>
-    (pedido.itens ?? [{ slug: pedido.pecaSlug }]).some((item) => slugsDoArtesao.has(item.slug)),
-  )
+  const pedidosDoArtesao = pedidos ?? []
   const pecasUnicasVendidas = new Set(
     pedidosDoArtesao.filter((pedido) => !ESTADOS_ENCERRADOS.has(pedido.estado)).flatMap((pedido) =>
       (pedido.itens ?? [{ slug: pedido.pecaSlug }])
@@ -67,6 +64,7 @@ export default async function Painel() {
 
       <PedidosPendentes
         iniciais={pendentes}
+        erroCarregamento={erroPendentes?.mensagem}
         emProducao={pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length}
         pecasAtivas={pecasAtivas}
         avisosPecas={avisosPecas}
@@ -89,3 +87,4 @@ export default async function Painel() {
     </>
   )
 }
+

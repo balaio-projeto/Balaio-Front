@@ -5,14 +5,16 @@ import { Retrato } from '@/components/ui/Basicos'
 import BotaoSair from '@/components/conta/BotaoSair'
 import { IconeCadeado, IconeCoracao, IconeMapa, IconePacote, IconePincel, IconeUsuario } from '@/components/ui/Icones'
 import type { Usuario } from '@/types/dominio'
+import { useImagemConta } from '@/hooks/useArtesaoLogado'
 
 export type ChaveConta = 'pedidos' | 'favoritos' | 'enderecos' | 'dados'
 
 export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?: ChaveConta; usuario: Usuario; totalPedidos?: number }) {
+  const imagem = useImagemConta(usuario)
   return (
     <nav className="menu-lateral" aria-label="Minha conta">
       <div className="menu-oficina">
-        <Retrato imagem={usuario.imagem} tamanho={44} />
+        <Retrato imagem={imagem} tamanho={44} />
         <div className="encolhivel">
           <p className="menu-oficina-nome">{usuario.nome}</p>
           <p className="menu-oficina-local">{usuario.email}</p>

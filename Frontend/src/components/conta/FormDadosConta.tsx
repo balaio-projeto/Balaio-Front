@@ -42,7 +42,6 @@ export default function FormDadosConta() {
     const { dados: atualizado, erro } = await atualizarConta(sessao.id, {
       nome: nome.trim(),
       email: email.trim(),
-      telefone: String(dados.get('telefone') ?? '').trim(),
     })
     definirSalvando(false)
 
@@ -70,16 +69,6 @@ export default function FormDadosConta() {
       </Campo>
       <Campo rotulo="E-mail" ajuda="É com ele que você entra na conta." erro={erros['conta-email']} id="conta-email">
         <input id="conta-email" name="email" type="email" defaultValue={sessao.email} autoComplete="email" />
-      </Campo>
-      <Campo rotulo="Telefone" ajuda="Usado só para avisos sobre a entrega." id="conta-telefone">
-        <input
-          id="conta-telefone"
-          name="telefone"
-          type="tel"
-          defaultValue={sessao.telefone ?? ''}
-          autoComplete="tel"
-          placeholder="(81) 99999-0000"
-        />
       </Campo>
 
       <button type="submit" className="botao botao-primario" disabled={salvando}>

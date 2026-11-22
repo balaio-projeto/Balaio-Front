@@ -262,8 +262,8 @@ Resumo dos recursos (prefixo `/api/v1`):
 | Catálogo | `GET /pecas` (busca, filtros, paginação), `GET /pecas/:slug`, `/pecas/:slug/relacionadas` |
 | Artesãos e coletivos | `GET /artesaos`, `/artesaos/:slug`, `/artesaos/:slug/pecas`, `/coletivos` |
 | Sacola e coleções | `GET/PUT /estado/sacola`, `GET/PUT /estado/favoritos`, `/estado/historicoBusca`, `/estado/videosCurtidos`, `/estado/videosSalvos` |
-| Pedidos | `POST /checkout`, `GET /pedidos`, `PATCH /pedidos/:id/cancelar`, `POST /pedidos/:id/avaliacao` |
-| Painel do artesão | `POST/PATCH/DELETE /pecas`, `GET /artesao/pedidos-pendentes`, `/artesao/vendas`, `/artesao/selo` |
+| Pedidos | `POST /checkout`, `GET /pedidos`, `GET /pedidos/:id`, `GET/POST /pedidos/:id/conversa`, `POST /pedidos/:id/conversa/leitura`, `PATCH /pedidos/:id/cancelar`, `POST /pedidos/:id/avaliacao` |
+| Painel do artesão | `POST/PATCH/DELETE /pecas`, `GET /artesao/pedidos-pendentes`, `PATCH /pedidos/{id}/estado` com `{estado:"producao"}`, `/artesao/vendas`, `/artesao/selo` |
 | Administração | `GET /admin/curadoria`, `POST /admin/curadoria/:id/decisao`, `/admin/mediacoes` |
 | Apoio | `GET /referencias`, `/fretes`, `/eventos`, `/videos` |
 
@@ -285,12 +285,16 @@ como alternativa:
 
 ## Pendências no backend
 
+A integração de imagens do PI-214, seus contratos e a validação local estão em
+[`docs/profile-media-local.md`](docs/profile-media-local.md). Ela requer as entregas
+correspondentes de Profile Service, API Gateway e Platform.
+
 As telas abaixo mostram erro ou estado vazio até o backend implementar os endpoints:
 
 | Serviço | O que falta |
 |---|---|
 | `events-service` | Nenhum endpoint implementado (agenda, detalhe e criação de evento) |
-| `profile-service` | Só implementa autenticação (`/auth/cadastro`, `login`, `entrar`, `logout`, `recuperacao`, `redefinicao`) e `GET /usuario`. Faltam `/artesaos`, `/artesao/me`, `/artesao/selo`, `/coletivos`, `/admin/curadoria`, `PATCH /usuario`, endereços e `/conta` |
+| `profile-service` | Autenticação, conta, perfil/foto, configurações do ateliê e selo/curadoria implementados. Faltam coletivos e endereços. |
 | `commerce-service` | Não implementa `/estado/sacola` (a sacola da conta não é lida nem salva) |
 
 ## Arquitetura
@@ -323,7 +327,7 @@ O gateway roda fora do contêiner do frontend.
 
 - **Vídeo:** `PREENCHER: link` (principais fluxos: compra, painel do artesão, curadoria)
 - **Commits:** histórico por pull request em `develop`, com commits de todos os integrantes
-- **Testes:** `npm run test:auth`, `test:session`, `test:sacola`, `test:orders`,
+- **Testes:** `npm run test:auth`, `test:media`, `test:session`, `test:sacola`, `test:orders`,
   `test:community` e `test:e2e:auth` (proxy para o gateway, sessão, cookies, Origin,
   sacola, pedidos e community)
 

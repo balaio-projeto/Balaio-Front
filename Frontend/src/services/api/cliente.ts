@@ -7,11 +7,14 @@ function baseDaApi(): string {
 
 export async function buscar<T>(caminho: string, opcoes?: RequestInit): Promise<RespostaApi<T>> {
   try {
+    const headers = new Headers(opcoes?.headers)
+    const multipart = typeof FormData !== 'undefined' && opcoes?.body instanceof FormData
+    if (!multipart && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
     const resposta = await fetch(`${baseDaApi()}${caminho}`, {
       cache: 'no-store',
       credentials: 'same-origin',
       ...opcoes,
-      headers: { 'Content-Type': 'application/json', ...opcoes?.headers },
+      headers,
       signal: opcoes?.signal ?? AbortSignal.timeout(10000),
     })
     const corpo = await resposta.json().catch(() => null)
@@ -35,7 +38,8 @@ export function comToken(token?: string): RequestInit | undefined {
 }
 
 export function enviar<T>(caminho: string, corpo: unknown, metodo = 'POST'): Promise<RespostaApi<T>> {
-  return buscar<T>(caminho, { method: metodo, body: JSON.stringify(corpo) })
+  const multipart = typeof FormData !== 'undefined' && corpo instanceof FormData
+  return buscar<T>(caminho, { method: metodo, body: multipart ? corpo : JSON.stringify(corpo) })
 }
 
 export function montarQuery(filtros: Record<string, string | number | undefined>): string {

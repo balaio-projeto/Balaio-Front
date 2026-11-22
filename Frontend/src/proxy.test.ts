@@ -5,6 +5,7 @@ import { proxy } from './proxy'
 import { encaminharApi } from './services/api/proxy'
 import { buscar } from './services/api/cliente'
 import { excluirPeca } from './services/api/pecas.servico'
+import { listarPedidosPendentes, atualizarEstadoPedido, listarPedidos, obterPedido, conversaDoPedido, enviarMensagem } from './services/api/pedidos.servico'
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -58,7 +59,11 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     ['/api/v1/checkout', 'POST'],
     ['/api/v1/estado/sacola', 'GET'],
     ['/api/v1/estado/sacola', 'PUT'],
+    ['/api/v1/sacola/revalidar', 'POST'],
     ['/api/v1/pedidos/123/cancelar', 'PATCH'],
+    ['/api/v1/pedidos/123/estado', 'PATCH'],
+    ['/api/v1/pedidos/123/conversa', 'GET'],
+    ['/api/v1/pedidos/123/conversa', 'POST'],
     ['/api/v1/admin/mediacoes/123/decisao', 'POST'],
     ['/api/v1/artesao/pedidos-pendentes', 'GET'],
     ['/api/v1/artesao/vendas', 'GET'],
@@ -68,6 +73,102 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     })
     const resposta = await proxy(requisicao)
     assert.equal(resposta.headers.get('x-middleware-request-authorization'), 'Bearer jwt-assinado')
+  }
+})
+
+test('comprador consulta pedidos e conversa e envia texto pelo contrato público', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const chamadas: string[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    chamadas.push(`${opcoes?.method ?? 'GET'} ${entrada} ${new Headers(opcoes?.headers).get('authorization')} ${opcoes?.body ?? ''}`)
+    return Response.json({ dados: opcoes?.method === 'POST' ? { autor: 'comprador', texto: 'Olá', hora: '09:00' } : [], erro: null })
+  }
+  try {
+    await listarPedidos('jwt-comprador')
+    await obterPedido('123', 'jwt-comprador')
+    await conversaDoPedido('123', 'jwt-comprador')
+    assert.equal((await enviarMensagem('123', { texto: 'Olá' })).dados?.texto, 'Olá')
+    assert.deepEqual(chamadas, [
+      'GET http://gateway.local/api/v1/pedidos Bearer jwt-comprador ',
+      'GET http://gateway.local/api/v1/pedidos/123 Bearer jwt-comprador ',
+      'GET http://gateway.local/api/v1/pedidos/123/conversa Bearer jwt-comprador ',
+      'POST http://gateway.local/api/v1/pedidos/123/conversa null {"texto":"Olá"}',
+    ])
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
+test('pedidos do artesão preservam lista, PATCH e envelope do Gateway', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const chamadas: { metodo: string; url: string; token: string | null; corpo: string | undefined }[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    chamadas.push({ metodo: opcoes?.method ?? 'GET', url: String(entrada),
+      token: new Headers(opcoes?.headers).get('authorization'), corpo: opcoes?.body?.toString() })
+    return Response.json({ dados: opcoes?.method === 'PATCH' ? { id: '123', estado: 'producao' } : [], erro: null })
+  }
+  try {
+    assert.deepEqual((await listarPedidosPendentes('jwt-artesao')).dados, [])
+    assert.equal((await atualizarEstadoPedido('123', 'producao')).dados?.estado, 'producao')
+    assert.deepEqual(chamadas, [
+      { metodo: 'GET', url: 'http://gateway.local/api/v1/artesao/pedidos-pendentes', token: 'Bearer jwt-artesao', corpo: undefined },
+      { metodo: 'PATCH', url: 'http://gateway.local/api/v1/pedidos/123/estado', token: null, corpo: '{"estado":"producao"}' },
+    ])
+    const semSessao = await proxy(new NextRequest('http://localhost:4321/api/v1/artesao/pedidos-pendentes'))
+    assert.equal(semSessao.headers.get('x-middleware-request-authorization'), null)
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
+test('falha de autorização ao atualizar pedido preserva erro da API', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  globalThis.fetch = async () => Response.json({ dados: null,
+    erro: { codigo: 'SEM_PERMISSAO', mensagem: 'Pedido de outro ateliê.' } }, { status: 403 })
+  try {
+    const resposta = await atualizarEstadoPedido('123', 'producao')
+    assert.equal(resposta.dados, null)
+    assert.equal(resposta.erro?.codigo, 'SEM_PERMISSAO')
+    assert.equal(resposta.erro?.status, 403)
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
+test('adaptador de pedido encaminha cookie no PATCH e preserva 403 e sessão ausente', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const chamadas: { url: string; metodo: string | undefined; token: string | null; corpo: string | undefined }[] = []
+  globalThis.fetch = async (entrada, opcoes) => {
+    const token = new Headers(opcoes?.headers).get('authorization')
+    chamadas.push({ url: String(entrada), metodo: opcoes?.method, token,
+      corpo: opcoes?.body instanceof ArrayBuffer ? new TextDecoder().decode(opcoes.body) : undefined })
+    return Response.json({ dados: null, erro: { codigo: token ? 'SEM_PERMISSAO' : 'NAO_AUTENTICADO' } },
+      { status: token ? 403 : 401 })
+  }
+  try {
+    const caminho = 'http://localhost:4321/api/v1/pedidos/123/estado'
+    const corpo = '{"estado":"producao"}'
+    const comSessao = await encaminharApi(new Request(caminho, { method: 'PATCH', body: corpo,
+      headers: { cookie: 'balaio_sessao=jwt-artesao', origin: 'http://localhost:4321' } }))
+    assert.equal(comSessao.status, 403)
+    assert.equal((await comSessao.json()).erro.codigo, 'SEM_PERMISSAO')
+    const semSessao = await encaminharApi(new Request(caminho, { method: 'PATCH', body: corpo }))
+    assert.equal(semSessao.status, 401)
+    assert.equal((await semSessao.json()).erro.codigo, 'NAO_AUTENTICADO')
+    assert.deepEqual(chamadas, [
+      { url: 'http://gateway.local/api/v1/pedidos/123/estado', metodo: 'PATCH', token: 'Bearer jwt-artesao', corpo },
+      { url: 'http://gateway.local/api/v1/pedidos/123/estado', metodo: 'PATCH', token: null, corpo },
+    ])
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
   }
 })
 
@@ -96,6 +197,31 @@ test('sacola autenticada encaminha GET e PUT com Bearer e envelope ao gateway', 
     else process.env.API_GATEWAY_URL = anterior
   }
 })
+
+test('POST de revalidação mantém rota pública, JWT e resposta do Gateway', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  let destino = '', autorizacao = ''
+  globalThis.fetch = async (entrada, opcoes) => {
+    destino = String(entrada)
+    autorizacao = new Headers(opcoes?.headers).get('authorization') ?? ''
+    return Response.json({ dados: { itens: [], podeProsseguir: false, revalidadoEm: '2026-11-17T00:00:00Z' }, erro: null })
+  }
+  try {
+    const resposta = await encaminharApi(new Request('http://localhost:4321/api/v1/sacola/revalidar', {
+      method: 'POST', headers: { authorization: 'Bearer comprador-a', 'content-type': 'application/json' },
+      body: '{}',
+    }))
+    assert.equal(resposta.status, 200)
+    assert.equal(destino, 'http://gateway.local/api/v1/sacola/revalidar')
+    assert.equal(autorizacao, 'Bearer comprador-a')
+    assert.equal((await resposta.json()).dados.podeProsseguir, false)
+  } finally {
+    if (anterior === undefined) delete process.env.API_GATEWAY_URL
+    else process.env.API_GATEWAY_URL = anterior
+  }
+})
+
 
 test('checkout usa Gateway e preserva Idempotency-Key', async () => {
   const anterior = process.env.API_GATEWAY_URL

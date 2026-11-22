@@ -36,9 +36,8 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
     pecasPorArtesao(artesao.slug),
     obterReputacao(artesao.slug),
   ])
-  const media = reputacao ? reputacao.media : artesao.avaliacaoMedia
+  const media = reputacao?.media ?? artesao.avaliacaoMedia
   const totalAvaliacoes = reputacao?.total
-  if (erroPecas) return <Pagina><EstadoErro mensagem={erroPecas.mensagem} /></Pagina>
   const pecas = (pecasArtesao ?? []).filter((peca) => !peca.inativadoEm && (!peca.situacao || peca.situacao === 'publicada'))
 
   return (
@@ -60,7 +59,7 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
             )}
           </div>
           <p style={{ opacity: 0.9, marginTop: 6 }}>
-            {artesao.nome} · {artesao.territorio} · {artesao.tecnica}
+            {[artesao.nome, artesao.territorio, artesao.tecnica].filter(Boolean).join(' · ')}
           </p>
         </div>
         <div className="acoes-linha">
@@ -79,14 +78,14 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
           {pecas.length === 1 ? 'peça à venda' : 'peças à venda'}
         </li>
         <li>
-          <strong>{media > 0 ? `★ ${media.toFixed(1)}` : '—'}</strong>
-          {media > 0
+          <strong>{media != null && media > 0 ? `★ ${media.toFixed(1)}` : '—'}</strong>
+          {media != null && media > 0
             ? totalAvaliacoes ? `média de ${totalAvaliacoes} ${totalAvaliacoes === 1 ? 'avaliação' : 'avaliações'}` : 'avaliação média'
             : 'sem avaliações'}
         </li>
         <li>
-          <strong>{artesao.obrasComercializadas > 0 ? `${artesao.obrasComercializadas}+` : '0'}</strong>
-          obras comercializadas
+          <strong>{artesao.obrasComercializadas ?? '—'}</strong>
+          {artesao.obrasComercializadas == null ? 'dados de vendas indisponíveis' : 'obras comercializadas'}
         </li>
       </ul>
 
@@ -120,7 +119,7 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
 
       <section className="secao">
         <h2 className="secao-titulo">Coleção viva do atelier</h2>
-        {pecas.length ? (
+        {erroPecas ? <EstadoErro mensagem={erroPecas.mensagem} /> : pecas.length ? (
           <ListaEscalonada className="grade-pecas">
             {pecas.map((p) => <CartaoPeca key={p.slug} peca={p} />)}
           </ListaEscalonada>

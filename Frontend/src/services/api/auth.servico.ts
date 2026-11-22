@@ -35,11 +35,11 @@ export function cadastrar(dados: DadosCadastro): Promise<RespostaApi<UsuarioAute
 
 export function atualizarConta(
   id: string,
-  dados: { nome: string; email: string; telefone: string },
+  dados: Partial<{ nome: string; email: string }>,
 ): Promise<RespostaApi<UsuarioAutenticado>> {
   return enviar<UsuarioAutenticado>(`/conta/${encodeURIComponent(id)}`, dados, 'PATCH')
 }
 
-export function alterarSenha(id: string, senhaAtual: string, novaSenha: string): Promise<RespostaApi<{ id: string }>> {
-  return enviar<{ id: string }>(`/conta/${encodeURIComponent(id)}/senha`, { senhaAtual, novaSenha })
+export function alterarSenha(senhaAtual: string, novaSenha: string): Promise<RespostaApi<{ alterada: boolean }>> {
+  return enviar<{ alterada: boolean }>('/auth/alterar-senha', { senhaAtual, novaSenha })
 }

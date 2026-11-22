@@ -37,7 +37,7 @@ export default function FormAlterarSenha() {
     }
 
     definirSalvando(true)
-    const { erro } = await alterarSenha(sessao.id, atual, nova)
+    const { erro } = await alterarSenha(atual, nova)
     definirSalvando(false)
 
     if (erro) {
@@ -61,7 +61,7 @@ export default function FormAlterarSenha() {
       <Campo rotulo="Senha atual" erro={erros['senha-atual']} id="senha-atual">
         <input id="senha-atual" name="senhaAtual" type="password" autoComplete="current-password" />
       </Campo>
-      <Campo rotulo="Nova senha" ajuda="No mínimo 8 caracteres." erro={erros['senha-nova']} id="senha-nova">
+      <Campo rotulo="Nova senha" ajuda="No mínimo 12 caracteres." erro={erros['senha-nova']} id="senha-nova">
         <input id="senha-nova" name="novaSenha" type="password" autoComplete="new-password" />
       </Campo>
       <Campo rotulo="Repita a nova senha" erro={erros['senha-confirmacao']} id="senha-confirmacao">

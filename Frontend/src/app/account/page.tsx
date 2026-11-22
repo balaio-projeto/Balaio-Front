@@ -12,11 +12,16 @@ import {
   IconeUsuario,
 } from '@/components/ui/Icones'
 import { listarPedidos } from '@/services/api/pedidos.servico'
+import { obterMeuAtelie } from '@/services/api/artesaos.servico'
 import { exigirSessao } from '@/services/autenticacao'
 
 export default async function Conta() {
   const { usuario: usuarioAtual, token } = await exigirSessao()
-  const { dados: pedidos } = await listarPedidos(token)
+  const [{ dados: pedidos }, perfil] = await Promise.all([
+    listarPedidos(token),
+    usuarioAtual.papel === 'artesao' ? obterMeuAtelie(token) : null,
+  ])
+  const imagem = perfil?.dados?.imagem ?? usuarioAtual.imagem
   const totalPedidos = (pedidos ?? []).length
   return (
     <Pagina>
@@ -27,7 +32,7 @@ export default async function Conta() {
 
       <div className="conta-hub">
         <header className="cartao conta-capa">
-          <Retrato imagem={usuarioAtual.imagem} grande />
+          <Retrato imagem={imagem} grande />
           <div className="encolhivel">
             <p className="conta-capa-nome">{usuarioAtual.nome}</p>
             <p className="autoria">{usuarioAtual.email}</p>
@@ -35,6 +40,9 @@ export default async function Conta() {
         </header>
 
         <nav className="cartao lista-menu" aria-label="Minha conta">
+          {usuarioAtual.papel === 'artesao' && <Link href="/dashboard/settings" className="menu-item">
+            <IconeUsuario />Perfil do ateliê<span className="menu-item-seta"><IconeSetaDireita /></span>
+          </Link>}
           <Link href="/orders" className="menu-item">
             <IconePacote />
             Meus pedidos

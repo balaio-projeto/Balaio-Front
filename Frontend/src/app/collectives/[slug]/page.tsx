@@ -22,7 +22,7 @@ export default async function PerfilColetivo({ params }: { params: Promise<{ slu
   const membros = membrosResp.map((r) => r.dados).filter((a): a is Artesao => a !== null)
   const pecasResp = await Promise.all(membros.map((a) => pecasPorArtesao(a.slug)))
   const pecas = pecasResp.flatMap((r) => r.dados ?? []).slice(0, 6)
-  const obras = membros.reduce((total, a) => total + a.obrasComercializadas, 0)
+  const obras = membros.reduce((total, a) => total + (a.obrasComercializadas ?? 0), 0)
 
   return (
     <Pagina>

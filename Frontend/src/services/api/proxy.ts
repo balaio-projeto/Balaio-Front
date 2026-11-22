@@ -1,5 +1,5 @@
 import { urlDoGateway } from './gateway'
-import { CAMINHOS_DE_AUTENTICACAO, ehRotaDeMidia, limiteDoCorpo } from './rotas-proxy'
+import { CAMINHOS_DE_AUTENTICACAO, ehLeituraDeImagemPerfil, ehRotaDeMidia, limiteDoCorpo } from './rotas-proxy'
 
 const AUTENTICACAO = new Set(CAMINHOS_DE_AUTENTICACAO)
 const PREFIXO_DA_API = '/api/v1'
@@ -79,11 +79,17 @@ function cabecalhosParaOGateway(requisicao: Request, midia: boolean): Headers {
   return headers
 }
 
-function respostaAoNavegador(resposta: Response, url: URL, midia: boolean): Response {
+function respostaAoNavegador(resposta: Response, url: URL, midia: boolean, imagemPerfil: boolean, semCorpo: boolean): Response {
   const saida = new Headers({ 'Cache-Control': 'no-store' })
   for (const nome of [...CABECALHOS_DE_RESPOSTA, ...(midia ? CABECALHOS_DE_MIDIA : [])]) {
     const valor = resposta.headers.get(nome)
     if (valor) saida.set(nome, valor)
+  }
+  if (imagemPerfil) {
+    for (const nome of ['content-length', 'cache-control', 'x-content-type-options']) {
+      const valor = resposta.headers.get(nome)
+      if (valor) saida.set(nome, valor)
+    }
   }
   const cookies = resposta.headers.getSetCookie()
   for (const cookie of cookies) saida.append('set-cookie', cookieDeSessaoNaRaiz(cookie))
@@ -91,7 +97,7 @@ function respostaAoNavegador(resposta: Response, url: URL, midia: boolean): Resp
   const sufixo = `Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`
   saida.append('set-cookie', `balaio_sessao=; HttpOnly; Path=${PREFIXO_DA_API}; ${sufixo}`)
   saida.append('set-cookie', `balaio-sessao=; Path=/; ${sufixo}`)
-  return new Response(resposta.body, { status: resposta.status, headers: saida })
+  return new Response(semCorpo ? null : resposta.body, { status: resposta.status, headers: saida })
 }
 
 export async function encaminharApi(requisicao: Request): Promise<Response> {
@@ -103,6 +109,10 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     return erro(405, 'METODO_NAO_PERMITIDO', 'Método não permitido.')
   }
   const semCorpo = ['GET', 'HEAD'].includes(metodo)
+  const imagemPerfil = ehLeituraDeImagemPerfil(metodo, caminho)
+  if (caminho.startsWith('/arquivos/perfis') && !imagemPerfil) {
+    return erro(404, 'RECURSO_NAO_ENCONTRADO', 'Arquivo não encontrado.')
+  }
   if (!semCorpo && tokenDoCookie(requisicao) && !requisicao.headers.get('authorization') && !origemPermitida(requisicao)) {
     return erro(403, 'SEM_PERMISSAO', 'Origem não permitida.')
   }
@@ -112,6 +122,10 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     return erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.')
   }
   const headers = cabecalhosParaOGateway(requisicao, midia)
+  if (imagemPerfil) {
+    headers.delete('cookie')
+    headers.delete('authorization')
+  }
 
   try {
     const destino = `${destinoDoGateway()}${caminho}${url.search}`
@@ -135,7 +149,7 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     if (resposta.status >= 300 && resposta.status < 400) {
       return erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.')
     }
-    return respostaAoNavegador(resposta, url, midia)
+    return respostaAoNavegador(resposta, url, midia, imagemPerfil, metodo === 'HEAD')
   } catch {
     return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.')
   }

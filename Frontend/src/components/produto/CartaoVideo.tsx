@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import PlayerVideo from '@/components/produto/PlayerVideo'
-import { comentarVideo, comentariosDe } from '@/services/api/videos.servico'
+import { comentarVideo, comentariosDe, registrarVisualizacao } from '@/services/api/videos.servico'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeConversa, IconeCoracao, IconeMarcador, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
 import { emMilhares, emReais } from '@/utils/formato'
@@ -166,7 +166,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
       <div className="video-principal">
         <div className="video-tela">
           {video.url ? (
-            <PlayerVideo url={video.url} capa={capa} ativo={visivel} />
+            <PlayerVideo url={video.url} capa={capa} ativo={visivel} aoIniciar={() => void registrarVisualizacao(video.id)} />
           ) : (
             <>
               <ImagemComFallback className="video-capa" src={capa} reserva={fallbackDe(capa)} alt="" loading="lazy" />

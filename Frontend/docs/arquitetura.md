@@ -67,6 +67,7 @@ Montado no `app/layout.tsx`:
 
 - **Sessão:** usuário logado e papel.
 - **Sacola:** visitante usa `localStorage`; comprador autenticado usa `GET/PUT /estado/sacola` no commerce. No login, a cópia local é mesclada e removida apenas após confirmação remota. Atualizar a sacola não reserva peças; a reserva acontece no checkout.
+- **Revalidação:** `POST /sacola/revalidar` é adaptado ao Gateway e consulta o comércio, que lê a sacola do JWT e cota cada peça pelo HTTP interno do catálogo. A interface mostra o preço final da cotação, bloqueia checkout com item indisponível ou falha de dependência e repete a consulta antes de registrar o pedido. A verificação não altera a sacola nem reserva estoque.
 - Conflitos de catálogo na mesclagem mantêm a lista para correção pelo comprador. Falhas do armazenamento local deixam a sacola visitante em memória com aviso; essa cópia atravessa a troca de identidade no login, permanece em falha de PUT e é descartada apenas após confirmação remota. A memória da sacola autenticada continua isolada por identidade. O checkout só redireciona ao pagamento após confirmar a limpeza da sacola da conta.
 - **Favoritos, histórico de busca e vídeos curtidos/salvos:** visitante guarda só no
   `localStorage`; ao entrar, os itens são mesclados na conta por `GET/PUT /estado/{colecao}`
