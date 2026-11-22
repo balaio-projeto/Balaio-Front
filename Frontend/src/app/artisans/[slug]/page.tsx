@@ -36,7 +36,7 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
     pecasPorArtesao(artesao.slug),
     obterReputacao(artesao.slug),
   ])
-  const media = reputacao ? reputacao.media : artesao.avaliacaoMedia
+  const media = reputacao?.media ?? artesao.avaliacaoMedia
   const totalAvaliacoes = reputacao?.total
   const pecas = (pecasArtesao ?? []).filter((peca) => !peca.inativadoEm && (!peca.situacao || peca.situacao === 'publicada'))
 
@@ -78,14 +78,14 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
           {pecas.length === 1 ? 'peça à venda' : 'peças à venda'}
         </li>
         <li>
-          <strong>{media > 0 ? `★ ${media.toFixed(1)}` : '—'}</strong>
-          {media > 0
+          <strong>{media != null && media > 0 ? `★ ${media.toFixed(1)}` : '—'}</strong>
+          {media != null && media > 0
             ? totalAvaliacoes ? `média de ${totalAvaliacoes} ${totalAvaliacoes === 1 ? 'avaliação' : 'avaliações'}` : 'avaliação média'
             : 'sem avaliações'}
         </li>
         <li>
-          <strong>{artesao.obrasComercializadas > 0 ? `${artesao.obrasComercializadas}+` : '0'}</strong>
-          obras comercializadas
+          <strong>{artesao.obrasComercializadas ?? '—'}</strong>
+          {artesao.obrasComercializadas == null ? 'dados de vendas indisponíveis' : 'obras comercializadas'}
         </li>
       </ul>
 

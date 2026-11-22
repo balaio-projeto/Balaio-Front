@@ -123,7 +123,7 @@ O endpoint de persistência da sacola é `/estado/sacola`; a rota `/sacola/reval
 | GET / POST | `/pedidos/:id/conversa` | 🔑 | Mensagens entre comprador e artesão |
 | POST | `/pedidos/:id/avaliacao` | 🔑 | `{ nota, comentario }`, só depois da entrega |
 
-Estados financeiros incluem `aguardando_pagamento`, `confirmacao_pendente`, `cancelamento_pendente`, `reembolso_pendente`, `falha_pagamento` e `reembolsado`. O navegador consulta `GET /pedidos/:id` depois do retorno do Checkout Pro; parâmetros do redirect não confirmam pagamento.
+Estados pendentes incluem `aguardando_pagamento`, `confirmacao_pendente`, `cancelamento_pendente`, `reembolso_pendente` e `encerramento_pendente`. PATCH de cancelamento/recusa pode retornar 202 com um desses estados; a peça única permanece indisponível até o catálogo confirmar a liberação. Após estorno integral, a causa final do pedido continua `cancelado` ou `recusado`, e `estadoPagamento` indica `refunded`. O navegador consulta `GET /pedidos/:id` depois do retorno do Checkout Pro; parâmetros do redirect não confirmam pagamento.
 
 ### Painel do artesão
 
@@ -228,6 +228,12 @@ Content-Type: application/json
   "endereco": { "cep": "50000-000", "endereco": "Rua da Aurora, 100", "cidade": "Recife", "estado": "PE" }
 }
 ```
+
+Quando o formulário usa um endereço salvo, também envia `enderecoId`. O commerce-service
+consulta `GET /usuario/enderecos/{id}` no profile-service com o JWT do comprador e
+monta o endereço do pedido a partir da resposta. O pedido guarda esse snapshot, mesmo
+se o endereço salvo for alterado ou removido depois. Sem `enderecoId`, o checkout
+continua aceitando o endereço digitado no formulário.
 
 ```json
 { "dados": { "id": "PE-1758800000000-1a2b3c4d", "total": 416.9, "estado": "confirmado" }, "erro": null }

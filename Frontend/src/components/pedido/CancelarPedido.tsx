@@ -20,9 +20,12 @@ export default function CancelarPedido({ pedidoId }: { pedidoId: string }) {
       definirErro(resposta.erro?.mensagem ?? 'Não foi possível cancelar o pedido. Tente novamente.')
       return
     }
-    if (resposta.dados.estado === 'encerramento_pendente') {
+    if (resposta.dados.estado === 'cancelamento_pendente')
+      definirErro('Cancelamento em processamento. Aguardamos a confirmação do provedor de pagamento.')
+    else if (resposta.dados.estado === 'reembolso_pendente')
+      definirErro('Reembolso em processamento. A peça única permanece indisponível até a confirmação do provedor e a liberação pelo catálogo.')
+    else if (resposta.dados.estado === 'encerramento_pendente')
       definirErro('Cancelamento em processamento. A peça única só voltará à vitrine após confirmação do catálogo.')
-    }
     roteador.refresh()
   }
 

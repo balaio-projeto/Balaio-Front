@@ -1,0 +1,40 @@
+name: CI Frontend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-e-testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build (inclui checagem de tipos)
+        run: npm run build
+
+      - name: Testes unitários
+        run: |
+          npm run test:auth
+          npm run test:media
+          npm run test:pi209
+          npm run test:curadoria
+          npm run test:recovery
+          npm run test:session
+          npm run test:sacola
+          npm run test:orders
+          npm run test:community
