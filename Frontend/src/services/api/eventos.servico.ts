@@ -12,6 +12,12 @@ export async function obterEvento(slug: string): Promise<RespostaApi<Evento>> {
   return buscar<Evento>(`/eventos/${encodeURIComponent(slug)}`)
 }
 
-export function criarEvento(evento: Evento): Promise<RespostaApi<Evento>> {
-  return enviar('/eventos', evento)
+/** Dados enviados pelo organizador. O estado de publicação é decidido pelo administrador (PI-205). */
+export type SubmissaoEvento = Omit<Evento, 'criadoPorVoce'>
+
+/** Confirmação de recebimento: o evento fica pendente e não é público até aprovação. */
+export type EventoPendente = { slug: string; status: 'PENDENTE' }
+
+export function criarEvento(submissao: SubmissaoEvento): Promise<RespostaApi<EventoPendente>> {
+  return enviar<EventoPendente>('/eventos', submissao)
 }
