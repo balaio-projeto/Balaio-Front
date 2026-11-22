@@ -20,7 +20,7 @@ export default function CartaoArtesao({ artesao, totalPecas }: { artesao: Artesa
         <span className="cartao-comunidade-nome">{artesao.nome}</span>
         <span className="autoria">{artesao.atelie}</span>
         <span className="cartao-comunidade-rodape">
-          {artesao.avaliacaoMedia > 0 && <Estrelas nota={artesao.avaliacaoMedia} />}
+          {artesao.avaliacaoMedia != null && artesao.avaliacaoMedia > 0 && <Estrelas nota={artesao.avaliacaoMedia} />}
           {totalPecas !== undefined && (
             <span className="autoria">
               {totalPecas} {totalPecas === 1 ? 'peça' : 'peças'}

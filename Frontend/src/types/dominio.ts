@@ -48,8 +48,8 @@ export type Artesao = {
   territorio: string
   tecnica: Tecnica
   historia: string
-  obrasComercializadas: number
-  avaliacaoMedia: number
+  obrasComercializadas?: number | null
+  avaliacaoMedia?: number | null
   selo: boolean
   imagem: string
   cepOrigem?: string
