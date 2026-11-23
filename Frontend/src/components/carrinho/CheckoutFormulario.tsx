@@ -21,7 +21,7 @@ import { useBuscaCep } from '@/hooks/useBuscaCep'
 import { entregaDoEnderecoSalvo, entregaPeloCep, formatarCep, type EnderecoPorCep, type EntregaDoCheckout } from '@/utils/cep'
 import SeletorEnderecoSalvo, { OUTRO_ENDERECO } from './SeletorEnderecoSalvo'
 import SeletorEstado from '@/components/forms/SeletorEstado'
-import { abrirPagamentoAposLimpeza } from './abrirPagamento'
+import { abrirPagamentoAposLimpeza, linkDePagamentoConfiavel } from './abrirPagamento'
 
 export default function CheckoutFormulario() {
   const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar, limparConfirmado } = useSacola()
@@ -182,11 +182,9 @@ export default function CheckoutFormulario() {
       definirErroConfirmacao('Pedido registrado; a página de pagamento ainda está sendo preparada. Tente novamente com os mesmos dados.')
       return
     }
-    let destino: URL
-    try { destino = new URL(resposta.dados.checkoutUrl) }
-    catch { definirErroConfirmacao('A página de pagamento de teste retornada é inválida.'); return }
-    if (destino.protocol !== 'https:' || destino.hostname !== 'sandbox.mercadopago.com') {
-      definirErroConfirmacao('A página de pagamento de teste retornada é inválida. Tente novamente mais tarde.')
+    const destino = linkDePagamentoConfiavel(resposta.dados.checkoutUrl)
+    if (!destino) {
+      definirErroConfirmacao('A página de pagamento retornada é inválida. Tente novamente mais tarde.')
       return
     }
     await abrirPagamento(destino.href)
