@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 
-type Props = { url: string; capa: string; ativo: boolean; aoIniciar?: () => void }
+type Props = { url: string; capa?: string; ativo: boolean; aoIniciar?: () => void }
 
 export default function PlayerVideo({ url, capa, ativo, aoIniciar }: Props) {
   const refVideo = useRef<HTMLVideoElement>(null)

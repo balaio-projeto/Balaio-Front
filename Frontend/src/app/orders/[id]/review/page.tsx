@@ -10,6 +10,7 @@ import { obterPecaHistorico } from '@/services/api/pecas.servico'
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { exigirSessao } from '@/services/autenticacao'
+import { pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,8 @@ export default async function Avaliar({ params }: { params: Promise<{ id: string
   const { id } = await params
   const { usuario, token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro && erro.status !== 404 && !['RECURSO_NAO_ENCONTRADO', 'PEDIDO_NAO_ENCONTRADO'].includes(erro.codigo)) throw new Error(erro.mensagem)
+  if (pedidoInexistente(erro)) notFound()
+  if (erro) throw new Error(erro.mensagem)
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
 
   const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null

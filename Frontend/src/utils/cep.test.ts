@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { validarCEP } from './validacao'
 import {
   cepCompleto, comporBairro, consultarViaCep, entregaDoEnderecoSalvo, entregaPeloCep, formatarCep,
   mapearViaCep, mensagemDaBuscaCep, normalizarCep, separarBairro,
@@ -85,4 +86,14 @@ test('cada estado da busca tem mensagem visível, exceto o ocioso', () => {
     assert.ok(mensagemDaBuscaCep(situacao))
   }
   assert.match(mensagemDaBuscaCep('inexistente')!, /manualmente/)
+})
+
+test('validarCEP segue o commerce e recusa CEP com todos os dígitos iguais', () => {
+  assert.equal(validarCEP('50050-000'), null)
+  assert.equal(validarCEP(' 50050000 '), null)
+  assert.notEqual(validarCEP('00000-000'), null)
+  assert.notEqual(validarCEP('11111111'), null)
+  assert.notEqual(validarCEP('99999-999'), null)
+  assert.notEqual(validarCEP('5005-0000'), null)
+  assert.notEqual(validarCEP('50050.000'), null)
 })

@@ -6,7 +6,6 @@ import { Foto } from '@/components/ui/Basicos'
 import { IconePlay, IconeSetaDireita, IconeSetaEsquerda } from '@/components/ui/Icones'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import MiniaturaMapa from '@/components/eventos/MiniaturaMapa'
-import { fallbackDe } from '@/utils/imagem'
 
 export type Destaque = {
   slug: string
@@ -142,7 +141,7 @@ export default function CarrosselDestaques({
           <Link href="/videos" className="hero-figura hero-figura-video" key="figura-video" tabIndex={-1}>
             <span className="hero-video-mosaico">
               {videos.capas.slice(0, CAPAS_NO_MOSAICO).map((capa, posicao) => (
-                <ImagemComFallback key={`${capa}-${posicao}`} src={capa} reserva={fallbackDe(capa)} alt="" />
+                <ImagemComFallback key={`${capa}-${posicao}`} src={capa} alt="" />
               ))}
             </span>
             <span className="hero-video-play">
@@ -172,7 +171,7 @@ export default function CarrosselDestaques({
             <Foto nome={destaque!.nome} imagem={destaque!.imagem} />
           </div>
           <div className="hero-texto" key={`texto-${destaque!.slug}`}>
-            <p className="hero-kicker">Destaque da semana · {destaque!.territorio}</p>
+            <p className="hero-kicker">Em destaque · {destaque!.territorio}</p>
             <Titulo className="titulo-pagina">{destaque!.titulo}</Titulo>
             <p className="subtitulo-pagina">{destaque!.resumo}</p>
             <div className="acoes-linha">

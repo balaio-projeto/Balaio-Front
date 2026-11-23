@@ -13,7 +13,7 @@ import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
 import CancelarPedido from '@/components/pedido/CancelarPedido'
-import { acaoCancelamentoPedido } from '@/components/pedido/acaoCancelamentoPedido'
+import { acaoCancelamentoPedido, pedidoEncerrado, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
 import EstadoPagamento from '@/components/pedido/EstadoPagamento'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +22,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
   const { id } = await params
   const { token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro?.status === 404 || erro?.codigo === 'PEDIDO_NAO_ENCONTRADO') notFound()
+  if (pedidoInexistente(erro)) notFound()
   if (erro) throw new Error(erro.mensagem)
   if (!pedido) notFound()
 
@@ -30,7 +30,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
   const artesao = peca ? (await obterArtesao(peca.artesao)).dados : null
   const { dados: conversa, erro: erroConversa } = await conversaDoPedido(id, token)
   const etapas = pedido.etapas ?? []
-  const encerrado = ['recusado', 'cancelado', 'reembolsado'].includes(pedido.estado)
+  const encerrado = pedidoEncerrado(pedido.estado)
   const acaoCancelamento = acaoCancelamentoPedido(pedido.estado)
   const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null
 
@@ -87,7 +87,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
 
             <ol className="linha-tempo">
               {etapas.map((etapa, indice) => {
-                const etapaEncerrada = ['recusado', 'cancelado', 'reembolsado'].includes(etapa.estado)
+                const etapaEncerrada = pedidoEncerrado(etapa.estado)
                 return (
                   <li
                     key={`${etapa.estado}-${etapa.criadaEm ?? indice}`}

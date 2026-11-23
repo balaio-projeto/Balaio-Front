@@ -66,7 +66,6 @@ export default function AgendaEventos() {
             <Link href={`/events/${evento.slug}`} className="cartao-evento cartao-evento-agenda">
               <span className="cartao-evento-selos">
                 <span className="selo selo-neutro">{rotuloTipoEvento[evento.tipo]}</span>
-                {evento.criadoPorVoce && <span className="selo selo-encomenda">Seu evento</span>}
                 <span className="chip-distancia">
                   <IconeMapa tamanho={13} />
                   {distanciaLegivel(distancia)}

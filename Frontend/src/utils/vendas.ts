@@ -1,11 +1,12 @@
 import type { EstadoPedido, Peca, Pedido } from '@/types/dominio'
+import { ESTADOS_PEDIDO_ENCERRADO } from '@/components/pedido/acaoCancelamentoPedido'
 
 const NOMES_DOS_MESES = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ]
 
-export const ESTADOS_ENCERRADOS: ReadonlySet<EstadoPedido> = new Set<EstadoPedido>(['recusado', 'cancelado', 'reembolsado'])
+export const ESTADOS_ENCERRADOS: ReadonlySet<EstadoPedido> = ESTADOS_PEDIDO_ENCERRADO
 
 export type MesDoAno = { ano: number; mes: number }
 

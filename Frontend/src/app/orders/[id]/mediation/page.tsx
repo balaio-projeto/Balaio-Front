@@ -6,6 +6,9 @@ import FormMediacao from '@/components/forms/FormMediacao'
 import { obterPedido } from '@/services/api/pedidos.servico'
 import { obterPecaHistorico } from '@/services/api/pecas.servico'
 import { exigirSessao } from '@/services/autenticacao'
+import EstadoVazio from '@/components/feedback/EstadoVazio'
+import { IconeAviso } from '@/components/ui/Icones'
+import { pedidoAceitaMediacao, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +16,8 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const { usuario, token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
+  if (pedidoInexistente(erro)) notFound()
+  if (erro) throw new Error(erro.mensagem)
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
 
   const { dados: peca } = await obterPecaHistorico(pedido.pecaSlug)
@@ -34,7 +38,14 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
         Quando a conversa direta não resolve, a plataforma entra para ouvir os dois lados e garantir uma saída justa.
       </p>
 
-      <div className="duas-colunas">
+      {!pedidoAceitaMediacao(pedido.estado) ? (
+        <EstadoVazio
+          icone={<IconeAviso tamanho={34} />}
+          titulo="Este pedido ainda não pode ir para mediação"
+          descricao="A mediação fica disponível depois que o pagamento é confirmado. Antes disso, acompanhe ou cancele o pedido pela página dele."
+          acao={<Link href={`/orders/${pedido.id}`} className="botao botao-primario">Voltar ao pedido</Link>}
+        />
+      ) : <div className="duas-colunas">
         <FormMediacao
           pedidoId={pedido.id}
           pecaNome={peca?.nome}
@@ -55,7 +66,7 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
             resolve por lá.
           </p>
         </aside>
-      </div>
+      </div>}
     </Pagina>
   )
 }

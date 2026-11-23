@@ -2,8 +2,14 @@ export function validarObrigatorio(valor: string, mensagem = 'Preencha este camp
   return valor.trim() ? null : mensagem
 }
 
+export function validarComprimento(valor: string, maximo: number, mensagem: string): string | null {
+  return valor.trim().length > maximo ? mensagem : null
+}
+
 export function validarCEP(valor: string): string | null {
-  return /^\d{5}-?\d{3}$/.test(valor.trim()) ? null : 'Digite um CEP válido, como 50000-000'
+  const limpo = valor.trim()
+  const digitos = limpo.replace('-', '')
+  return /^\d{5}-?\d{3}$/.test(limpo) && !/^(\d)\1{7}$/.test(digitos) ? null : 'Digite um CEP válido, como 50000-000'
 }
 
 export function validarEmail(valor: string): string | null {
@@ -20,20 +26,33 @@ export function validarSenha(valor: string): string | null {
   return null
 }
 
+export const PRECO_MAXIMO = 1_000_000
+
 export function validarPreco(valor: string): string | null {
   const numero = numeroDoPreco(valor)
   if (!valor.trim() || Number.isNaN(numero) || numero <= 0) return 'Digite um preço válido, como 180,00'
+  if (numero > PRECO_MAXIMO) return 'O preço máximo é R$ 1.000.000,00'
+  if (casasDecimais(textoDoPreco(valor)) > 2) return 'Use no máximo 2 casas decimais, como 180,50'
   return null
 }
 
 const MILHAR_SEM_CENTAVOS = /^-?\d{1,3}(\.\d{3})+$/
 
-export function numeroDoPreco(valor: string): number {
+function textoDoPreco(valor: string): string {
   const limpo = valor.trim().replace(/[^\d,.-]/g, '')
-  if (!limpo) return Number.NaN
-  if (limpo.includes(',')) return Number(limpo.replace(/\./g, '').replace(',', '.'))
-  if (MILHAR_SEM_CENTAVOS.test(limpo)) return Number(limpo.replace(/\./g, ''))
-  return Number(limpo)
+  if (limpo.includes(',')) return limpo.replace(/\./g, '').replace(',', '.')
+  if (MILHAR_SEM_CENTAVOS.test(limpo)) return limpo.replace(/\./g, '')
+  return limpo
+}
+
+function casasDecimais(texto: string): number {
+  const fracao = /\.(\d*)$/.exec(texto)?.[1] ?? ''
+  return fracao.replace(/0+$/, '').length
+}
+
+export function numeroDoPreco(valor: string): number {
+  const texto = textoDoPreco(valor)
+  return texto ? Number(texto) : Number.NaN
 }
 
 export function validarPrazoDias(valor: string): string | null {

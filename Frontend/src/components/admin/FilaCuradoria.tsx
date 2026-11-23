@@ -120,7 +120,7 @@ export default function FilaCuradoria({
     if (emAndamento.current.has(item.id) || solicitacoesConcluidas.current.has(item.id)) return
     definirConfirmando(null)
     definirAjusteAberto(item.id)
-    definirMotivo(item.pecas.length === 0 ? MOTIVO_SEM_PECAS : '')
+    definirMotivo(!item.pecasIndisponiveis && item.pecas.length === 0 ? MOTIVO_SEM_PECAS : '')
     definirErroMotivo('')
   }
 
@@ -256,7 +256,11 @@ export default function FilaCuradoria({
                           <IconeNovaAba />
                           <span className="so-leitor">(abre em nova aba)</span>
                         </Link>
-                        {!temPecas && <p className="campo-ajuda">O selo exige ao menos uma peça publicada.</p>}
+                        {item.pecasIndisponiveis ? (
+                          <p className="campo-ajuda">Peças indisponíveis no momento. Recarregue a página para conferir as peças antes de conceder o selo.</p>
+                        ) : (
+                          !temPecas && <p className="campo-ajuda">O selo exige ao menos uma peça publicada.</p>
+                        )}
                       </>
                     )}
                   </footer>

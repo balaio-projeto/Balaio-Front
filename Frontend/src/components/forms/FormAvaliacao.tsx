@@ -9,6 +9,8 @@ import { IconeCheck } from '@/components/ui/Icones'
 import { avaliarPedido } from '@/services/api/avaliacoes.servico'
 import { avisar } from '@/components/feedback/Avisos'
 
+const TAMANHO_MAXIMO_COMENTARIO = 1000
+
 const rotulosNota = ['', 'Muito ruim', 'Ruim', 'Regular', 'Bom', 'Excelente']
 
 const aspectosPositivos = [
@@ -73,6 +75,11 @@ export default function FormAvaliacao({ pedidoId, pecaNome, pecaImagem, artesaoN
       definirErroNota('Escolha uma nota geral de 1 a 5 estrelas')
       avisar.erro('Escolha uma nota geral de 1 a 5 estrelas')
       document.querySelector<HTMLButtonElement>('#nota-geral button')?.focus()
+      return
+    }
+    if (comentario.trim().length > TAMANHO_MAXIMO_COMENTARIO) {
+      definirErroEnvio(`O comentário pode ter até ${TAMANHO_MAXIMO_COMENTARIO} caracteres.`)
+      document.getElementById('comentario')?.focus()
       return
     }
     definirSalvando(true)
@@ -148,11 +155,12 @@ export default function FormAvaliacao({ pedidoId, pecaNome, pecaImagem, artesaoN
 
       <Campo
         rotulo="Quer contar mais alguma coisa?"
-        ajuda="Seu comentário ficará registrado na avaliação deste pedido."
+        ajuda={`Seu comentário ficará registrado na avaliação deste pedido. ${comentario.length} de ${TAMANHO_MAXIMO_COMENTARIO} caracteres.`}
         id="comentario"
       >
         <textarea
           id="comentario"
+          maxLength={TAMANHO_MAXIMO_COMENTARIO}
           placeholder="Conte como foi receber a peça, o contato com o artesão, o que te surpreendeu."
           value={comentario}
           onChange={(evento) => definirComentario(evento.target.value)}

@@ -53,17 +53,16 @@ export async function confirmarLeituraDaConversa(id: string): Promise<RespostaAp
   return buscar<null>(`/pedidos/${encodeURIComponent(id)}/conversa/leitura`, { method: 'POST' })
 }
 
-export async function listarConversasArtesao(artesao?: string): Promise<RespostaApi<ConversaArtesao[]>> {
-  return buscar<ConversaArtesao[]>(`/artesao/conversas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`)
+export async function listarConversasArtesao(token?: string): Promise<RespostaApi<ConversaArtesao[]>> {
+  return buscar<ConversaArtesao[]>('/artesao/conversas', comToken(token))
 }
 
 export async function listarPedidosPendentes(token?: string): Promise<RespostaApi<PedidoPendente[]>> {
   return buscar<PedidoPendente[]>('/artesao/pedidos-pendentes', comToken(token))
 }
 
-export async function listarVendasArtesao(artesao?: string, token?: string): Promise<RespostaApi<Pedido[]>> {
-  return buscar<Pedido[]>(`/artesao/vendas${artesao ? `?artesao=${encodeURIComponent(artesao)}` : ''}`,
-    comToken(token))
+export async function listarVendasArtesao(token?: string): Promise<RespostaApi<Pedido[]>> {
+  return buscar<Pedido[]>('/artesao/vendas', comToken(token))
 }
 
 export type DadosEnvio = { rastreio: string; transportadora?: string }
@@ -86,8 +85,11 @@ export type RelatorioVendas = {
   serie: { granularidade: 'dia' | 'mes'; pontos: { inicio: string; receita: number }[] }
 }
 
-export function relatorioVendas(periodo: PeriodoVendas, token?: string): Promise<RespostaApi<RelatorioVendas>> {
-  return buscar<RelatorioVendas>(`/artesao/vendas/relatorio${montarQuery({ periodo })}`, comToken(token))
+export type IntervaloVendas = { de: string; ate: string }
+
+export function relatorioVendas(periodo: PeriodoVendas | IntervaloVendas, token?: string): Promise<RespostaApi<RelatorioVendas>> {
+  const consulta = typeof periodo === 'string' ? montarQuery({ periodo }) : montarQuery({ de: periodo.de, ate: periodo.ate })
+  return buscar<RelatorioVendas>(`/artesao/vendas/relatorio${consulta}`, comToken(token))
 }
 
 export type ResumoPainel = {

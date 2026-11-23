@@ -6,6 +6,7 @@ import { exigirSessao } from '@/services/autenticacao'
 import { listarPedidos } from '@/services/api/pedidos.servico'
 import FormDadosConta from '@/components/forms/FormDadosConta'
 import FormAlterarSenha from '@/components/conta/FormAlterarSenha'
+import FotoDaConta from '@/components/conta/FotoDaConta'
 
 export default async function DadosDaConta() {
   const { usuario, token } = await exigirSessao()
@@ -21,9 +22,11 @@ export default async function DadosDaConta() {
       </MenuDrawer>
 
       <h1 className="titulo-pagina">Meus dados</h1>
-      <p className="subtitulo-pagina">Seu nome, contatos e a senha de acesso.</p>
+      <p className="subtitulo-pagina">Sua foto, seu nome, contatos e a senha de acesso.</p>
 
       <div className="conta-hub">
+        <FotoDaConta usuario={usuario} />
+
         <FormDadosConta usuario={usuario} />
 
         <FormAlterarSenha />

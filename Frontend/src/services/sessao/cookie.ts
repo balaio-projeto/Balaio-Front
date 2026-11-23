@@ -28,6 +28,10 @@ export function sessaoAtualizadaDoUsuario(atual: Sessao, usuario: unknown): Sess
   return nova
 }
 
+export function slugArtesaoDaConta(contaId: string): string {
+  return `artesao-${contaId}`
+}
+
 export function sessaoDoUsuario(usuario: Usuario): Sessao | null {
   const papel = usuario.papel ?? usuario.perfil
   if (!usuario.id || !usuario.nome || !usuario.email || !PAPEIS.includes(papel as Papel)) return null
@@ -38,7 +42,7 @@ export function sessaoDoUsuario(usuario: Usuario): Sessao | null {
     imagem: usuario.imagem,
     papel: papel as Papel,
     telefone: usuario.telefone,
-    artesao: usuario.artesaoId,
+    artesao: papel === 'artesao' ? usuario.artesaoId ?? slugArtesaoDaConta(usuario.id) : undefined,
   }
 }
 

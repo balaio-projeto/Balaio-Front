@@ -28,8 +28,12 @@ const CAMPO_DO_FORMULARIO: Record<string, string> = {
   tipo: 'tipo',
   organizador: 'organizador',
   descricao: 'descricao',
-  periodo: 'periodo',
-  horario: 'horario',
+  periodo: 'dataInicio',
+  horario: 'horarioInicio',
+  dataInicio: 'dataInicio',
+  dataFim: 'dataFim',
+  horarioInicio: 'horarioInicio',
+  horarioFim: 'horarioFim',
   entrada: 'entrada',
   cidade: 'cidade',
   local: 'local',
@@ -38,6 +42,12 @@ const CAMPO_DO_FORMULARIO: Record<string, string> = {
   lng: 'mapa',
   artesaos: 'participantes',
   coletivos: 'participantes',
+}
+
+const CAMPO_DA_REGRA_DO_SERVIDOR: Record<string, string> = {
+  'Datas inicial e final devem ser informadas juntas.': 'dataFim',
+  'Data final anterior à data inicial.': 'dataFim',
+  'Coordenadas geográficas inválidas.': 'mapa',
 }
 
 export const MENSAGEM_EVENTO_REPETIDO = 'Já existe um evento com esse nome. Ajuste o nome e envie de novo.'
@@ -50,6 +60,9 @@ export function errosDeCampoDaSubmissao(
   const campos = { ...(erro.campos ?? {}) }
   if (erro.campo && !(erro.campo in campos)) campos[erro.campo] = erro.mensagem ?? 'Valor inválido.'
   const erros: Record<string, string> = {}
+  const mensagemDaRegra = erro.mensagem ?? ''
+  const campoDaRegra = Object.hasOwn(CAMPO_DA_REGRA_DO_SERVIDOR, mensagemDaRegra) ? CAMPO_DA_REGRA_DO_SERVIDOR[mensagemDaRegra] : undefined
+  if (campoDaRegra && Object.keys(campos).length === 0) erros[campoDaRegra] = mensagemDaRegra
   for (const [campo, mensagem] of Object.entries(campos)) {
     const chave = CAMPO_DO_FORMULARIO[campo.replace(/\[.*$/, '')]
     if (chave && !(chave in erros)) erros[chave] = mensagem

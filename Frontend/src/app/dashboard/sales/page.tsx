@@ -2,6 +2,8 @@ import Link from 'next/link'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import GraficoFaturamento from '@/components/painel/GraficoFaturamento'
+import PeriodoPersonalizadoVendas from '@/components/painel/PeriodoPersonalizadoVendas'
+import { problemaDoPeriodoPersonalizado } from '@/components/painel/periodoVendas'
 import { Migalhas } from '@/components/ui/Basicos'
 import { IconeGrafico } from '@/components/ui/Icones'
 import { emReais } from '@/utils/formato'
@@ -19,7 +21,13 @@ const PERIODOS: { valor: PeriodoVendas; rotulo: string }[] = [
   { valor: 'mes', rotulo: 'Este mês' },
 ]
 
-type Props = { searchParams: Promise<{ periodo?: string | string[] }> }
+type ParametroDeBusca = string | string[] | undefined
+
+type Props = { searchParams: Promise<{ periodo?: ParametroDeBusca; de?: ParametroDeBusca; ate?: ParametroDeBusca }> }
+
+function primeiroValor(valor: ParametroDeBusca): string {
+  return (Array.isArray(valor) ? valor[0] : valor)?.trim() ?? ''
+}
 
 function dataCurta(iso: string) {
   const [ano, mes, dia] = iso.split('-')
@@ -27,12 +35,23 @@ function dataCurta(iso: string) {
 }
 
 export default async function Vendas({ searchParams }: Props) {
-  const { periodo: pedido } = await searchParams
-  const periodo = PERIODOS.find((opcao) => opcao.valor === pedido)?.valor ?? '30d'
+  const parametros = await searchParams
+  const periodoPedido = primeiroValor(parametros.periodo)
+  const dePedido = primeiroValor(parametros.de)
+  const atePedido = primeiroValor(parametros.ate)
+  const personalizado = Boolean(dePedido || atePedido)
+  const problemaPeriodo = personalizado ? problemaDoPeriodoPersonalizado(dePedido, atePedido) : null
+  const periodo = PERIODOS.find((opcao) => opcao.valor === periodoPedido)?.valor ?? '30d'
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: relatorio, erro }, { dados: pecas }] = await Promise.all([
-    relatorioVendas(periodo, token), pecasPainelArtesao(artesao.slug, token),
+  const [respostaRelatorio, { dados: pecas }] = await Promise.all([
+    problemaPeriodo ? null : relatorioVendas(personalizado ? { de: dePedido, ate: atePedido } : periodo, token),
+    pecasPainelArtesao(artesao.slug, token),
   ])
+  const relatorio = respostaRelatorio?.dados ?? null
+  const erro = respostaRelatorio?.erro ?? null
+  const erroDoPeriodo = problemaPeriodo?.mensagem ?? (erro?.status === 400 ? erro.mensagem : undefined)
+  const deDoFormulario = personalizado ? dePedido : relatorio?.periodo.de ?? ''
+  const ateDoFormulario = personalizado ? atePedido : relatorio?.periodo.ate ?? ''
   const nomes = new Map((pecas ?? []).map((peca) => [peca.slug, peca.nome]))
   const pontos = (relatorio?.serie.pontos ?? []).map((ponto) => ({
     mes: rotuloDoPonto(ponto.inicio, relatorio?.serie.granularidade ?? 'dia'),
@@ -49,14 +68,28 @@ export default async function Vendas({ searchParams }: Props) {
       <nav className="linha-flex abaixo-4" aria-label="Período do relatório">
         {PERIODOS.map((opcao) => (
           <Link key={opcao.valor} href={`/dashboard/sales?periodo=${opcao.valor}`}
-            className={`botao ${opcao.valor === periodo ? 'botao-primario' : 'botao-fantasma'}`}
-            aria-current={opcao.valor === periodo ? 'page' : undefined}>
+            className={`botao ${!personalizado && opcao.valor === periodo ? 'botao-primario' : 'botao-fantasma'}`}
+            aria-current={!personalizado && opcao.valor === periodo ? 'page' : undefined}>
             {opcao.rotulo}
           </Link>
         ))}
       </nav>
 
-      {erro || !relatorio ? (
+      <PeriodoPersonalizadoVendas
+        key={`${deDoFormulario}|${ateDoFormulario}`}
+        deInicial={deDoFormulario}
+        ateInicial={ateDoFormulario}
+        ativo={personalizado && !erroDoPeriodo}
+        erroDoPeriodo={erroDoPeriodo}
+      />
+
+      {erroDoPeriodo ? (
+        <EstadoVazio
+          icone={<IconeGrafico tamanho={34} />}
+          titulo="Escolha um período válido"
+          descricao="Ajuste as datas do período personalizado ou use um dos períodos prontos."
+        />
+      ) : erro || !relatorio ? (
         <EstadoErro mensagem={erro?.mensagem ?? 'Não foi possível carregar o relatório de vendas.'} />
       ) : (
         <>

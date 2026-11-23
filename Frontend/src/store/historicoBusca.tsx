@@ -6,6 +6,16 @@ import { LIMITE_HISTORICO_BUSCA } from '@/store/colecoesVisitante'
 import { useEstadoCliente } from '@/store/estadoCliente'
 
 const HISTORICO_VAZIO: string[] = []
+const TAMANHO_MAXIMO_TERMO = 120
+
+export function termoParaHistorico(termo: string): string {
+  let resultado = ''
+  for (const caractere of termo.replace(/\p{Cc}+/gu, ' ').trim()) {
+    if (resultado.length + caractere.length > TAMANHO_MAXIMO_TERMO) break
+    resultado += caractere
+  }
+  return resultado.trim()
+}
 
 type ContextoHistoricoBusca = {
   recentes: string[]
@@ -24,8 +34,10 @@ export function HistoricoBuscaProvider({ children }: { children: ReactNode }) {
   )
 
   function registrar(termo: string) {
-    if (!estado) return
-    atualizar((atuais) => [termo, ...atuais.filter((item) => item.toLowerCase() !== termo.toLowerCase())].slice(0, LIMITE_HISTORICO_BUSCA))
+    const normalizado = termoParaHistorico(termo)
+    if (!estado || !normalizado) return
+    atualizar((atuais) => [normalizado, ...atuais.map(termoParaHistorico)
+      .filter((item) => item && item.toLowerCase() !== normalizado.toLowerCase())].slice(0, LIMITE_HISTORICO_BUSCA))
   }
 
   function limpar() {

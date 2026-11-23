@@ -3,7 +3,7 @@ import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 
 export default function Carregando() {
   return (
-    <Pagina>
+    <Pagina esqueleto>
       <EstadoCarregando rotulo="Carregando seus pedidos…" cartoes={3} />
     </Pagina>
   )

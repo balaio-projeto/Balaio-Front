@@ -22,7 +22,6 @@ export default function DetalheEvento({ evento }: { evento: Evento }) {
     <>
       <div className="linha-flex abaixo-3">
         <span className="selo selo-neutro">{rotuloTipoEvento[evento.tipo]}</span>
-        {evento.criadoPorVoce && <span className="selo selo-encomenda">Seu evento</span>}
       </div>
 
       <h1 className="titulo-pagina">{evento.nome}</h1>
@@ -100,7 +99,6 @@ export default function DetalheEvento({ evento }: { evento: Evento }) {
                   periodo: evento.periodo,
                   lat: evento.lat,
                   lng: evento.lng,
-                  proprio: evento.criadoPorVoce,
                 },
               ]}
               zoom={14}

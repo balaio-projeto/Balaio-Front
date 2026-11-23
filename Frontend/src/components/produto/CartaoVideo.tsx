@@ -1,18 +1,24 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import PlayerVideo from '@/components/produto/PlayerVideo'
 import { comentarVideo, comentariosDe, registrarVisualizacao } from '@/services/api/videos.servico'
 import { avisar } from '@/components/feedback/Avisos'
-import { IconeConversa, IconeCoracao, IconeMarcador, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeConversa, IconeCoracao, IconeMarcador, IconePlay, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
 import { emMilhares, emReais } from '@/utils/formato'
 import type { Comentario, Video } from '@/types/dominio'
-import { fallbackDe, imagemBase } from '@/utils/imagem'
+import { imagemReal } from '@/utils/imagem'
 import { useEstadoCliente } from '@/store/estadoCliente'
+import { useSessao } from '@/store/sessao'
+import { rotaDeLogin } from '@/services/sessao/cookie'
 import { useItemDaColecao } from '@/hooks/useItemDaColecao'
+
+const TAMANHO_MAXIMO_COMENTARIO = 1000
+const AVISAR_TAMANHO_COMENTARIO_A_PARTIR_DE = 900
 
 type Autor = { slug: string; nome: string; imagem: string; territorio: string }
 type PecaVinculada = { slug: string; nome: string; preco: number; imagem: string }
@@ -26,6 +32,9 @@ type Props = {
 
 export default function CartaoVideo({ video, artesao, peca }: Props) {
   const { estado, pronto, erro, recarregar } = useEstadoCliente()
+  const { sessao } = useSessao()
+  const caminho = usePathname()
+  const roteador = useRouter()
   const curtida = useItemDaColecao('videosCurtidos', video.id, 'Não foi possível registrar a curtida')
   const salvo = useItemDaColecao('videosSalvos', video.id, 'Não foi possível atualizar os vídeos salvos')
   const [salvando, definirSalvando] = useState(false)
@@ -46,7 +55,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   const painelId = `comentarios-${video.id}`
   const totalComentarios = Math.max(video.comentarios, totalLocal ?? video.comentarios)
   const curtidasDeOutros = video.curtidas - (curtida.contadoNoServidor ? 1 : 0)
-  const capa = video.capa ?? imagemBase
+  const capa = imagemReal(video.capa)
 
   useEffect(() => {
     montado.current = true
@@ -132,7 +141,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   }
 
   async function alternarSalvo() {
-    if (await salvo.alternar()) avisar.sucesso('Vídeo salvo para ver depois')
+    if (await salvo.alternar()) avisar.comAcao('Vídeo salvo para ver depois', 'Ver salvos', () => roteador.push('/favorites?aba=videos'))
   }
 
   function responder(autor: string) {
@@ -140,10 +149,16 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
     campoComentario.current?.focus()
   }
 
+  const pertoDoLimite = rascunho.length >= AVISAR_TAMANHO_COMENTARIO_A_PARTIR_DE
+
   async function enviarComentario(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     const texto = rascunho.trim()
     if (!montado.current || !texto || envioEmAndamento.current || leituraAtual.current !== 'pronto') return
+    if (texto.length > TAMANHO_MAXIMO_COMENTARIO) {
+      avisar.erro('Comentário longo demais', `O comentário pode ter até ${TAMANHO_MAXIMO_COMENTARIO} caracteres.`)
+      return
+    }
     envioEmAndamento.current = true
     definirSalvando(true)
     try {
@@ -169,7 +184,8 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
             <PlayerVideo url={video.url} capa={capa} ativo={visivel} aoIniciar={() => void registrarVisualizacao(video.id)} />
           ) : (
             <>
-              <ImagemComFallback className="video-capa" src={capa} reserva={fallbackDe(capa)} alt="" loading="lazy" />
+              <ImagemComFallback className="video-capa" src={capa} alt="" loading="lazy"
+                semImagem={<span className="capa-video-vazia" aria-hidden><IconePlay tamanho={40} /></span>} />
               <span className="video-progresso" aria-hidden>
                 <span className="video-progresso-preenchido" />
               </span>
@@ -201,7 +217,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
 
             {peca && (
               <Link href={`/pieces/${peca.slug}`} className="video-peca">
-                <ImagemComFallback src={peca.imagem} reserva={fallbackDe(peca.imagem)} alt="" loading="lazy" />
+                <ImagemComFallback src={peca.imagem} alt="" loading="lazy" />
                 <span className="encolhivel">
                   <span className="video-peca-nome">{peca.nome}</span>
                   <span className="video-peca-preco">{emReais(peca.preco)}</span>
@@ -343,21 +359,42 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
             ))}
           </ul>
 
-          <form className="novo-comentario" onSubmit={enviarComentario}>
-            <label className="so-leitor" htmlFor={`escrever-${video.id}`}>
-              Escrever um comentário
-            </label>
-            <input
-              id={`escrever-${video.id}`}
-              ref={campoComentario}
-              placeholder="Comente algo gentil ou faça uma pergunta..."
-              value={rascunho}
-              onChange={(evento) => definirRascunho(evento.target.value)}
-            />
-            <button disabled={salvando || leituraComentarios !== 'pronto'} type="submit" className="botao botao-primario" style={{ padding: '0 18px' }}>
-              Enviar
-            </button>
-          </form>
+          {sessao ? (
+            <form className="novo-comentario" onSubmit={enviarComentario}>
+              <label className="so-leitor" htmlFor={`escrever-${video.id}`}>
+                Escrever um comentário
+              </label>
+              <input
+                id={`escrever-${video.id}`}
+                ref={campoComentario}
+                placeholder="Comente algo gentil ou faça uma pergunta..."
+                value={rascunho}
+                maxLength={TAMANHO_MAXIMO_COMENTARIO}
+                aria-describedby={pertoDoLimite ? `contador-${video.id}` : undefined}
+                onChange={(evento) => definirRascunho(evento.target.value)}
+              />
+              <button disabled={salvando || leituraComentarios !== 'pronto'} type="submit" className="botao botao-primario" style={{ padding: '0 18px' }}>
+                Enviar
+              </button>
+              {pertoDoLimite && (
+                <span
+                  className="dado-rotulo"
+                  style={{ alignSelf: 'center' }}
+                  id={`contador-${video.id}`}
+                  aria-live="polite"
+                  aria-label={`${rascunho.length} de ${TAMANHO_MAXIMO_COMENTARIO} caracteres`}
+                >
+                  {rascunho.length}/{TAMANHO_MAXIMO_COMENTARIO}
+                </span>
+              )}
+            </form>
+          ) : (
+            <p className="novo-comentario">
+              <Link href={rotaDeLogin(`${caminho}#${video.id}`)} className="botao botao-primario">
+                Entre para comentar
+              </Link>
+            </p>
+          )}
       </dialog>
     </article>
   )

@@ -6,12 +6,18 @@ import { avisar } from '@/components/feedback/Avisos'
 import SeletorEstado from '@/components/forms/SeletorEstado'
 import { useBuscaCep } from '@/hooks/useBuscaCep'
 import { comporBairro, formatarCep, separarBairro, type EnderecoPorCep } from '@/utils/cep'
-import { validarCEP, validarEstado, validarObrigatorio } from '@/utils/validacao'
+import { validarCEP, validarComprimento, validarEstado, validarObrigatorio } from '@/utils/validacao'
 import type { EnderecoUsuario } from '@/types/dominio'
 
 export type DadosEndereco = Omit<EnderecoUsuario, 'id' | 'principal'>
 
 type Campos = { apelido: string; cep: string; rua: string; bairro: string; cidade: string; uf: string }
+
+const LIMITE_APELIDO = 80
+const LIMITE_RUA = 255
+const LIMITE_BAIRRO = 140
+const LIMITE_CIDADE = 100
+const LIMITE_BAIRRO_COMPOSTO = 255
 
 function camposIniciais(endereco?: EnderecoUsuario): Campos {
   const partes = separarBairro(endereco?.bairro ?? '')
@@ -21,10 +27,15 @@ function camposIniciais(endereco?: EnderecoUsuario): Campos {
 function validar(campos: Campos): Record<string, string> {
   const erros: Record<string, string> = {}
   const problemas: [string, string | null][] = [
-    ['end-apelido', validarObrigatorio(campos.apelido, 'Dê um nome a este endereço, como Casa')],
+    ['end-apelido', validarObrigatorio(campos.apelido, 'Dê um nome a este endereço, como Casa')
+      ?? validarComprimento(campos.apelido, LIMITE_APELIDO, `Use até ${LIMITE_APELIDO} caracteres no nome do endereço`)],
     ['end-cep', validarCEP(campos.cep)],
-    ['end-rua', validarObrigatorio(campos.rua, 'Informe rua e número')],
-    ['end-cidade', validarObrigatorio(campos.cidade, 'Informe a cidade')],
+    ['end-rua', validarObrigatorio(campos.rua, 'Informe rua e número')
+      ?? validarComprimento(campos.rua, LIMITE_RUA, `Use até ${LIMITE_RUA} caracteres em rua e número`)],
+    ['end-bairro', validarComprimento(campos.bairro, LIMITE_BAIRRO, `Use até ${LIMITE_BAIRRO} caracteres no bairro`)
+      ?? validarComprimento(comporBairro(campos), LIMITE_BAIRRO_COMPOSTO, 'Bairro e cidade estão longos demais; abrevie um deles')],
+    ['end-cidade', validarObrigatorio(campos.cidade, 'Informe a cidade')
+      ?? validarComprimento(campos.cidade, LIMITE_CIDADE, `Use até ${LIMITE_CIDADE} caracteres na cidade`)],
     ['end-uf', validarEstado(campos.uf)],
   ]
   for (const [id, problema] of problemas) if (problema) erros[id] = problema
@@ -94,7 +105,7 @@ export default function FormularioEndereco({
   return (
     <form onSubmit={enviar} noValidate className="acima-3" aria-busy={processando || busca.carregando}>
       <Campo rotulo="Nome do endereço" erro={erros['end-apelido']} id="end-apelido">
-        <input id="end-apelido" name="apelido" value={campos.apelido} onChange={(e) => atualizar('apelido', e.target.value)} placeholder="Casa" disabled={processando} />
+        <input id="end-apelido" name="apelido" maxLength={LIMITE_APELIDO} value={campos.apelido} onChange={(e) => atualizar('apelido', e.target.value)} placeholder="Casa" disabled={processando} />
       </Campo>
       <Campo rotulo="CEP" erro={erros['end-cep']} id="end-cep">
         <input
@@ -113,14 +124,14 @@ export default function FormularioEndereco({
         {ajudaCep}
       </p>
       <Campo rotulo="Rua e número" erro={erros['end-rua']} id="end-rua">
-        <input ref={ruaRef} id="end-rua" name="rua" value={campos.rua} onChange={(e) => atualizar('rua', e.target.value)} placeholder="Rua da Aurora, 240" autoComplete="address-line1" disabled={processando} />
+        <input ref={ruaRef} id="end-rua" name="rua" maxLength={LIMITE_RUA} value={campos.rua} onChange={(e) => atualizar('rua', e.target.value)} placeholder="Rua da Aurora, 240" autoComplete="address-line1" disabled={processando} />
       </Campo>
-      <Campo rotulo="Bairro" id="end-bairro">
-        <input id="end-bairro" name="bairro" value={campos.bairro} onChange={(e) => atualizar('bairro', e.target.value)} placeholder="Boa Vista" disabled={processando} />
+      <Campo rotulo="Bairro" erro={erros['end-bairro']} id="end-bairro">
+        <input id="end-bairro" name="bairro" maxLength={LIMITE_BAIRRO} value={campos.bairro} onChange={(e) => atualizar('bairro', e.target.value)} placeholder="Boa Vista" disabled={processando} />
       </Campo>
       <div className="grade-dois">
         <Campo rotulo="Cidade" erro={erros['end-cidade']} id="end-cidade">
-          <input id="end-cidade" name="cidade" value={campos.cidade} onChange={(e) => atualizar('cidade', e.target.value)} placeholder="Recife" autoComplete="address-level2" disabled={processando} />
+          <input id="end-cidade" name="cidade" maxLength={LIMITE_CIDADE} value={campos.cidade} onChange={(e) => atualizar('cidade', e.target.value)} placeholder="Recife" autoComplete="address-level2" disabled={processando} />
         </Campo>
         <SeletorEstado id="end-uf" value={campos.uf} erro={erros['end-uf']} onChange={(valor) => atualizar('uf', valor)} />
       </div>

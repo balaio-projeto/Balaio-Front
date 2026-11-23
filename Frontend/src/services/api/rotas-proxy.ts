@@ -7,6 +7,7 @@ const SEGMENTO = '[^/]+'
 const LIMITE_JSON_COMMUNITY = 64 * 1024
 export const LIMITE_MIDIA = 100 * 1024 * 1024
 const LIMITE_IMAGEM_PERFIL = 3 * 1024 * 1024
+const ROTAS_DE_IMAGEM_PERFIL = ['/artesao/me/imagem', '/usuario/imagem']
 
 export const CAMINHOS_DE_AUTENTICACAO = ['/auth/cadastro', '/auth/login', '/auth/entrar', '/auth/logout']
 
@@ -49,7 +50,7 @@ export function ehLeituraDeImagemPerfil(metodo: string, caminho: string): boolea
 }
 
 export function limiteDoCorpo(metodo: string, caminho: string): number | null {
-  if (metodo === 'PUT' && caminho === '/artesao/me/imagem') return LIMITE_IMAGEM_PERFIL
+  if (metodo === 'PUT' && ROTAS_DE_IMAGEM_PERFIL.includes(caminho)) return LIMITE_IMAGEM_PERFIL
   if (ehRotaDeMidia(caminho)) return LIMITE_MIDIA
   return atende(ROTAS_COMMUNITY, metodo, caminho) ? LIMITE_JSON_COMMUNITY : null
 }

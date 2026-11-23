@@ -3,7 +3,7 @@ import EstadoErro from '@/components/feedback/EstadoErro'
 import FormPublicarVideo from '@/components/forms/FormPublicarVideo'
 import ListaVideosPainel from '@/components/painel/ListaVideosPainel'
 import { IconeAviso, IconeGrafico } from '@/components/ui/Icones'
-import { listarVideos } from '@/services/api/videos.servico'
+import { listarTodosVideosDoPainel } from '@/services/api/videos.servico'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { exigirArtesao } from '@/services/autenticacao'
 
@@ -16,11 +16,11 @@ const dicas = [
 
 export default async function VideosDoAtelie() {
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: todosVideos, erro: erroVideos }, { dados: pecasArtesao }] = await Promise.all([
-    listarVideos(true, token),
+  const [{ dados: todosVideos, erro: erroVideos, cortadoPor: listaCortadaPor }, { dados: pecasArtesao }] = await Promise.all([
+    listarTodosVideosDoPainel(token),
     pecasPainelArtesao(artesao.slug, token),
   ])
-  const meus = [...(todosVideos ?? [])].reverse()
+  const meus = todosVideos ?? []
   const pecas = (pecasArtesao ?? []).map((peca) => ({ slug: peca.slug, nome: peca.nome }))
 
   return (
@@ -40,7 +40,19 @@ export default async function VideosDoAtelie() {
           {erroVideos ? (
             <EstadoErro mensagem={erroVideos.mensagem} />
           ) : (
-            <ListaVideosPainel videos={meus} nomesDasPecas={new Map(pecas.map((peca) => [peca.slug, peca.nome]))} />
+            <>
+              {listaCortadaPor && (
+                <p className="aviso abaixo-3" role="status">
+                  <IconeAviso />
+                  <span>
+                    {listaCortadaPor === 'limite'
+                      ? `Mostrando os ${meus.length} vídeos mais recentes.`
+                      : 'Parte dos seus vídeos não pôde ser carregada agora. Recarregue a página para ver a lista completa.'}
+                  </span>
+                </p>
+              )}
+              <ListaVideosPainel videos={meus} nomesDasPecas={new Map(pecas.map((peca) => [peca.slug, peca.nome]))} />
+            </>
           )}
         </section>
 

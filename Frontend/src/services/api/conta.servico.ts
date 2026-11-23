@@ -12,6 +12,12 @@ export const entrar = (credenciais: Credenciais) => enviarAutenticacao<Usuario>(
 export const sair = () => enviarAutenticacao<{ encerrada: boolean }>('/auth/logout', {})
 export const obterUsuario = (token?: string) => buscar<Usuario>('/usuario', comToken(token))
 export const atualizarUsuario = (usuario: AtualizacaoUsuario) => enviar<Usuario>('/usuario', usuario, 'PATCH')
+export function enviarImagemUsuario(arquivo: File) {
+  const dados = new FormData()
+  dados.append('arquivo', arquivo)
+  return enviar<Usuario>('/usuario/imagem', dados, 'PUT')
+}
+export const removerImagemUsuario = () => buscar<Usuario>('/usuario/imagem', { method: 'DELETE' })
 export const listarEnderecos = (token?: string) => buscar<EnderecoUsuario[]>('/usuario/enderecos', comToken(token))
 export const criarEndereco = (endereco: Omit<EnderecoUsuario, 'id' | 'principal'>) => enviar<EnderecoUsuario>('/usuario/enderecos', endereco)
 export const atualizarEndereco = (id: string, endereco: Partial<EnderecoUsuario>) => enviar<EnderecoUsuario>(`/usuario/enderecos/${encodeURIComponent(id)}`, endereco, 'PATCH')

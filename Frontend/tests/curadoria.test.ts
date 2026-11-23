@@ -3,6 +3,8 @@ import { after, before, test } from 'node:test'
 import { createServer, type IncomingMessage } from 'node:http'
 import { obterMeuSelo, solicitarSelo, listarFilaCuradoria, decidirSolicitacaoSelo } from '../src/services/api/curadoria.servico'
 import { encaminharApi } from '../src/services/api/proxy'
+import { montarFilaCuradoria } from '../src/components/admin/montarFilaCuradoria'
+import type { Peca, SolicitacaoSeloNaFila } from '../src/types/dominio'
 
 const chamadas: { url: string; method: string; headers: IncomingMessage['headers']; body: unknown }[] = []
 let status = 200
@@ -68,4 +70,25 @@ test('proxy recusa Origin externo antes de encaminhar uma decisão', async () =>
   }))
   assert.equal(resposta.status, 403)
   assert.equal(chamadas.length, antes)
+})
+test('fila de curadoria distingue catálogo indisponível de artesão sem peças', () => {
+  const solicitacao = (id: string, artesaoSlug: string, solicitadoEm: string): SolicitacaoSeloNaFila => ({
+    id, artesaoSlug, artesao: artesaoSlug, atelie: `Ateliê ${artesaoSlug}`, mensagem: '', situacao: 'pendente',
+    solicitadoEm, territorio: 'Recife', tecnica: 'renda', imagem: '', pecasPublicadas: 0,
+  })
+  const pecaPublicada = { slug: 'toalha', nome: 'Toalha', imagem: '/toalha.jpg', situacao: 'publicada' } as Peca
+  const fila = montarFilaCuradoria(
+    [
+      solicitacao('s1', 'ana', '2026-11-01T10:00:00Z'),
+      solicitacao('s2', 'bia', '2026-11-02T10:00:00Z'),
+      solicitacao('s3', 'caio', '2026-11-03T10:00:00Z'),
+    ],
+    [null, [], [pecaPublicada]],
+    [],
+  )
+  assert.deepEqual(fila.map(({ id, pecasIndisponiveis, pecas }) => ({ id, pecasIndisponiveis, total: pecas.length })), [
+    { id: 's1', pecasIndisponiveis: true, total: 0 },
+    { id: 's2', pecasIndisponiveis: false, total: 0 },
+    { id: 's3', pecasIndisponiveis: false, total: 1 },
+  ])
 })

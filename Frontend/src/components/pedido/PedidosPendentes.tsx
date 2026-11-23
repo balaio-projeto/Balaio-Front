@@ -22,6 +22,12 @@ export type PedidoPendente = {
   pecaImagem?: string
 }
 
+const NOME_PECA_INDISPONIVEL = 'Peça do pedido'
+
+function nomeDaPeca(pedido: PedidoPendente) {
+  return pedido.pecaNome || NOME_PECA_INDISPONIVEL
+}
+
 export default function PedidosPendentes({
   iniciais,
   erroCarregamento,
@@ -29,13 +35,15 @@ export default function PedidosPendentes({
   emProducao,
   pecasAtivas,
   avisosPecas,
+  erroResumo,
 }: {
   iniciais: PedidoPendente[]
   erroCarregamento?: string
   faturamentoMes: number | null
-  emProducao: number
+  emProducao: number | null
   pecasAtivas: number | null
   avisosPecas: { slug: string; nome: string; motivo: string }[] | null
+  erroResumo?: string
 }) {
   const roteador = useRouter()
   const dialogoRecusa = useRef<HTMLDialogElement>(null)
@@ -63,15 +71,20 @@ export default function PedidosPendentes({
   const metricas = [
     {
       rotulo: 'Pedidos pendentes',
-      valor: String(pendentes.length),
-      nota: 'Aguardando aceitação',
+      valor: erroCarregamento ? textoDaMetrica(null) : String(pendentes.length),
+      nota: erroCarregamento ? 'Não foi possível carregar agora' : 'Aguardando aceitação',
       classe: 'metrica-amarela',
     },
-    { rotulo: 'Em produção', valor: String(emProducao), nota: 'Nas bancadas e fornos', classe: 'metrica-azul' },
+    {
+      rotulo: 'Em produção',
+      valor: textoDaMetrica(emProducao),
+      nota: emProducao === null ? 'Não foi possível contar agora' : 'Nas bancadas e fornos',
+      classe: 'metrica-azul',
+    },
     {
       rotulo: 'Peças ativas',
       valor: textoDaMetrica(pecasAtivas),
-      nota: pecasAtivas === null ? 'Catálogo fora do ar agora' : 'Publicadas na vitrine',
+      nota: pecasAtivas !== null ? 'Publicadas na vitrine' : erroResumo ? 'Resumo do painel indisponível' : 'Catálogo fora do ar agora',
       classe: 'metrica-verde',
     },
     {
@@ -140,7 +153,11 @@ export default function PedidosPendentes({
   return (
     <>
       {avisosPecas === null && (
-        <p className="aviso abaixo-4" role="status">Não foi possível verificar suas peças no catálogo agora. Os avisos de peças voltam quando o catálogo responder.</p>
+        <p className="aviso abaixo-4" role="status">
+          {erroResumo
+            ? 'Não foi possível carregar o resumo do painel agora. Os avisos de peças voltam quando ele responder.'
+            : 'Não foi possível verificar suas peças no catálogo agora. Os avisos de peças voltam quando o catálogo responder.'}
+        </p>
       )}
       {avisosPecas && avisosPecas.length > 0 && (
         <section className="painel-alertas" aria-labelledby="alertas-estoque">
@@ -185,11 +202,13 @@ export default function PedidosPendentes({
           <article className="linha-pedido" key={pedido.id}>
             <div className="linha-flex encolhivel" style={{ flexWrap: 'nowrap' }}>
               <div className="linha-pedido-figura">
-                {pedido.pecaImagem && <Foto nome={pedido.pecaNome ?? ''} imagem={pedido.pecaImagem} decorativa />}
+                {pedido.pecaImagem && <Foto nome={nomeDaPeca(pedido)} imagem={pedido.pecaImagem} decorativa />}
               </div>
               <div className="encolhivel">
-                <p className="dado-valor">{pedido.pecaNome}</p>
-                <p className="autoria">Técnica: {pedido.pecaTecnica}</p>
+                <p className="dado-valor">{nomeDaPeca(pedido)}</p>
+                <p className="autoria">
+                  {pedido.pecaTecnica ? `Técnica: ${pedido.pecaTecnica}` : 'Detalhes da peça indisponíveis no momento'}
+                </p>
               </div>
             </div>
 
@@ -233,7 +252,7 @@ export default function PedidosPendentes({
         </div>
         <form onSubmit={confirmarRecusa}>
           <p className="texto-suave abaixo-4">
-            {pedidoRecusado?.pecaNome}. O comprador verá a justificativa e será avisado sobre o cancelamento.
+            {pedidoRecusado && nomeDaPeca(pedidoRecusado)}. O comprador verá a justificativa e será avisado sobre o cancelamento.
           </p>
           <Campo rotulo="Motivo da recusa" ajuda="Seja direto e cordial." erro={erroMotivo ?? undefined} id="motivo-recusa">
             <textarea id="motivo-recusa" value={motivo} maxLength={500} disabled={salvando} onChange={(evento) => definirMotivo(evento.target.value)} />

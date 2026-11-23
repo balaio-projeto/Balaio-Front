@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { obterMeuAtelie } from '@/services/api/artesaos.servico'
 import { listarFilaCuradoria, obterMeuSelo } from '@/services/api/curadoria.servico'
 import { listarConversasArtesao, listarPedidos, listarPedidosPendentes } from '@/services/api/pedidos.servico'
-import { listarMediacoes } from '@/services/api/mediacoes.servico'
+import { contarMediacoesEmAberto, listarMediacoes } from '@/services/api/mediacoes.servico'
 import type { Sessao } from '@/services/sessao/cookie'
 import type { Artesao, EstadoPedido, EstadoSelo } from '@/types/dominio'
 
-const ESTADOS_ENCERRADOS: EstadoPedido[] = ['entregue', 'recusado', 'cancelado', 'reembolsado']
+const ESTADOS_ENCERRADOS: EstadoPedido[] = ['entregue', 'falha_reserva', 'falha_pagamento', 'recusado', 'cancelado', 'reembolsado']
 
 export type ResumoPerfil = {
   pedidosEmAndamento?: number
@@ -37,8 +37,9 @@ async function carregarResumo(sessao: Sessao): Promise<ResumoPerfil> {
   }
   if (sessao.papel === 'admin') {
     const [fila, mediacoes] = await Promise.all([listarFilaCuradoria(), listarMediacoes()])
-    return { filaCuradoria: fila.dados?.length, mediacoes: mediacoes.dados?.length }
+    return { filaCuradoria: fila.dados?.length, mediacoes: mediacoes.dados ? contarMediacoesEmAberto(mediacoes.dados) : undefined }
   }
+  if (sessao.papel !== 'comprador') return {}
   const pedidos = await listarPedidos()
   return { pedidosEmAndamento: pedidos.dados?.filter((pedido) => !ESTADOS_ENCERRADOS.includes(pedido.estado)).length }
 }

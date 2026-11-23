@@ -44,7 +44,7 @@ export default function CartaoPeca({ peca }: { peca: Peca }) {
           por {artesao?.nome ?? 'Artesão parceiro'}
         </span>
 
-        {peca.avaliacao && (
+        {!!peca.avaliacao && (
           <span className="avaliacao-compacta">
             <IconeEstrela tamanho={14} />
             <strong>{peca.avaliacao.toFixed(1)}</strong>

@@ -20,7 +20,14 @@ export async function obterEvento(slug: string): Promise<RespostaApi<Evento>> {
 }
 
 /** Dados enviados pelo organizador. O estado de publicação é decidido pelo administrador (PI-205). */
-export type SubmissaoEvento = Omit<Evento, 'criadoPorVoce'>
+export type DatasEstruturadasEvento = {
+  dataInicio?: string | null
+  dataFim?: string | null
+  horarioInicio?: string | null
+  horarioFim?: string | null
+}
+
+export type SubmissaoEvento = Evento & DatasEstruturadasEvento
 
 /** Confirmação de recebimento: o evento fica pendente e não é público até aprovação. */
 export type EventoPendente = { slug: string; status: 'PENDENTE' }
