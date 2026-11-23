@@ -20,6 +20,7 @@ import {
 } from '@/utils/filtrosUrl'
 import { listarPecas } from '@/services/api/pecas.servico'
 import { obterReferencias } from '@/services/api/referencias.servico'
+import { estadoDaBusca } from '@/utils/busca'
 
 const POR_PAGINA = 12
 
@@ -59,7 +60,7 @@ export default async function Busca({ searchParams }: Props) {
         Busque por tipo, técnica, território ou pelo nome da peça.
       </p>
 
-      {erro ? (
+      {estadoDaBusca(dados, erro) === 'erro' && erro ? (
         <EstadoErro mensagem={erro.mensagem} />
       ) : (
         <div className="catalogo secao">
