@@ -30,6 +30,7 @@ test('opção escolhida que sumiu da cotação volta para a primeira disponível
 
 test('a interface diz qual provedor respondeu a cotação', () => {
   assert.match(origemDaCotacao(opcoes) ?? '', /Melhor Envio Sandbox/)
+  assert.equal(origemDaCotacao([{ ...opcoes[0], provedor: 'melhor_envio' }]), 'Valores cotados no Melhor Envio para o CEP informado.')
   assert.match(origemDaCotacao([{ id: 'padrao', nome: 'Fixo', prazo: '10 dias', valor: 38.9, provedor: 'fixo_demonstrativo' }]) ?? '', /demonstrativo fixo/)
   assert.equal(origemDaCotacao([]), null)
 })
