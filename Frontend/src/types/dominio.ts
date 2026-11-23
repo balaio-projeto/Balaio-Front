@@ -145,6 +145,7 @@ export type Mensagem = {
   autor: 'comprador' | 'artesao'
   texto: string
   hora: string
+  enviadaEm?: string
 }
 
 export type Mediacao = {
@@ -199,7 +200,6 @@ export type Evento = {
   lng: number
   artesaos: string[]
   coletivos: string[]
-  criadoPorVoce?: boolean
 }
 
 export type Video = {

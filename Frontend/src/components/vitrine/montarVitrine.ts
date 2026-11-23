@@ -1,6 +1,7 @@
 import type { Destaque } from '@/components/produto/CarrosselDestaques'
 import { destaquesEditoriais } from '@/constants/vitrine'
 import type { Peca } from '@/types/dominio'
+import { imagemReal } from '@/utils/imagem'
 
 export const MAXIMO_POR_PRATELEIRA = 12
 
@@ -19,12 +20,29 @@ export function montarVitrine(pecas: Peca[]): Vitrine {
   return { ofertas: limitar(ofertas), maisAvaliadas: limitar(maisAvaliadas) }
 }
 
-export function montarDestaques(pecas: Peca[]): Destaque[] {
-  const mapaPecas = new Map(pecas.map((peca) => [peca.slug, peca]))
-  return destaquesEditoriais.flatMap(({ slug, titulo }) => {
-    const peca = mapaPecas.get(slug)
-    return peca
-      ? [{ slug, titulo, nome: peca.nome, territorio: peca.territorio, resumo: peca.historia[0], imagem: peca.imagem }]
-      : []
-  })
+export const QUANTIDADE_DE_DESTAQUES = 5
+
+const titulosEditoriais = new Map(destaquesEditoriais.map(({ slug, titulo }) => [slug, titulo]))
+
+function embaralhar<T>(itens: T[], sortear: () => number): T[] {
+  const copia = [...itens]
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(sortear() * (i + 1))
+    ;[copia[i], copia[j]] = [copia[j], copia[i]]
+  }
+  return copia
+}
+
+export function montarDestaques(pecas: Peca[], sortear: () => number = Math.random): Destaque[] {
+  const disponiveis = pecas.filter((peca) => !peca.inativadoEm)
+  const comFoto = embaralhar(disponiveis.filter((peca) => imagemReal(peca.imagem)), sortear)
+  const semFoto = embaralhar(disponiveis.filter((peca) => !imagemReal(peca.imagem)), sortear)
+  return [...comFoto, ...semFoto].slice(0, QUANTIDADE_DE_DESTAQUES).map((peca) => ({
+    slug: peca.slug,
+    titulo: titulosEditoriais.get(peca.slug) ?? peca.nome,
+    nome: peca.nome,
+    territorio: peca.territorio,
+    resumo: peca.historia[0] ?? '',
+    imagem: peca.imagem,
+  }))
 }

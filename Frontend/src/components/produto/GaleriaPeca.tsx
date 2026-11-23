@@ -4,7 +4,6 @@ import { useState } from 'react'
 import type { FotoPeca } from '@/types/dominio'
 import { IconeEtiqueta } from '@/components/ui/Icones'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
-import { fallbackDe } from '@/utils/imagem'
 
 type GaleriaPecaProps = {
   imagem: string
@@ -45,8 +44,6 @@ export default function GaleriaPeca({
     fotosOrdenadas.find((foto) => foto.id === ativa) ??
     fotosOrdenadas[0]
 
-  const reserva = fallbackDe(fotoAtual?.url ?? imagem)
-
   return (
     <div>
       <div className="figura-principal">
@@ -64,7 +61,7 @@ export default function GaleriaPeca({
           <ImagemComFallback
             key={fotoAtual.id}
             src={fotoAtual?.url ?? imagem}
-            reserva={reserva}
+            semImagem={<span className="foto-rotulo">{nome}</span>}
             alt={`${nome} — ${fotoAtual?.nome ?? nome}`}
             className="galeria-principal-img"
             style={{
@@ -98,7 +95,6 @@ export default function GaleriaPeca({
               >
                 <ImagemComFallback
                   src={foto.url}
-                  reserva={fallbackDe(foto.url)}
                   alt=""
                   loading="lazy"
                   style={{

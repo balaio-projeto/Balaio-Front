@@ -11,7 +11,7 @@ import {
 import { TIPOS_DE_VIDEO } from '@/services/api/videos.servico'
 import { useSessao } from '@/store/sessao'
 import { DESCRICAO_LIMITE_VIDEO, problemaDoArquivoDeVideo } from '@/utils/midiaVideo'
-import { validarObrigatorio } from '@/utils/validacao'
+import { lerCamposVideo, type ErrosCamposVideo } from '@/utils/etiquetas'
 
 const ROTULO_ETAPA: Record<EtapaPublicacao, string> = {
   preparando: 'Lendo o vídeo…',
@@ -24,35 +24,30 @@ const SUCESSO: Record<DestinoDoVideo, string> = {
   rascunho: 'Rascunho salvo',
 }
 
-function etiquetasDoTexto(texto: string): string[] {
-  return texto.split(/\s+/).map((etiqueta) => etiqueta.replace(/^#+/, '')).filter(Boolean)
-}
-
 export default function FormPublicarVideo({ pecas }: { pecas: PecaVinculavel[] }) {
   const roteador = useRouter()
   const { sessao } = useSessao()
   const formulario = useRef<HTMLFormElement>(null)
   const [etapa, definirEtapa] = useState<EtapaPublicacao | null>(null)
   const [arquivo, definirArquivo] = useState<File | null>(null)
-  const [erroLegenda, definirErroLegenda] = useState<string | null>(null)
+  const [erros, definirErros] = useState<ErrosCamposVideo>({ legenda: null, etiquetas: null })
+  const [versaoCampos, definirVersaoCampos] = useState(0)
   const [erroArquivo, definirErroArquivo] = useState<string | null>(null)
   const ocupado = etapa !== null
 
-  function validar(): boolean {
+  function lerCampos() {
     const dados = new FormData(formulario.current ?? undefined)
-    const problemaLegenda = validarObrigatorio(
-      String(dados.get('legenda') ?? ''),
-      'Escreva uma legenda contando o que aparece na cena',
-    )
+    const campos = lerCamposVideo(String(dados.get('legenda') ?? ''), String(dados.get('etiquetas') ?? ''))
     const problemaArquivo = problemaDoArquivoDeVideo(arquivo)
-    definirErroLegenda(problemaLegenda)
+    definirErros(campos.erros)
     definirErroArquivo(problemaArquivo)
-    if (problemaLegenda || problemaArquivo) {
-      document.getElementById(problemaArquivo ? 'video-arquivo' : 'video-legenda')?.focus()
+    if (!campos.valido || problemaArquivo) {
+      const primeiroInvalido = problemaArquivo ? 'video-arquivo' : campos.erros.legenda ? 'video-legenda' : 'video-etiquetas'
+      document.getElementById(primeiroInvalido)?.focus()
       avisar.erro('Confira os campos destacados')
-      return false
+      return null
     }
-    return true
+    return { ...campos, peca: String(dados.get('peca') ?? '') }
   }
 
   function comunicar(resultado: ResultadoPublicacao, destino: DestinoDoVideo) {
@@ -70,6 +65,7 @@ export default function FormPublicarVideo({ pecas }: { pecas: PecaVinculavel[] }
         return
       case 'concluida':
         formulario.current?.reset()
+        definirVersaoCampos((versao) => versao + 1)
         definirArquivo(null)
         avisar.sucesso(SUCESSO[destino], resultado.capaGerada ? undefined : 'A capa não foi gerada; o vídeo usa a imagem padrão.')
         roteador.refresh()
@@ -77,13 +73,14 @@ export default function FormPublicarVideo({ pecas }: { pecas: PecaVinculavel[] }
   }
 
   async function salvar(destino: DestinoDoVideo) {
-    if (ocupado || !validar() || !sessao?.artesao || !arquivo) return
-    const dados = new FormData(formulario.current!)
+    if (ocupado) return
+    const campos = lerCampos()
+    if (!campos || !sessao?.artesao || !arquivo) return
     try {
       const resultado = await publicarVideo(arquivo, {
-        legenda: String(dados.get('legenda')).trim(),
-        etiquetas: etiquetasDoTexto(String(dados.get('etiquetas') ?? '')),
-        peca: String(dados.get('peca') ?? ''),
+        legenda: campos.legenda,
+        etiquetas: campos.etiquetas,
+        peca: campos.peca,
       }, destino, definirEtapa)
       comunicar(resultado, destino)
     } finally {
@@ -124,7 +121,7 @@ export default function FormPublicarVideo({ pecas }: { pecas: PecaVinculavel[] }
         </label>
         {erroArquivo && <p className="campo-erro acima-2" id="video-arquivo-erro" role="alert">{erroArquivo}</p>}
 
-        <CamposVideo pecas={pecas} erroLegenda={erroLegenda} />
+        <CamposVideo key={versaoCampos} pecas={pecas} erroLegenda={erros.legenda} erroEtiquetas={erros.etiquetas} />
 
         {etapa && <p className="campo-ajuda" role="status">{ROTULO_ETAPA[etapa]}</p>}
 

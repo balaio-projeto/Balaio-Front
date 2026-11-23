@@ -11,6 +11,7 @@ import { criarEvento, type SubmissaoEvento } from '@/services/api/eventos.servic
 import { gerarSlugEvento } from '@/components/eventos/eventosLocais'
 import { coordenadasValidas } from '@/utils/eventos'
 import { errosDeCampoDaSubmissao, mensagemErroSubmissao, TEXTO_PENDENCIA } from '@/components/eventos/mensagensSubmissao'
+import { hojeNoFusoDoEvento, montarHorario, montarPeriodo, problemasDasDatas } from '@/components/eventos/periodoEvento'
 import { municipiosPE, rotuloTipoEvento } from '@/constants/eventos'
 import type { Ponto, TipoEvento } from '@/types/dominio'
 import { useDados } from '@/store/dados'
@@ -19,8 +20,10 @@ const idPorCampo: Record<string, string> = {
   nome: 'evento-nome',
   tipo: 'evento-tipo',
   organizador: 'evento-organizador',
-  periodo: 'evento-periodo',
-  horario: 'evento-horario',
+  dataInicio: 'evento-data-inicio',
+  dataFim: 'evento-data-fim',
+  horarioInicio: 'evento-horario-inicio',
+  horarioFim: 'evento-horario-fim',
   cidade: 'evento-cidade',
   entrada: 'evento-entrada',
   local: 'evento-local',
@@ -29,6 +32,8 @@ const idPorCampo: Record<string, string> = {
   descricao: 'evento-descricao',
   participantes: 'participantes',
 }
+
+const TAMANHO_MAXIMO_ENTRADA = 255
 
 function focarPrimeiroErro(problemas: Record<string, string>) {
   const primeiraChave = Object.keys(idPorCampo).find((chave) => chave in problemas)
@@ -51,8 +56,10 @@ export default function FormCriarEvento() {
   const [nome, definirNome] = useState('')
   const [tipo, definirTipo] = useState<TipoEvento>('feira')
   const [organizador, definirOrganizador] = useState('')
-  const [periodo, definirPeriodo] = useState('')
-  const [horario, definirHorario] = useState('')
+  const [dataInicio, definirDataInicio] = useState('')
+  const [dataFim, definirDataFim] = useState('')
+  const [horarioInicio, definirHorarioInicio] = useState('')
+  const [horarioFim, definirHorarioFim] = useState('')
   const [entrada, definirEntrada] = useState('Gratuita')
   const [cidade, definirCidade] = useState('')
   const [local, definirLocal] = useState('')
@@ -67,6 +74,9 @@ export default function FormCriarEvento() {
   const municipio = municipiosPE.find((m) => m.nome === cidade)
   const centroEscolha = municipio ? { lat: municipio.lat, lng: municipio.lng } : undefined
   const totalParticipantes = artesaosEscolhidos.length + coletivosEscolhidos.length
+  const hoje = hojeNoFusoDoEvento()
+  const previaPeriodo = montarPeriodo(dataInicio, dataFim)
+  const previaHorario = montarHorario(horarioInicio, horarioFim)
 
   function limparErro(chave: string) {
     definirErros((atuais) => {
@@ -75,6 +85,15 @@ export default function FormCriarEvento() {
       delete resto[chave]
       return resto
     })
+  }
+
+  function escolherDataInicio(valor: string) {
+    definirDataInicio(valor)
+    limparErro('dataInicio')
+    if (valor && (!dataFim || dataFim < valor)) {
+      definirDataFim(valor)
+      limparErro('dataFim')
+    }
   }
 
   function escolherCidade(nomeCidade: string) {
@@ -102,8 +121,10 @@ export default function FormCriarEvento() {
     definirNome('')
     definirTipo('feira')
     definirOrganizador('')
-    definirPeriodo('')
-    definirHorario('')
+    definirDataInicio('')
+    definirDataFim('')
+    definirHorarioInicio('')
+    definirHorarioFim('')
     definirEntrada('Gratuita')
     definirCidade('')
     definirLocal('')
@@ -124,15 +145,17 @@ export default function FormCriarEvento() {
     const conferencias: [string, string | null][] = [
       ['nome', validarObrigatorio(nome, 'Dê um nome ao evento, como "Feira de Cerâmica de Tracunhaém"')],
       ['organizador', validarObrigatorio(organizador, 'Diga quem organiza: associação, prefeitura ou grupo')],
-      ['periodo', validarObrigatorio(periodo, 'Informe as datas, como "12 e 13 de setembro, 2026"')],
       ['cidade', validarObrigatorio(cidade, 'Escolha o município onde o evento acontece')],
       ['local', validarObrigatorio(local, 'Informe o local, como "Pátio de Eventos Luiz Gonzaga"')],
       ['descricao', validarObrigatorio(descricao, 'Conte o que vai acontecer no evento')],
+      ['entrada', entrada.trim().length > TAMANHO_MAXIMO_ENTRADA
+        ? `Resuma a entrada em até ${TAMANHO_MAXIMO_ENTRADA} caracteres` : null],
       ['participantes', totalParticipantes === 0 ? 'Marque pelo menos um artesão ou coletivo participante' : null],
     ]
     for (const [chave, problema] of conferencias) {
       if (problema) problemas[chave] = problema
     }
+    Object.assign(problemas, problemasDasDatas({ dataInicio, dataFim, horarioInicio, horarioFim }, hoje))
 
     if (Object.keys(problemas).length > 0) {
       definirErros(problemas)
@@ -156,8 +179,12 @@ export default function FormCriarEvento() {
       tipo,
       organizador: organizador.trim(),
       descricao: descricao.trim(),
-      periodo: periodo.trim(),
-      horario: horario.trim(),
+      periodo: montarPeriodo(dataInicio, dataFim),
+      horario: montarHorario(horarioInicio, horarioFim),
+      dataInicio,
+      dataFim,
+      horarioInicio: horarioInicio || null,
+      horarioFim: horarioFim || null,
       entrada: entrada.trim() || 'Gratuita',
       cidade,
       local: local.trim(),
@@ -258,40 +285,75 @@ export default function FormCriarEvento() {
       </div>
 
       <div className="grade-dois">
-        <Campo rotulo="Datas" id="evento-periodo" erro={erros.periodo}>
+        <Campo rotulo="Começa em" id="evento-data-inicio" erro={erros.dataInicio}>
           <input
-            id="evento-periodo"
-            type="text"
-            placeholder="Como '12 e 13 de setembro, 2026'"
-            value={periodo}
-            onChange={(e) => {
-              definirPeriodo(e.target.value)
-              limparErro('periodo')
-            }}
+            id="evento-data-inicio"
+            type="date"
+            min={hoje}
+            value={dataInicio}
+            onChange={(e) => escolherDataInicio(e.target.value)}
           />
         </Campo>
-        <Campo rotulo="Horário (opcional)" id="evento-horario" erro={erros.horario}>
+        <Campo rotulo="Termina em" id="evento-data-fim" ajuda="Para evento de um dia, repita a data de início" erro={erros.dataFim}>
           <input
-            id="evento-horario"
-            type="text"
-            placeholder="Como '9h às 18h'"
-            value={horario}
+            id="evento-data-fim"
+            type="date"
+            min={dataInicio || hoje}
+            value={dataFim}
             onChange={(e) => {
-              definirHorario(e.target.value)
-              limparErro('horario')
+              definirDataFim(e.target.value)
+              limparErro('dataFim')
             }}
           />
         </Campo>
       </div>
 
       <div className="grade-dois">
+        <Campo rotulo="Abre às (opcional)" id="evento-horario-inicio" erro={erros.horarioInicio}>
+          <input
+            id="evento-horario-inicio"
+            type="time"
+            value={horarioInicio}
+            onChange={(e) => {
+              definirHorarioInicio(e.target.value)
+              limparErro('horarioInicio')
+              limparErro('horarioFim')
+            }}
+          />
+        </Campo>
+        <Campo rotulo="Fecha às (opcional)" id="evento-horario-fim" erro={erros.horarioFim}>
+          <input
+            id="evento-horario-fim"
+            type="time"
+            value={horarioFim}
+            onChange={(e) => {
+              definirHorarioFim(e.target.value)
+              limparErro('horarioFim')
+            }}
+          />
+        </Campo>
+      </div>
+
+      {previaPeriodo && (
+        <p className="campo-ajuda abaixo-4">
+          Na agenda vai aparecer: <strong>{previaPeriodo}{previaHorario ? ` · ${previaHorario}` : ''}</strong>
+        </p>
+      )}
+
+      <div className="grade-dois">
         <Campo rotulo="Município" id="evento-cidade" erro={erros.cidade}>
           <Seletor id="evento-cidade" opcoes={opcoesMunicipio} value={cidade} onChange={escolherCidade} />
         </Campo>
-        <Campo rotulo="Entrada" id="evento-entrada" ajuda="Deixe 'Gratuita' se não houver cobrança" erro={erros.entrada}>
+        <Campo
+          rotulo="Entrada"
+          id="evento-entrada"
+          ajuda={`Deixe 'Gratuita' se não houver cobrança. Até ${TAMANHO_MAXIMO_ENTRADA} caracteres.`}
+          erro={erros.entrada}
+        >
           <input
             id="evento-entrada"
             type="text"
+            maxLength={TAMANHO_MAXIMO_ENTRADA}
             value={entrada}
             onChange={(e) => {
               definirEntrada(e.target.value)

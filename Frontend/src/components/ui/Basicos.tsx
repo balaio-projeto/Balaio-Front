@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
-import { IconeEstrela } from '@/components/ui/Icones'
+import { IconeEstrela, IconeUsuario } from '@/components/ui/Icones'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
-import { fallbackDe } from '@/utils/imagem'
 import { type Disponibilidade } from '@/types/dominio'
 import { rotuloDisponibilidade } from '@/constants/rotulos'
 
@@ -52,11 +51,8 @@ export function Foto({
 }) {
   return (
     <div className="foto" style={altura ? { height: altura } : undefined}>
-      {imagem ? (
-        <ImagemComFallback src={imagem} reserva={fallbackDe(imagem)} alt={decorativa ? '' : nome} loading="lazy" />
-      ) : (
-        <span className="foto-rotulo">{nome}</span>
-      )}
+      <ImagemComFallback src={imagem} semImagem={<span className="foto-rotulo">{nome}</span>}
+        alt={decorativa ? '' : nome} loading="lazy" />
     </div>
   )
 }
@@ -75,7 +71,9 @@ export function Retrato({
       className={`retrato${grande ? ' retrato-grande' : ''}`}
       style={tamanho ? { width: tamanho, height: tamanho } : undefined}
     >
-      {imagem && <ImagemComFallback src={imagem} reserva={fallbackDe(imagem)} alt="" loading="lazy" />}
+      <ImagemComFallback src={imagem} alt="" loading="lazy" semImagem={
+        <span className="retrato-silhueta" aria-hidden><IconeUsuario /></span>
+      } />
     </span>
   )
 }

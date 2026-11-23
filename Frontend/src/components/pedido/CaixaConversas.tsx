@@ -6,15 +6,17 @@ import { IconeEnviar, IconeSetaEsquerda } from '@/components/ui/Icones'
 import type { ConversaArtesao, Mensagem } from '@/types/dominio'
 import { confirmarLeituraDaConversa, conversaDoPedido, enviarMensagem } from '@/services/api/pedidos.servico'
 import { avisar } from '@/components/feedback/Avisos'
+import { ContadorMensagem, ListaMensagens, TAMANHO_MAXIMO_MENSAGEM } from '@/components/pedido/ConversaPedido'
 
-type Props = { fios: ConversaArtesao[]; conversaInicial: Mensagem[] }
+type Props = { fios: ConversaArtesao[]; conversaInicial: Mensagem[]; fioSolicitado?: string }
 
-export default function CaixaConversas({ fios, conversaInicial }: Props) {
-  const [fioAtivo, definirFioAtivo] = useState(fios[0]?.id)
-  const [fioAberto, definirFioAberto] = useState(false)
+export default function CaixaConversas({ fios, conversaInicial, fioSolicitado }: Props) {
+  const idFioInicial = fios.find((f) => f.id === fioSolicitado)?.id ?? fios[0]?.id
+  const [fioAtivo, definirFioAtivo] = useState(idFioInicial)
+  const [fioAberto, definirFioAberto] = useState(idFioInicial !== undefined && idFioInicial === fioSolicitado)
   const [lidas, definirLidas] = useState<string[]>([])
   const [mensagens, definirMensagens] = useState<Record<string, Mensagem[]>>(() =>
-    fios[0] ? { [fios[0].id]: conversaInicial } : {},
+    idFioInicial ? { [idFioInicial]: conversaInicial } : {},
   )
   const [rascunhos, definirRascunhos] = useState<Record<string, string>>({})
   const [enviando, definirEnviando] = useState<string[]>([])
@@ -24,8 +26,17 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
   const carregamentosEmAndamento = useRef(new Set<string>())
   const refTituloFio = useRef<HTMLParagraphElement>(null)
   const jaAbriuFio = useRef(false)
+  const leituraInicialAvaliada = useRef(false)
 
   const fio = fios.find((f) => f.id === fioAtivo)
+
+  useEffect(() => {
+    if (leituraInicialAvaliada.current) return
+    leituraInicialAvaliada.current = true
+    const fioInicialNaoLido = fios.find((f) => f.id === idFioInicial)?.naoLida
+    const fioInicialVisivel = fioAberto || window.matchMedia('(min-width: 1000px)').matches
+    if (idFioInicial && fioInicialNaoLido && fioInicialVisivel) void confirmarLeituraDaConversa(idFioInicial)
+  }, [fios, idFioInicial, fioAberto])
 
   useEffect(() => {
     const listaLarga = window.matchMedia('(min-width: 1000px)').matches
@@ -77,6 +88,10 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
     const rascunho = rascunhos[id] ?? ''
     const texto = rascunho.trim()
     if (!texto) return
+    if (texto.length > TAMANHO_MAXIMO_MENSAGEM) {
+      avisar.erro('Mensagem longa demais', `A mensagem pode ter até ${TAMANHO_MAXIMO_MENSAGEM} caracteres.`)
+      return
+    }
     if (tentativasPendentes.current.get(id)?.texto !== texto) {
       tentativasPendentes.current.set(id, { texto, chave: crypto.randomUUID() })
     }
@@ -144,12 +159,7 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
           </div>
 
           <div className="conversa">
-            {conversaDo(fio.id).map((m, i) => (
-              <div key={i} className={`balao ${m.autor === 'artesao' ? 'balao-meu' : 'balao-deles'}`}>
-                {m.texto}
-                <span className="balao-hora">{m.hora}</span>
-              </div>
-            ))}
+            <ListaMensagens mensagens={conversaDo(fio.id)} minhas="artesao" />
           </div>
 
           <form className="conversa-envio" onSubmit={enviar}>
@@ -162,6 +172,8 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
               placeholder="Escreva sua resposta..."
               style={{ flex: 1, minHeight: 48 }}
               value={rascunhos[fio.id] ?? ''}
+              maxLength={TAMANHO_MAXIMO_MENSAGEM}
+              aria-describedby="resposta-contador"
               onChange={(evento) => {
                 const texto = evento.target.value
                 definirRascunhos((atuais) => ({ ...atuais, [fio.id]: texto }))
@@ -171,6 +183,7 @@ export default function CaixaConversas({ fios, conversaInicial }: Props) {
               <IconeEnviar />
             </button>
           </form>
+          <ContadorMensagem id="resposta-contador" texto={rascunhos[fio.id] ?? ''} />
         </div>
       )}
     </div>

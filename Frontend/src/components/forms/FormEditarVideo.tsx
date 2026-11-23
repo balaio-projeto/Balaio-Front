@@ -7,7 +7,7 @@ import CamposVideo, { type PecaVinculavel } from '@/components/forms/CamposVideo
 import { avisar } from '@/components/feedback/Avisos'
 import { atualizarVideo } from '@/services/api/videos.servico'
 import type { Video } from '@/types/dominio'
-import { validarObrigatorio } from '@/utils/validacao'
+import { lerCamposVideo, type ErrosCamposVideo } from '@/utils/etiquetas'
 
 type Situacao = NonNullable<Video['situacao']>
 
@@ -20,26 +20,25 @@ export default function FormEditarVideo({ video, pecas }: { video: Video; pecas:
   const roteador = useRouter()
   const formulario = useRef<HTMLFormElement>(null)
   const [salvando, definirSalvando] = useState(false)
-  const [erroLegenda, definirErroLegenda] = useState<string | null>(null)
+  const [erros, definirErros] = useState<ErrosCamposVideo>({ legenda: null, etiquetas: null })
   const situacaoAtual: Situacao = video.situacao ?? 'publicada'
   const rascunho = situacaoAtual === 'rascunho'
 
   async function salvar(situacao: Situacao) {
     if (salvando) return
     const dados = new FormData(formulario.current!)
-    const legenda = String(dados.get('legenda') ?? '')
-    const problema = validarObrigatorio(legenda, 'Escreva uma legenda contando o que aparece na cena')
-    definirErroLegenda(problema)
-    if (problema) {
-      document.getElementById('video-legenda')?.focus()
+    const campos = lerCamposVideo(String(dados.get('legenda') ?? ''), String(dados.get('etiquetas') ?? ''))
+    definirErros(campos.erros)
+    if (!campos.valido) {
+      document.getElementById(campos.erros.legenda ? 'video-legenda' : 'video-etiquetas')?.focus()
       avisar.erro('Confira os campos destacados')
       return
     }
 
     definirSalvando(true)
     const resposta = await atualizarVideo(video.id, {
-      legenda: legenda.trim(),
-      etiquetas: String(dados.get('etiquetas') ?? '').split(/\s+/).filter(Boolean),
+      legenda: campos.legenda,
+      etiquetas: campos.etiquetas,
       peca: String(dados.get('peca') ?? ''),
       situacao,
     })
@@ -61,7 +60,7 @@ export default function FormEditarVideo({ video, pecas }: { video: Video; pecas:
   return (
     <form ref={formulario} onSubmit={enviar} noValidate>
       <section className="cartao">
-        <CamposVideo pecas={pecas} erroLegenda={erroLegenda} video={video} />
+        <CamposVideo pecas={pecas} erroLegenda={erros.legenda} erroEtiquetas={erros.etiquetas} video={video} />
 
         <div className="acoes-linha">
           <button type="submit" className="botao botao-primario" disabled={salvando}>

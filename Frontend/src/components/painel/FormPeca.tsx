@@ -11,6 +11,7 @@ import { avisar } from '@/components/feedback/Avisos'
 import { numeroDoPreco, validarObrigatorio, validarPreco, validarPrazoDias } from '@/utils/validacao'
 import { FORMATOS_FOTO } from '@/utils/foto'
 import { IconeAviso, IconePincel } from '@/components/ui/Icones'
+import { imagemReal } from '@/utils/imagem'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import ApoioPrecificacao from '@/components/painel/ApoioPrecificacao'
@@ -53,7 +54,7 @@ function lerImagem(arquivo: File): Promise<string> {
 function fotosDaPeca(peca?: Peca): FotoSelecionada[] {
   if (!peca) return []
   if (peca.fotos?.length) return peca.fotos.map(({ id, nome, url }) => ({ id, nome, url }))
-  return peca.imagem && peca.imagem !== '/fotos/ImagemBase.webp'
+  return imagemReal(peca.imagem)
     ? [{ id: `${peca.slug}-capa`, nome: peca.nome, url: peca.imagem }]
     : []
 }

@@ -101,12 +101,13 @@ export default function MapaEventos({
       enquadrarRef.current?.()
     })
     observador.observe(elemento)
-    setTimeout(() => {
+    const ajusteInicial = window.setTimeout(() => {
       mapa.invalidateSize()
       enquadrarRef.current?.()
     }, 0)
 
     return () => {
+      window.clearTimeout(ajusteInicial)
       observador.disconnect()
       mapa.remove()
       mapaRef.current = null

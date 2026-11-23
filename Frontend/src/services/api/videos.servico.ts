@@ -1,5 +1,5 @@
 import type { Comentario, Video } from '@/types/dominio'
-import { buscar, comToken, enviar } from './cliente'
+import { buscar, comToken, enviar, montarQuery } from './cliente'
 import { LIMITE_MIDIA } from './rotas-proxy'
 import { type RespostaApi } from './tipos'
 
@@ -11,8 +11,37 @@ function caminhoDoVideo(id: string): string {
   return `/videos/${encodeURIComponent(id)}`
 }
 
-export async function listarVideos(painel = false, token?: string): Promise<RespostaApi<Video[]>> {
-  return buscar<Video[]>(`/videos${painel ? '?painel=true' : ''}`, comToken(token))
+const TAMANHO_PAGINA_VIDEOS = 100
+const LIMITE_PAGINAS_VIDEOS_PAINEL = 10
+const LIMITE_PAGINAS_VIDEOS_PUBLICOS = 5
+
+export type VideosPaginados = RespostaApi<Video[]> & { cortadoPor: 'limite' | 'falha' | null }
+
+async function listarVideosEmPaginas(
+  painel: boolean, limitePaginas: number, token?: string,
+): Promise<VideosPaginados> {
+  const porId = new Map<string, Video>()
+  for (let pagina = 0; pagina < limitePaginas; pagina++) {
+    const query = montarQuery({ painel: painel ? 'true' : undefined, pagina, tamanho: TAMANHO_PAGINA_VIDEOS })
+    const resposta = await buscar<Video[]>(`/videos${query}`, comToken(token))
+    if (resposta.erro || !resposta.dados) {
+      if (pagina === 0) return { dados: null, erro: resposta.erro, cortadoPor: null }
+      return { dados: [...porId.values()], erro: null, cortadoPor: 'falha' }
+    }
+    for (const video of resposta.dados) if (!porId.has(video.id)) porId.set(video.id, video)
+    if (resposta.dados.length < TAMANHO_PAGINA_VIDEOS) {
+      return { dados: [...porId.values()], erro: null, cortadoPor: null }
+    }
+  }
+  return { dados: [...porId.values()], erro: null, cortadoPor: 'limite' }
+}
+
+export function listarTodosVideosDoPainel(token?: string): Promise<VideosPaginados> {
+  return listarVideosEmPaginas(true, LIMITE_PAGINAS_VIDEOS_PAINEL, token)
+}
+
+export function listarVideosPublicados(): Promise<VideosPaginados> {
+  return listarVideosEmPaginas(false, LIMITE_PAGINAS_VIDEOS_PUBLICOS)
 }
 
 export async function registrarVisualizacao(id: string): Promise<RespostaApi<null>> {
@@ -56,8 +85,8 @@ export function comentarVideo(id: string, texto: string): Promise<RespostaApi<Co
   return enviar(`${caminhoDoVideo(id)}/comentarios`, { texto })
 }
 
-export async function obterVideo(id: string): Promise<RespostaApi<Video>> {
-  return buscar<Video>(caminhoDoVideo(id))
+export async function obterVideo(id: string, token?: string): Promise<RespostaApi<Video>> {
+  return buscar<Video>(caminhoDoVideo(id), comToken(token))
 }
 
 export async function comentariosDe(id: string): Promise<RespostaApi<Comentario[]>> {

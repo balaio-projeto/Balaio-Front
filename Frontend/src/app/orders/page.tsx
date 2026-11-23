@@ -11,8 +11,32 @@ import { listarArtesaos } from '@/services/api/artesaos.servico'
 import { emReais } from '@/utils/formato'
 import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
+import { pedidoAceitaMediacao, pedidoEncerrado, situacaoNaLista, type SituacaoListaPedidos } from '@/components/pedido/acaoCancelamentoPedido'
 
-export default async function MeusPedidos() {
+type FiltroPedidos = 'todos' | SituacaoListaPedidos
+
+const FILTROS: { chave: FiltroPedidos; titulo: string }[] = [
+  { chave: 'todos', titulo: 'Todos' },
+  { chave: 'andamento', titulo: 'Em andamento' },
+  { chave: 'aguardando', titulo: 'Aguardando pagamento' },
+  { chave: 'entregues', titulo: 'Entregues' },
+  { chave: 'encerrados', titulo: 'Cancelados e encerrados' },
+]
+
+const VAZIO_POR_FILTRO: Record<Exclude<FiltroPedidos, 'todos'>, string> = {
+  andamento: 'Nenhum pedido em produção ou a caminho.',
+  aguardando: 'Nenhum pedido aguardando pagamento.',
+  entregues: 'Nenhum pedido entregue ainda.',
+  encerrados: 'Nenhum pedido cancelado ou encerrado.',
+}
+
+function filtroDaUrl(valor: string | string[] | undefined): FiltroPedidos {
+  const texto = Array.isArray(valor) ? valor[0] : valor
+  return FILTROS.some((filtro) => filtro.chave === texto) ? texto as FiltroPedidos : 'todos'
+}
+
+export default async function MeusPedidos({ searchParams }: { searchParams: Promise<{ situacao?: string | string[] }> }) {
+  const filtro = filtroDaUrl((await searchParams).situacao)
   const { token } = await exigirSessao()
   const [{ dados: pedidos, erro }, { dados: artesaos }] = await Promise.all([
     listarPedidos(token),
@@ -26,7 +50,9 @@ export default async function MeusPedidos() {
   const mapaArtesaos = new Map((artesaos ?? []).map((a) => [a.slug, a]))
   const acharPeca = (slug: string) => mapaPecas.get(slug)
   const acharArtesao = (slug: string) => mapaArtesaos.get(slug)
-  const listaPedidos = pedidosLista
+  const quantidadePorFiltro = (chave: FiltroPedidos) =>
+    chave === 'todos' ? pedidosLista.length : pedidosLista.filter((pedido) => situacaoNaLista(pedido.estado) === chave).length
+  const listaPedidos = filtro === 'todos' ? pedidosLista : pedidosLista.filter((pedido) => situacaoNaLista(pedido.estado) === filtro)
   return (
     <Pagina>
       <Migalhas trilha={[{ texto: 'Início', href: '/' }, { texto: 'Meus pedidos' }]} />
@@ -36,7 +62,29 @@ export default async function MeusPedidos() {
         Acompanhe o que está sendo produzido, o que está a caminho e o que já chegou.
       </p>
 
-      {listaPedidos.length === 0 ? (
+      {pedidosLista.length > 0 && (
+        <nav className="painel-abas abaixo-4" aria-label="Filtrar pedidos por situação">
+          {FILTROS.map(({ chave, titulo }) => (
+            <Link
+              key={chave}
+              href={chave === 'todos' ? '/orders' : `/orders?situacao=${chave}`}
+              className={`painel-aba${chave === filtro ? ' painel-aba-ativa' : ''}`}
+              aria-current={chave === filtro ? 'page' : undefined}
+            >
+              {titulo} ({quantidadePorFiltro(chave)})
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {pedidosLista.length > 0 && listaPedidos.length === 0 && filtro !== 'todos' ? (
+        <EstadoVazio
+          icone={<IconePacote tamanho={34} />}
+          titulo={VAZIO_POR_FILTRO[filtro]}
+          descricao="Escolha outra situação acima para ver os demais pedidos."
+          acao={<Link href="/orders" className="botao botao-secundario">Ver todos os pedidos</Link>}
+        />
+      ) : listaPedidos.length === 0 ? (
         <EstadoVazio
           icone={<IconePacote tamanho={34} />}
           titulo="Você ainda não fez nenhum pedido"
@@ -54,7 +102,8 @@ export default async function MeusPedidos() {
             const artesao = peca ? acharArtesao(peca.artesao) : undefined
             const estado = rotuloEstadoPedido[pedido.estado]
             const entregue = pedido.estado === 'entregue'
-            const encerrado = ['recusado', 'cancelado', 'reembolsado'].includes(pedido.estado)
+            const encerrado = pedidoEncerrado(pedido.estado)
+            const podePedirAjuda = pedidoAceitaMediacao(pedido.estado)
 
             return (
               <article className="cartao-pedido" key={pedido.id}>
@@ -110,10 +159,10 @@ export default async function MeusPedidos() {
                       Ver detalhes
                     </Link>
                   )}
-                  {encerrado ? (
-                    <Link href={`/orders/${pedido.id}`} className="botao botao-fantasma">Ver detalhes</Link>
-                  ) : (
+                  {podePedirAjuda ? (
                     <Link href={`/orders/${pedido.id}/mediation`} className="botao botao-fantasma">Preciso de ajuda</Link>
+                  ) : encerrado && (
+                    <Link href={`/orders/${pedido.id}`} className="botao botao-fantasma">Ver detalhes</Link>
                   )}
                 </footer>
               </article>

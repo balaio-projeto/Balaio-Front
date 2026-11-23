@@ -5,15 +5,17 @@ const AUTENTICACAO = new Set(CAMINHOS_DE_AUTENTICACAO)
 const PREFIXO_DA_API = '/api/v1'
 const COOKIE_DE_SESSAO = 'balaio_sessao='
 const PRAZO_PADRAO_MS = 10_000
+const PRAZO_ESCRITA_DE_PECA_MS = 60_000
+const CAMINHO_DE_SAIDA = '/auth/logout'
 const PRAZO_CABECALHOS_MIDIA_MS = 10 * 60_000
 const CABECALHOS_ENCAMINHADOS = ['accept', 'content-type', 'origin', 'idempotency-key']
 const CABECALHOS_DE_RESPOSTA = ['content-type', 'content-disposition', 'www-authenticate']
 const CABECALHOS_DE_MIDIA = ['content-range', 'accept-ranges', 'content-length']
 
-function erro(status: number, codigo: string, mensagem: string) {
-  return Response.json({ dados: null, erro: { codigo, mensagem } }, {
-    status, headers: { 'Cache-Control': 'no-store' },
-  })
+function erro(status: number, codigo: string, mensagem: string, cookies: string[] = []) {
+  const headers = new Headers({ 'Cache-Control': 'no-store' })
+  for (const cookie of cookies) headers.append('set-cookie', cookie)
+  return Response.json({ dados: null, erro: { codigo, mensagem } }, { status, headers })
 }
 
 function destinoDoGateway() {
@@ -49,6 +51,14 @@ function tokenDoCookie(requisicao: Request): string | null {
   return token ? token : null
 }
 
+function ehEscritaDePeca(metodo: string, caminho: string): boolean {
+  return (metodo === 'POST' && caminho === '/pecas') || (metodo === 'PATCH' && /^\/pecas\/[^/]+$/.test(caminho))
+}
+
+function sufixoDeCookieExpirado(url: URL): string {
+  return `Max-Age=0; SameSite=Lax${url.protocol === 'https:' ? '; Secure' : ''}`
+}
+
 function caminhoInvalido(url: URL, caminho: string) {
   return !url.pathname.startsWith(`${PREFIXO_DA_API}/`) || /%2f|%5c|%2e|\\|\/\//i.test(caminho)
     || [...url.searchParams.keys()].some((chave) => chave.startsWith('_'))
@@ -71,7 +81,7 @@ function cabecalhosParaOGateway(requisicao: Request, midia: boolean): Headers {
     if (valor) headers.set(nome, valor)
   }
   const sessao = cookiesDeSessao(requisicao)
-  if (sessao.length) headers.set('cookie', sessao.join('; '))
+  if (sessao.length) headers.set('cookie', sessao[0])
   const autorizacao = requisicao.headers.get('authorization')
   const token = autorizacao ? null : tokenDoCookie(requisicao)
   if (autorizacao) headers.set('authorization', autorizacao)
@@ -79,7 +89,8 @@ function cabecalhosParaOGateway(requisicao: Request, midia: boolean): Headers {
   return headers
 }
 
-function respostaAoNavegador(resposta: Response, url: URL, midia: boolean, imagemPerfil: boolean, semCorpo: boolean): Response {
+function respostaAoNavegador(resposta: Response, url: URL, midia: boolean, imagemPerfil: boolean, semCorpo: boolean,
+    sessaoRecusada: boolean): Response {
   const saida = new Headers({ 'Cache-Control': 'no-store' })
   for (const nome of [...CABECALHOS_DE_RESPOSTA, ...(midia ? CABECALHOS_DE_MIDIA : [])]) {
     const valor = resposta.headers.get(nome)
@@ -97,6 +108,8 @@ function respostaAoNavegador(resposta: Response, url: URL, midia: boolean, image
   const sufixo = `Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`
   saida.append('set-cookie', `balaio_sessao=; HttpOnly; Path=${PREFIXO_DA_API}; ${sufixo}`)
   saida.append('set-cookie', `balaio-sessao=; Path=/; ${sufixo}`)
+  if (sessaoRecusada && !cookies.some((cookie) => /^balaio_sessao=/i.test(cookie)))
+    saida.append('set-cookie', `balaio_sessao=; HttpOnly; Path=/; ${sufixo}`)
   return new Response(semCorpo ? null : resposta.body, { status: resposta.status, headers: saida })
 }
 
@@ -144,13 +157,17 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
       : await fetch(destino, {
         method: metodo, headers, cache: 'no-store', redirect: 'manual',
         body: corpo,
-        signal: AbortSignal.timeout(PRAZO_PADRAO_MS),
+        signal: AbortSignal.timeout(ehEscritaDePeca(metodo, caminho) ? PRAZO_ESCRITA_DE_PECA_MS : PRAZO_PADRAO_MS),
       })
     if (resposta.status >= 300 && resposta.status < 400) {
       return erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.')
     }
-    return respostaAoNavegador(resposta, url, midia, imagemPerfil, metodo === 'HEAD')
+    const sessaoRecusada = resposta.status === 401 && tokenDoCookie(requisicao) !== null
+    return respostaAoNavegador(resposta, url, midia, imagemPerfil, metodo === 'HEAD', sessaoRecusada)
   } catch {
-    return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.')
+    const cookiesDeSaida = caminho === CAMINHO_DE_SAIDA
+      ? [`balaio_sessao=; HttpOnly; Path=/; ${sufixoDeCookieExpirado(url)}`, `balaio-sessao=; Path=/; ${sufixoDeCookieExpirado(url)}`]
+      : []
+    return erro(502, 'API_INDISPONIVEL', 'Não foi possível falar com o servidor.', cookiesDeSaida)
   }
 }

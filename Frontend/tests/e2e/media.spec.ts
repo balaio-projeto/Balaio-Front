@@ -75,7 +75,9 @@ test('substitui, preserva foto em falha e campos nao salvos, remove e salva text
   const removida = page.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().endsWith('/artesao/me/imagem'))
   await page.getByRole('button', { name: 'Remover foto' }).click()
   expect((await removida).status()).toBe(200)
-  await expect(page.locator('form').filter({ has: page.locator('#cfg-atelie') }).locator('img')).toHaveAttribute('src', '/fotos/ImagemBase.webp')
+  const formularioAtelie = page.locator('form').filter({ has: page.locator('#cfg-atelie') })
+  await expect(formularioAtelie.locator('img')).toHaveCount(0)
+  await expect(formularioAtelie.locator('.retrato-silhueta')).toBeVisible()
   expect((await request.get(atual)).status()).toBe(404)
 })
 
@@ -133,7 +135,9 @@ test('foto do artesao acompanha upload, substituicao e remocao na conta e nos me
   if (await menu.locator('.menu-perfil-gatilho').getAttribute('aria-expanded') !== 'true') {
     await menu.locator('.menu-perfil-gatilho').click()
   }
-  await expect(menu.locator('.menu-perfil-topo img')).toHaveAttribute('src', '/fotos/ImagemBase.webp')
+  await expect(menu.locator('.menu-perfil-topo img')).toHaveCount(0)
+  await expect(menu.locator('.menu-perfil-topo .retrato-silhueta')).toBeVisible()
   await page.goto('/account')
-  await expect(page.locator('.conta-capa img')).toHaveAttribute('src', '/fotos/ImagemBase.webp')
+  await expect(page.locator('.conta-capa img')).toHaveCount(0)
+  await expect(page.locator('.conta-capa .retrato-silhueta')).toBeVisible()
 })

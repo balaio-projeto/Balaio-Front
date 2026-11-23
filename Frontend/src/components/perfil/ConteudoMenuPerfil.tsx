@@ -6,7 +6,7 @@ import BotaoSair from '@/components/conta/BotaoSair'
 import { itensAdmin } from '@/components/admin/itensAdmin'
 import { itensPainel, type ChavePainel } from '@/components/painel/itensPainel'
 import { Retrato } from '@/components/ui/Basicos'
-import { IconeCoracao, IconeEditar, IconeMapa, IconePacote, IconeSelo, IconeUsuario } from '@/components/ui/Icones'
+import { IconeCalendario, IconeCasa, IconeCoracao, IconeEditar, IconeMapa, IconePacote, IconeSelo, IconeUsuario } from '@/components/ui/Icones'
 import type { ResumoPerfil } from '@/hooks/useResumoPerfil'
 import type { Sessao } from '@/services/sessao/cookie'
 import { useFavoritos } from '@/store/favoritos'
@@ -60,6 +60,25 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
         itens: itensAdmin({ curadoria: resumo.filaCuradoria ?? 0, mediacoes: resumo.mediacoes ?? 0 }),
       },
       { itens: [salvas] },
+    ]
+  }
+  if (sessao.papel === 'organizador') {
+    return [
+      {
+        rotulo: 'Eventos',
+        itens: [
+          { chave: 'novo-evento', texto: 'Cadastrar evento', href: '/events/new', icone: <IconeEditar /> },
+          { chave: 'agenda', texto: 'Agenda de eventos', href: '/events', icone: <IconeCalendario /> },
+        ],
+      },
+      { rotulo: 'Compras', itens: [salvas] },
+      {
+        rotulo: 'Minha conta',
+        itens: [
+          { chave: 'conta', texto: 'Visão geral da conta', href: '/account', icone: <IconeCasa /> },
+          { chave: 'dados', texto: 'Meus dados', href: '/account/details', icone: <IconeUsuario /> },
+        ],
+      },
     ]
   }
   const emAndamento = resumo.pedidosEmAndamento ?? 0

@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Pagina from '@/components/layout/Pagina'
+import EstadoVazio from '@/components/feedback/EstadoVazio'
 import CartaoPeca from '@/components/produto/CartaoPeca'
 import { Migalhas, Retrato } from '@/components/ui/Basicos'
-import { IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeJarra, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
 import ListaEscalonada from '@/components/ui/ListaEscalonada'
 import { obterColetivo } from '@/services/api/coletivos.servico'
 import { obterArtesao } from '@/services/api/artesaos.servico'
@@ -15,14 +16,17 @@ export const dynamic = 'force-dynamic'
 export default async function PerfilColetivo({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const { dados: coletivo, erro } = await obterColetivo(slug)
-  if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
+  const coletivoInexistente = erro?.status === 404 || erro?.codigo === 'RECURSO_NAO_ENCONTRADO'
+  if (coletivoInexistente) notFound()
+  if (erro) throw new Error(erro.mensagem)
   if (!coletivo) notFound()
 
   const membrosResp = await Promise.all(coletivo.membros.map((m) => obterArtesao(m)))
   const membros = membrosResp.map((r) => r.dados).filter((a): a is Artesao => a !== null)
   const pecasResp = await Promise.all(membros.map((a) => pecasPorArtesao(a.slug)))
   const pecas = pecasResp.flatMap((r) => r.dados ?? []).slice(0, 6)
-  const obras = membros.reduce((total, a) => total + (a.obrasComercializadas ?? 0), 0)
+  const vendasConhecidas = membros.map((a) => a.obrasComercializadas).filter((obras): obras is number => obras != null)
+  const obras = vendasConhecidas.length > 0 ? vendasConhecidas.reduce((total, obras) => total + obras, 0) : null
 
   return (
     <Pagina>
@@ -55,8 +59,8 @@ export default async function PerfilColetivo({ params }: { params: Promise<{ slu
           {membros.length === 1 ? 'ateliê associado' : 'ateliês associados'}
         </li>
         <li>
-          <strong>{obras}+</strong>
-          obras comercializadas
+          <strong>{obras == null ? '—' : `${obras}+`}</strong>
+          {obras == null ? 'dados de vendas indisponíveis' : 'obras comercializadas'}
         </li>
         <li>
           <strong>{coletivo.tecnicas.length}</strong>
@@ -91,11 +95,19 @@ export default async function PerfilColetivo({ params }: { params: Promise<{ slu
 
       <section className="secao">
         <h2 className="secao-titulo">Peças do coletivo</h2>
-        <ListaEscalonada className="grade-pecas">
-          {pecas.map((p) => (
-            <CartaoPeca key={p.slug} peca={p} />
-          ))}
-        </ListaEscalonada>
+        {pecas.length === 0 ? (
+          <EstadoVazio
+            icone={<IconeJarra tamanho={34} />}
+            titulo="Nenhuma peça à venda agora"
+            descricao="Os ateliês deste coletivo ainda não têm peças publicadas. Volte em breve ou conheça os ateliês abaixo."
+          />
+        ) : (
+          <ListaEscalonada className="grade-pecas">
+            {pecas.map((p) => (
+              <CartaoPeca key={p.slug} peca={p} />
+            ))}
+          </ListaEscalonada>
+        )}
       </section>
 
       <section className="secao">

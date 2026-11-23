@@ -15,17 +15,37 @@ import { tipos } from '@/constants/referencias'
 import { iconePorTipo } from '@/constants/vitrine'
 import { listarArtesaos } from '@/services/api/artesaos.servico'
 import { listarEventos } from '@/services/api/eventos.servico'
-import { listarVideos } from '@/services/api/videos.servico'
-import { imagemBase } from '@/utils/imagem'
+import { listarVideosPublicados } from '@/services/api/videos.servico'
+import { imagemReal } from '@/utils/imagem'
 import { listarPecas } from '@/services/api/pecas.servico'
 import { hrefListagem } from '@/utils/filtrosUrl'
+import type { RespostaApi } from '@/services/api/tipos'
+import type { Peca } from '@/types/dominio'
+
+const TAMANHO_PAGINA_PECAS = 100
+const LIMITE_PAGINAS_PECAS = 5
+
+async function listarPecasDaVitrine(): Promise<RespostaApi<Peca[]>> {
+  const porSlug = new Map<string, Peca>()
+  let totalPaginas = 1
+  for (let pagina = 1; pagina <= Math.min(totalPaginas, LIMITE_PAGINAS_PECAS); pagina++) {
+    const resposta = await listarPecas({ pagina, tamanho: TAMANHO_PAGINA_PECAS })
+    if (resposta.erro || !resposta.dados) {
+      if (pagina === 1) return resposta
+      break
+    }
+    for (const peca of resposta.dados) if (!porSlug.has(peca.slug)) porSlug.set(peca.slug, peca)
+    totalPaginas = resposta.paginacao?.totalPaginas ?? 1
+  }
+  return { dados: [...porSlug.values()], erro: null }
+}
 
 export default async function Home() {
   const [pecasResposta, artesaosResposta, eventosResposta, videosResposta] = await Promise.all([
-    listarPecas(),
+    listarPecasDaVitrine(),
     listarArtesaos(),
     listarEventos(),
-    listarVideos(),
+    listarVideosPublicados(),
   ])
 
   if (pecasResposta.erro) {
@@ -42,8 +62,8 @@ export default async function Home() {
   const vitrine = montarVitrine(pecas)
   const eventos = eventosResposta.dados ?? []
   const listaVideos = videosResposta.dados ?? []
-  const videosDestaque =
-    listaVideos.length > 0 ? { capas: listaVideos.map((video) => video.capa ?? imagemBase), total: listaVideos.length } : undefined
+  const capasDosVideos = listaVideos.flatMap((video) => imagemReal(video.capa) ?? [])
+  const videosDestaque = listaVideos.length > 0 ? { capas: capasDosVideos, total: listaVideos.length } : undefined
   const pontos = eventos.map(({ slug, nome, cidade, periodo, lat, lng }) => ({ slug, nome, cidade, periodo, lat, lng }))
 
   return (

@@ -3,7 +3,7 @@ import Pagina from '@/components/layout/Pagina'
 import MenuDrawer from '@/components/navegacao/MenuDrawer'
 import MenuAdminLateral from '@/components/admin/MenuAdminLateral'
 import type { ChaveAdmin } from '@/components/admin/itensAdmin'
-import { listarMediacoes } from '@/services/api/mediacoes.servico'
+import { contarMediacoesEmAberto, listarMediacoes } from '@/services/api/mediacoes.servico'
 import { listarFilaCuradoria } from '@/services/api/curadoria.servico'
 import { listarEventosEmModeracao } from '@/services/api/eventos.servico'
 import { tokenDaSessao } from '@/services/autenticacao'
@@ -17,7 +17,7 @@ export default async function LayoutAdmin({ ativo, children }: Props) {
   const [{ dados: fila }, { dados: mediacoes }, { dados: eventosPendentes }] = await Promise.all([
     listarFilaCuradoria(token), listarMediacoes(token), listarEventosEmModeracao(token),
   ])
-  const contagens = { curadoria: fila?.length ?? 0, mediacoes: mediacoes?.length ?? 0, eventos: eventosPendentes?.length ?? 0 }
+  const contagens = { curadoria: fila?.length ?? 0, mediacoes: contarMediacoesEmAberto(mediacoes ?? []), eventos: eventosPendentes?.length ?? 0 }
   return (
     <Pagina>
       <MenuDrawer titulo="Curadoria" rotulo="Menu da curadoria">

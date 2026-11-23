@@ -7,15 +7,19 @@ import { useSessao } from '@/store/sessao'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
 
 export type ItemSacola = { slug: string; quantidade: number }
-export type ResultadoAdicionar = 'adicionada' | 'ja-esta'
+export type ResultadoAdicionar = 'adicionada' | 'ja-esta' | 'limite'
+export type ResultadoConfirmado = { ok: boolean; mensagem?: string }
 type ContextoSacola = {
-  itens: ItemSacola[]; pronto: boolean; erro: string | null; aviso: string | null; conflito: boolean
+  itens: ItemSacola[]; pronto: boolean; erro: string | null; aviso: string | null; conflito: boolean; sincronizando: boolean
   recarregar: () => void; removerParaMesclar: (slug: string) => void
   adicionar: (slug: string, unica?: boolean) => ResultadoAdicionar
   remover: (slug: string) => void; repor: (item: ItemSacola, posicao: number) => void
   alterarQuantidade: (slug: string, quantidade: number) => void; limpar: () => void
-  limparConfirmado: () => Promise<{ ok: boolean; mensagem?: string }>
+  removerConfirmado: (slugs: readonly string[]) => Promise<ResultadoConfirmado>
 }
+
+export const LIMITE_PECAS_DISTINTAS = 20
+export const MENSAGEM_LIMITE_PECAS = 'A sacola aceita até 20 peças diferentes.'
 
 const Contexto = createContext<ContextoSacola | null>(null)
 const CHAVE_VISITANTE = 'balaio:sacola:visitante:v1'
@@ -53,8 +57,27 @@ function lerLocal(): { itens: ItemSacola[] | null; falhou: boolean } {
   catch { return { itens: [], falhou: false } }
 }
 
+export function incluirItem(itens: ItemSacola[], slug: string, unica = false): { itens: ItemSacola[]; resultado: ResultadoAdicionar } {
+  const existente = itens.find((item) => item.slug === slug)
+  if (!existente) {
+    if (itens.length >= LIMITE_PECAS_DISTINTAS) return { itens, resultado: 'limite' }
+    return { itens: [...itens, { slug, quantidade: 1 }], resultado: 'adicionada' }
+  }
+  if (unica || existente.quantidade >= 3) return { itens, resultado: 'ja-esta' }
+  return {
+    itens: itens.map((item) => item.slug === slug ? { ...item, quantidade: item.quantidade + 1 } : item),
+    resultado: 'adicionada',
+  }
+}
+
+export function semItens(itens: ItemSacola[], slugs: readonly string[]): ItemSacola[] {
+  const retirados = new Set(slugs)
+  return itens.filter((item) => !retirados.has(item.slug))
+}
+
 export async function mesclar(remotos: ItemSacola[], locais: ItemSacola[]): Promise<ItemSacola[]> {
   const unidos = validar([...remotos, ...locais])
+  if (unidos.length > LIMITE_PECAS_DISTINTAS) throw new Error(MENSAGEM_LIMITE_PECAS)
   const disponibilidade = await Promise.all(unidos.map(async (item) => {
     const resposta = await obterPeca(item.slug)
     if (resposta.erro || !resposta.dados) throw new Error(resposta.erro?.mensagem ?? 'Peça indisponível.')
@@ -68,7 +91,8 @@ export async function mesclar(remotos: ItemSacola[], locais: ItemSacola[]): Prom
 export function SacolaProvider({ children, memoriaVisitanteRef }: {
   children: ReactNode; memoriaVisitanteRef: RefObject<ItemSacola[] | null>
 }) {
-  const { sessao } = useSessao()
+  const { sessao: sessaoAtual } = useSessao()
+  const sessao = sessaoAtual?.papel === 'comprador' ? sessaoAtual : null
   const [base, definirBase] = useState<ItemSacola[]>(SACOLA_VAZIA)
   const [pronto, definirPronto] = useState(false)
   const [erro, definirErro] = useState<string | null>(null)
@@ -79,7 +103,7 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
   const visitanteInicializado = useRef(false)
   const locaisPendentes = useRef<ItemSacola[] | null>(null)
   const ignorados = useRef(new Set<string>())
-  const { valor: remoto, atualizar: atualizarRemoto, substituirConfirmado } = useEstadoPersistido(base, salvarSacola,
+  const { valor: remoto, atualizar: atualizarRemoto, substituirConfirmado, sincronizando } = useEstadoPersistido(base, salvarSacola,
     'Não foi possível salvar a sacola')
 
   useEffect(() => {
@@ -174,13 +198,9 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
   function adicionar(slug: string, unica = false): ResultadoAdicionar {
     let resultado: ResultadoAdicionar = 'adicionada'
     atualizar((itens) => {
-      const existente = itens.find((item) => item.slug === slug)
-      if (!existente) return [...itens, { slug, quantidade: 1 }]
-      if (unica || existente.quantidade >= 3) {
-        resultado = 'ja-esta'
-        return itens
-      }
-      return itens.map((item) => item.slug === slug ? { ...item, quantidade: item.quantidade + 1 } : item)
+      const inclusao = incluirItem(itens, slug, unica)
+      resultado = inclusao.resultado
+      return inclusao.itens
     })
     return resultado
   }
@@ -196,31 +216,37 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
     atualizar((itens) => itens.map((item) => item.slug === slug ? { ...item, quantidade } : item))
   }
   function limpar() { atualizar(() => []) }
-  async function limparConfirmado(): Promise<{ ok: boolean; mensagem?: string }> {
+  async function removerConfirmado(slugs: readonly string[]): Promise<ResultadoConfirmado> {
     if (!pronto || erro) return { ok: false, mensagem: erro ?? 'A sacola ainda não está pronta.' }
     if (!sessao) {
-      const salvo = gravarChaveLocal(CHAVE_VISITANTE, '[]')
-      if (!salvo) {
+      const restantes = semItens(atual.current, slugs)
+      if (!gravarChaveLocal(CHAVE_VISITANTE, JSON.stringify(restantes))) {
         definirAviso(AVISO_ARMAZENAMENTO)
-        return { ok: false, mensagem: 'Não foi possível confirmar a limpeza da sacola neste dispositivo.' }
+        return { ok: false, mensagem: 'Não foi possível confirmar a retirada das peças pagas neste dispositivo.' }
       }
-      atual.current = []
-      memoriaVisitanteRef.current = []
-      definirBase([])
+      atual.current = restantes
+      memoriaVisitanteRef.current = restantes
+      definirBase(restantes)
       definirAviso(null)
       return { ok: true }
     }
-    const resposta = await substituirConfirmado([])
+    let resposta = await substituirConfirmado(semItens(remoto, slugs))
+    if (resposta.erro?.codigo === 'PECA_INDISPONIVEL') {
+      const revalidacao = await revalidarSacola()
+      const indisponiveis = (revalidacao.dados?.itens ?? [])
+        .filter((item) => item.situacao === 'indisponivel').map((item) => item.slug)
+      if (indisponiveis.length) resposta = await substituirConfirmado(semItens(remoto, [...slugs, ...indisponiveis]))
+    }
     if (resposta.erro || resposta.dados === null)
-      return { ok: false, mensagem: resposta.erro?.mensagem ?? 'Não foi possível limpar a sacola da conta.' }
-    atual.current = []
-    definirBase([])
+      return { ok: false, mensagem: resposta.erro?.mensagem ?? 'Não foi possível retirar as peças pagas da sacola da conta.' }
+    atual.current = resposta.dados
+    definirBase(resposta.dados)
     return { ok: true }
   }
 
   return <Contexto.Provider value={{
-    itens: sessao && !conflito ? remoto : base, pronto, erro, aviso, conflito, recarregar,
-    removerParaMesclar, adicionar, remover, repor, alterarQuantidade, limpar, limparConfirmado,
+    itens: sessao && !conflito ? remoto : base, pronto, erro, aviso, conflito, sincronizando: Boolean(sessao) && sincronizando, recarregar,
+    removerParaMesclar, adicionar, remover, repor, alterarQuantidade, limpar, removerConfirmado,
   }}>{children}</Contexto.Provider>
 }
 
@@ -235,7 +261,14 @@ export function useTotalSacola(): { total: number; pronto: boolean } {
   return { total: itens.reduce((soma, item) => soma + item.quantidade, 0), pronto }
 }
 
-export function useRevalidacaoSacola(itens: ItemSacola[], habilitada: boolean) {
+export function recortarRevalidacao(dados: RevalidacaoSacola, slugs?: readonly string[]): RevalidacaoSacola {
+  if (!slugs) return dados
+  const incluidos = new Set(slugs)
+  const itens = dados.itens.filter((item) => incluidos.has(item.slug))
+  return { ...dados, itens, podeProsseguir: itens.length > 0 && itens.every((item) => item.situacao === 'disponivel') }
+}
+
+export function useRevalidacaoSacola(itens: ItemSacola[], habilitada: boolean, recorte?: readonly string[]) {
   const assinatura = JSON.stringify([...itens].sort((a, b) => a.slug.localeCompare(b.slug)))
   const [estado, definirEstado] = useState<{
     assinatura: string; dados: RevalidacaoSacola | null; erro: string | null; consultando: boolean
@@ -268,7 +301,13 @@ export function useRevalidacaoSacola(itens: ItemSacola[], habilitada: boolean) {
     return () => { controle.current++ }
   }, [habilitada, assinatura, itens.length, revalidar])
 
-  return { dados: estado.dados, valido: habilitada && estado.assinatura === assinatura && !estado.erro && !estado.consultando,
+  async function revalidarRecorte(): Promise<RevalidacaoSacola | null> {
+    const atual = await revalidar()
+    return atual && recortarRevalidacao(atual, recorte)
+  }
+
+  return { dados: estado.dados && recortarRevalidacao(estado.dados, recorte),
+    valido: habilitada && estado.assinatura === assinatura && !estado.erro && !estado.consultando,
     erro: estado.assinatura === assinatura ? estado.erro : null,
-    consultando: estado.assinatura !== assinatura || estado.consultando, revalidar }
+    consultando: estado.assinatura !== assinatura || estado.consultando, revalidar: revalidarRecorte }
 }

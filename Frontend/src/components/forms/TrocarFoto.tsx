@@ -4,7 +4,7 @@ import { useId, useRef, useState } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
 import { FORMATOS_FOTO, lerComoDataUrl, TAMANHO_MAXIMO_FOTO_MB, validarFoto } from '@/utils/foto'
-import { imagemBase } from '@/utils/imagem'
+import { imagemReal } from '@/utils/imagem'
 
 type Props = {
   imagemInicial?: string
@@ -79,7 +79,7 @@ export default function TrocarFoto({ imagemInicial, rotulo, nome, desabilitado, 
         >
           {enviando ? 'Atualizando foto…' : 'Trocar foto'}
         </button>
-        {aoRemover && imagemInicial && imagemInicial !== imagemBase && (
+        {aoRemover && imagemReal(imagemInicial) && (
           <button type="button" className="botao botao-fantasma acima-2" disabled={enviando || desabilitado}
             onClick={() => void executar(aoRemover)}>Remover foto</button>
         )}

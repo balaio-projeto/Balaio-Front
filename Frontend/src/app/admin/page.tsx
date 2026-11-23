@@ -18,8 +18,12 @@ export default async function Admin() {
     listarArtesaos(),
     listarColetivos(),
   ])
-  const pecasDaFila = await Promise.all((fila.dados ?? []).map((item) => pecasPorArtesao(item.artesaoSlug)))
-  const falha = [fila, artesaos, ...pecasDaFila].find((resposta) => resposta.erro || !resposta.dados)
+  const solicitacoes = fila.dados ?? []
+  const pecasDaFila = await Promise.all(solicitacoes.map((item) => pecasPorArtesao(item.artesaoSlug)))
+  const falha = [fila, artesaos].find((resposta) => resposta.erro || !resposta.dados)
+  const ateliesSemPecas = solicitacoes
+    .filter((_, indice) => pecasDaFila[indice].erro || !pecasDaFila[indice].dados)
+    .map((item) => item.atelie || item.artesao)
 
   return (
     <LayoutAdmin ativo="curadoria">
@@ -37,13 +41,21 @@ export default async function Admin() {
         <p className="aviso" role="status">Não foi possível consultar os coletivos. Confira o vínculo com a associação durante a análise.</p>
       )}
 
+      {!falha && ateliesSemPecas.length > 0 && (
+        <p className="aviso" role="status">
+          Peças indisponíveis no momento para {ateliesSemPecas.join(', ')}. O catálogo não respondeu para{' '}
+          {ateliesSemPecas.length === 1 ? 'esta solicitação' : 'estas solicitações'}; recarregue a página antes de decidir
+          por falta de peças.
+        </p>
+      )}
+
       {falha ? (
         <EstadoErro mensagem={falha.erro?.mensagem} />
       ) : (
         <FilaCuradoria
           filaInicial={montarFilaCuradoria(
-            fila.dados ?? [],
-            pecasDaFila.map((resposta) => resposta.dados ?? []),
+            solicitacoes,
+            pecasDaFila.map((resposta) => (resposta.erro || !resposta.dados ? null : resposta.dados)),
             coletivos.dados ?? [],
           )}
           artesaosVerificados={(artesaos.dados ?? []).filter((artesao) => artesao.selo).length}

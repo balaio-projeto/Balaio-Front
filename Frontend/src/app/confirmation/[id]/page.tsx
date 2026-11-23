@@ -3,29 +3,41 @@ import { notFound } from 'next/navigation'
 import Pagina from '@/components/layout/Pagina'
 import ResumoItensPedido from '@/components/pedido/ResumoItensPedido'
 import { Migalhas } from '@/components/ui/Basicos'
-import { IconeCheck, IconeConversa, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeAviso, IconeCheck, IconeConversa, IconeRelogio, IconeSetaDireita } from '@/components/ui/Icones'
 import { obterPedido } from '@/services/api/pedidos.servico'
 import { exigirSessao } from '@/services/autenticacao'
 import EstadoPagamento from '@/components/pedido/EstadoPagamento'
+import { pagamentoConfirmado, pedidoEncerrado, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
+import type { Pedido } from '@/types/dominio'
 
 export const dynamic = 'force-dynamic'
+
+function cabecalhoDoPedido(pedido: Pedido) {
+  if (pagamentoConfirmado(pedido.estado))
+    return { titulo: 'Pagamento confirmado', icone: <IconeCheck tamanho={38} />, fundo: 'var(--verde)' }
+  if (pedidoEncerrado(pedido.estado))
+    return { titulo: 'O pedido foi encerrado', icone: <IconeAviso tamanho={38} />, fundo: 'var(--vermelho)' }
+  return { titulo: 'Acompanhe a confirmação do pedido', icone: <IconeRelogio tamanho={38} />, fundo: 'var(--tinta-suave)' }
+}
 
 export default async function Confirmacao({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { usuario, token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
+  if (pedidoInexistente(erro)) notFound()
+  if (erro) throw new Error(erro.mensagem)
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
+  const cabecalho = cabecalhoDoPedido(pedido)
 
   return (
     <Pagina>
       <Migalhas trilha={[{ texto: 'Início', href: '/' }, { texto: 'Pedido registrado' }]} />
 
       <div className="cartao estado-vazio">
-        <span className="estado-vazio-icone" style={{ background: 'var(--verde)', color: 'var(--branco)' }}>
-          <IconeCheck tamanho={38} />
+        <span className="estado-vazio-icone" style={{ background: cabecalho.fundo, color: 'var(--branco)' }}>
+          {cabecalho.icone}
         </span>
-        <h1 className="titulo-pagina">Acompanhe a confirmação do pedido</h1>
+        <h1 className="titulo-pagina">{cabecalho.titulo}</h1>
         <p className="subtitulo-pagina" style={{ margin: '0 auto 24px' }}>
           Seu pedido <strong>#{pedido.id}</strong> está registrado e pode ser acompanhado pela plataforma.
         </p>

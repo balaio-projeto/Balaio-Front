@@ -8,7 +8,7 @@
     "start": "next start -p 4321",
     "lint": "eslint .",
     "test:auth": "tsx --test tests/auth.test.ts",
-    "test:media": "tsx --test tests/media.test.ts",
+    "test:media": "tsx --test tests/media.test.ts src/utils/imagem.test.ts src/utils/etiquetas.test.ts",
     "test:pi209": "tsx --test tests/pi209.test.ts",
     "test:curadoria": "tsx --test tests/curadoria.test.ts",
     "test:recovery": "tsx --test tests/recovery.test.ts",
@@ -21,6 +21,7 @@
     "test:community": "tsx --test src/services/api/community.test.ts src/components/produto/favoritosListados.test.ts src/components/pedido/situacaoMediacao.test.ts",
     "test:pi210": "tsx --test tests/pi210.test.ts",
     "test:filtros": "tsx --test src/utils/filtrosUrl.test.ts",
+    "test:vitrine": "tsx --test src/components/vitrine/montarVitrine.test.ts src/utils/validacao.test.ts",
     "test:eventos": "tsx --test tests/eventos.test.ts",
     "test:cep": "tsx --test src/utils/cep.test.ts"
   },

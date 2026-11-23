@@ -1,11 +1,12 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { obterUsuario } from '@/services/api/conta.servico'
 import { obterMeuAtelie } from '@/services/api/artesaos.servico'
-import { COOKIE_AUTENTICACAO } from '@/services/sessao/cookie'
+import { COOKIE_AUTENTICACAO, destinoSeguro, rotaDeLogin } from '@/services/sessao/cookie'
+import { CABECALHO_CAMINHO_ATUAL } from '@/services/sessao/rotas'
 
 export const COOKIE_SESSAO = COOKIE_AUTENTICACAO
 
@@ -22,7 +23,10 @@ export const obterSessao = cache(async () => {
 
 export async function exigirSessao() {
   const sessao = await obterSessao()
-  if (!sessao) redirect('/login')
+  if (!sessao) {
+    const caminhoAtual = destinoSeguro((await headers()).get(CABECALHO_CAMINHO_ATUAL) ?? undefined)
+    redirect(caminhoAtual ? rotaDeLogin(caminhoAtual) : '/login')
+  }
   return sessao
 }
 

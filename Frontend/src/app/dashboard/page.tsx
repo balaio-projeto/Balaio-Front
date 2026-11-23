@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Migalhas } from '@/components/ui/Basicos'
 import PedidosPendentes from '@/components/pedido/PedidosPendentes'
 import PedidosEmAndamento from '@/components/pedido/PedidosEmAndamento'
-import { IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeAviso, IconeSetaDireita } from '@/components/ui/Icones'
 import { listarVendasArtesao, listarPedidosPendentes, listarConversasArtesao, resumoPainel } from '@/services/api/pedidos.servico'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
@@ -10,11 +10,18 @@ import { exigirArtesao } from '@/services/autenticacao'
 
 export default async function Painel() {
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }, { dados: resumo }, { dados: mediacoes }] = await Promise.all([
+  const [
+    { dados: pend, erro: erroPendentes },
+    { dados: conversas, erro: erroConversas },
+    { dados: pecas },
+    { dados: pedidos, erro: erroVendas },
+    { dados: resumo, erro: erroResumo },
+    { dados: mediacoes, erro: erroMediacoes },
+  ] = await Promise.all([
     listarPedidosPendentes(token),
-    listarConversasArtesao(artesao.slug),
+    listarConversasArtesao(token),
     pecasPainelArtesao(artesao.slug, token),
-    listarVendasArtesao(artesao.slug, token),
+    listarVendasArtesao(token),
     resumoPainel(token),
     listarMediacoesDasPartes(token),
   ])
@@ -36,6 +43,8 @@ export default async function Painel() {
 
   const naoLidas = conversasArtesao.filter((c) => c.naoLida).length
   const pedidosDoArtesao = pedidos ?? []
+  const emProducao = resumo?.emProducao
+    ?? (erroVendas ? null : pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length)
   const pedidosEmDisputa = new Set((mediacoes ?? []).map((mediacao) => mediacao.pedido))
   const emAndamento = pedidosDoArtesao.flatMap((pedido) => pedido.estado === 'producao' || pedido.estado === 'enviado'
     ? [{ id: pedido.id, estado: pedido.estado, pecaNome: mapaPecas.get(pedido.pecaSlug)?.nome, quando: pedido.data,
@@ -53,21 +62,36 @@ export default async function Painel() {
       <PedidosPendentes
         iniciais={pendentes}
         erroCarregamento={erroPendentes?.mensagem}
-        emProducao={resumo?.emProducao ?? pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length}
+        emProducao={emProducao}
         pecasAtivas={resumo?.pecasAtivas ?? null}
         avisosPecas={resumo?.avisos ?? null}
         faturamentoMes={resumo?.faturamentoMes ?? null}
+        erroResumo={erroResumo?.mensagem}
       />
 
-      <PedidosEmAndamento pedidos={emAndamento} />
+      {erroMediacoes && (
+        <p className="aviso acima-3" role="status">
+          <IconeAviso />
+          <span>
+            Não foi possível carregar as disputas agora, então os pedidos em disputa podem não aparecer marcados.{' '}
+            <Link href="/dashboard/disputes">Ver disputas</Link>
+          </span>
+        </p>
+      )}
+
+      <PedidosEmAndamento pedidos={emAndamento} erroCarregamento={erroVendas?.mensagem} />
 
       <section className="secao">
         <h2 className="secao-titulo">Conversas</h2>
         <div className="cartao linha-flex linha-entre">
-          <p>
-            {conversasArtesao.length} conversas em andamento
-            {naoLidas > 0 ? ` · ${naoLidas} não ${naoLidas === 1 ? 'lida' : 'lidas'}` : ''}
-          </p>
+          {erroConversas ? (
+            <p role="alert">Não foi possível carregar as conversas agora.</p>
+          ) : (
+            <p>
+              {conversasArtesao.length} conversas em andamento
+              {naoLidas > 0 ? ` · ${naoLidas} não ${naoLidas === 1 ? 'lida' : 'lidas'}` : ''}
+            </p>
+          )}
           <Link href="/dashboard/messages" className="botao botao-primario">
             Ver central de mensagens
             <IconeSetaDireita />

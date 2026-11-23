@@ -25,6 +25,42 @@ const rotulosPerfil: Record<keyof PerfilArtesao, string> = {
   tecnica: 'Técnica principal',
 }
 
+type CampoTextoPerfil = Exclude<keyof PerfilArtesao, 'imagem'>
+
+const LIMITES_PERFIL: Record<CampoTextoPerfil, number> = {
+  atelie: 240,
+  nome: 240,
+  historia: 2000,
+  territorio: 120,
+  tecnica: 120,
+}
+
+const ID_DO_CAMPO: Record<CampoTextoPerfil, string> = {
+  atelie: 'cfg-atelie',
+  nome: 'cfg-nome',
+  historia: 'cfg-historia',
+  territorio: 'cfg-territorio',
+  tecnica: 'cfg-tecnica',
+}
+
+function ehCampoTextoPerfil(campo: string): campo is CampoTextoPerfil {
+  return campo in ID_DO_CAMPO
+}
+
+function errosDoServidor(campos: Record<string, string> | undefined): { porCampo: Record<string, string>; gerais: string[] } {
+  const porCampo: Record<string, string> = {}
+  const gerais: string[] = []
+  for (const [campo, mensagem] of Object.entries(campos ?? {})) {
+    if (ehCampoTextoPerfil(campo)) {
+      porCampo[ID_DO_CAMPO[campo]] = /size|tamanho/i.test(mensagem)
+        ? `Use até ${LIMITES_PERFIL[campo]} caracteres.`
+        : mensagem
+    }
+    else gerais.push(campo === 'imagem' ? `Foto: ${mensagem}` : mensagem)
+  }
+  return { porCampo, gerais }
+}
+
 function perfilDe(artesao: Artesao): PerfilArtesao {
   const { imagem, atelie, nome, historia, territorio, tecnica } = artesao
   return {
@@ -53,6 +89,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
   const emVoo = useRef(false)
   const [salvo, definirSalvo] = useState<PerfilArtesao>(() => perfilDe(artesao))
   const [confirmacao, definirConfirmacao] = useState<EstadoSalvo>(null)
+  const [tamanhoHistoria, definirTamanhoHistoria] = useState(artesao.historia.length)
 
   async function salvar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
@@ -65,6 +102,12 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
     if (problemaAtelie) proximosErros['cfg-atelie'] = problemaAtelie
     const problemaNome = validarObrigatorio(texto('nome'), 'Digite como você assina as peças')
     if (problemaNome) proximosErros['cfg-nome'] = problemaNome
+    for (const [campo, limite] of Object.entries(LIMITES_PERFIL) as [CampoTextoPerfil, number][]) {
+      const idCampo = ID_DO_CAMPO[campo]
+      if (!proximosErros[idCampo] && texto(campo).length > limite) {
+        proximosErros[idCampo] = `Use até ${limite} caracteres. Agora são ${texto(campo).length}.`
+      }
+    }
 
     definirErros(proximosErros)
     definirErroEnvio(null)
@@ -97,8 +140,13 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
     definirSalvando(false)
 
     if (!atualizado) {
-      const mensagem = erro?.mensagem ?? 'Não foi possível salvar agora.'
-      definirErroEnvio(mensagem)
+      const { porCampo, gerais } = errosDoServidor(erro?.campos)
+      const primeiroCampo = Object.keys(porCampo)[0]
+      definirErros(porCampo)
+      definirErroEnvio(gerais.length > 0
+        ? gerais.join(' ')
+        : primeiroCampo ? 'Confira os campos destacados.' : erro?.mensagem ?? 'Não foi possível salvar agora.')
+      if (primeiroCampo) document.getElementById(primeiroCampo)?.focus()
       avisar.erro('Perfil não salvo', 'O que você digitou continua no formulário.')
       return
     }
@@ -146,7 +194,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
         aoEnviar={(arquivo) => atualizarFoto(arquivo)} aoRemover={() => atualizarFoto()} />
 
       <Campo rotulo="Nome do ateliê" erro={erros['cfg-atelie']} id="cfg-atelie">
-        <input id="cfg-atelie" name="atelie" defaultValue={artesao.atelie} />
+        <input id="cfg-atelie" name="atelie" maxLength={LIMITES_PERFIL.atelie} defaultValue={artesao.atelie} />
       </Campo>
 
       <Campo
@@ -155,19 +203,26 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
         erro={erros['cfg-nome']}
         id="cfg-nome"
       >
-        <input id="cfg-nome" name="nome" defaultValue={artesao.nome} />
+        <input id="cfg-nome" name="nome" maxLength={LIMITES_PERFIL.nome} defaultValue={artesao.nome} />
       </Campo>
 
       <Campo
         rotulo="Sua história"
-        ajuda="É o texto que aparece no topo do seu perfil. Conte de onde vem o ofício."
+        ajuda={`É o texto que aparece no topo do seu perfil. Conte de onde vem o ofício. ${tamanhoHistoria} de ${LIMITES_PERFIL.historia} caracteres.`}
+        erro={erros['cfg-historia']}
         id="cfg-historia"
       >
-        <textarea id="cfg-historia" name="historia" defaultValue={artesao.historia} />
+        <textarea
+          id="cfg-historia"
+          name="historia"
+          maxLength={LIMITES_PERFIL.historia}
+          defaultValue={artesao.historia}
+          onChange={(evento) => definirTamanhoHistoria(evento.target.value.length)}
+        />
       </Campo>
 
       <div className="grade-dois">
-        <Campo rotulo="Território" id="cfg-territorio">
+        <Campo rotulo="Território" erro={erros['cfg-territorio']} id="cfg-territorio">
           <SeletorComOutro
             id="cfg-territorio"
             name="territorio"
@@ -179,7 +234,7 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
             exemploModal="Ex.: Bezerros, Agreste"
           />
         </Campo>
-        <Campo rotulo="Técnica principal" id="cfg-tecnica">
+        <Campo rotulo="Técnica principal" erro={erros['cfg-tecnica']} id="cfg-tecnica">
           <SeletorComOutro
             id="cfg-tecnica"
             name="tecnica"

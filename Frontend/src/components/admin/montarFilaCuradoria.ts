@@ -4,6 +4,7 @@ const UM_DIA_MS = 24 * 60 * 60 * 1000
 
 export type SolicitacaoComEvidencias = SolicitacaoSeloNaFila & {
   pecas: Pick<Peca, 'slug' | 'nome' | 'imagem'>[]
+  pecasIndisponiveis: boolean
   coletivo: string | null
   diasEsperando: number
 }
@@ -17,16 +18,20 @@ function diasDesde(iso: string, agora: number): number {
 
 export function montarFilaCuradoria(
   fila: SolicitacaoSeloNaFila[],
-  pecasDaFila: Peca[][],
+  pecasDaFila: (Peca[] | null)[],
   coletivos: Coletivo[],
 ): SolicitacaoComEvidencias[] {
   const agora = Date.now()
   return fila
-    .map((item, indice) => ({
-      ...item,
-      pecas: pecasDaFila[indice].filter(estaPublicada).map(({ slug, nome, imagem }) => ({ slug, nome, imagem })),
-      coletivo: coletivos.find((coletivo) => coletivo.membros.includes(item.artesaoSlug))?.nome ?? null,
-      diasEsperando: diasDesde(item.solicitadoEm, agora),
-    }))
+    .map((item, indice) => {
+      const pecasDoArtesao = pecasDaFila[indice] ?? null
+      return {
+        ...item,
+        pecas: (pecasDoArtesao ?? []).filter(estaPublicada).map(({ slug, nome, imagem }) => ({ slug, nome, imagem })),
+        pecasIndisponiveis: pecasDoArtesao === null,
+        coletivo: coletivos.find((coletivo) => coletivo.membros.includes(item.artesaoSlug))?.nome ?? null,
+        diasEsperando: diasDesde(item.solicitadoEm, agora),
+      }
+    })
     .sort((a, b) => a.solicitadoEm.localeCompare(b.solicitadoEm))
 }
