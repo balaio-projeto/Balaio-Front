@@ -6,6 +6,7 @@ import { IconeCalendario, IconeMapa } from '@/components/ui/Icones'
 import ListaEscalonada from '@/components/ui/ListaEscalonada'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
+import EstadoVazio from '@/components/feedback/EstadoVazio'
 import MapaEventosCliente from '@/components/eventos/MapaEventosCliente'
 import { notaDeLocalizacao, useEventosProximos } from '@/hooks/useEventosProximos'
 import { rotuloTipoEvento } from '@/constants/eventos'
@@ -52,6 +53,13 @@ export default function AgendaEventos() {
       )}
 
       <h2 className="secao-titulo">Todos os eventos, do mais perto ao mais longe</h2>
+      {ordenados.length === 0 && (
+        <EstadoVazio
+          icone={<IconeCalendario tamanho={34} />}
+          titulo="Nenhum evento na agenda"
+          descricao="Ainda não há feiras, festivais ou oficinas aprovados. Os próximos aparecem aqui depois da análise da equipe."
+        />
+      )}
       <ListaEscalonada como="ol" className="grade-eventos">
         {ordenados.map(({ evento, distancia }) => (
           <li key={evento.slug}>

@@ -140,15 +140,23 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
               </div>
             </div>
             {pedido.rastreio && (
-              <BotaoRastreio
-                className="botao botao-secundario acima-4"
-                codigo={pedido.rastreio}
-                transportadora={pedido.transportadora}
-              >
-                Acompanhar na transportadora
-                <IconeSetaDireita />
-              </BotaoRastreio>
+              <div className="linha-flex acima-4">
+                {pedido.linkRastreio && (
+                  <a className="botao botao-secundario" href={pedido.linkRastreio} target="_blank" rel="noopener noreferrer">
+                    Acompanhar entrega
+                    <IconeSetaDireita />
+                  </a>
+                )}
+                <BotaoRastreio
+                  className="botao botao-fantasma"
+                  codigo={pedido.rastreio}
+                  transportadora={pedido.transportadora}
+                >
+                  Copiar código de rastreio
+                </BotaoRastreio>
+              </div>
             )}
+            {pedido.freteOpcao && <p className="campo-ajuda acima-3">Frete escolhido: {pedido.freteOpcao}{pedido.freteProvedor === 'melhor_envio_sandbox' ? ' (cotação de teste Melhor Envio)' : ''}.</p>}
           </section>}
 
           {pedido.estado === 'entregue' && (

@@ -5,10 +5,11 @@ import MenuDrawer from '@/components/navegacao/MenuDrawer'
 import MenuConta from '@/components/conta/MenuConta'
 import { exigirSessao } from '@/services/autenticacao'
 import { listarPedidos } from '@/services/api/pedidos.servico'
+import { listarEnderecos } from '@/services/api/conta.servico'
 
 export default async function EnderecosDaConta() {
   const { usuario, token } = await exigirSessao()
-  const { dados: pedidos } = await listarPedidos(token)
+  const [{ dados: pedidos }, { dados: enderecos }] = await Promise.all([listarPedidos(token), listarEnderecos(token)])
   return (
     <Pagina>
       <Migalhas
@@ -23,7 +24,7 @@ export default async function EnderecosDaConta() {
       <p className="subtitulo-pagina">Onde você costuma receber as suas peças.</p>
 
       <div className="conta-hub">
-        <EnderecosEntrega iniciais={usuario.enderecos ?? []} />
+        <EnderecosEntrega iniciais={enderecos ?? []} />
       </div>
     </Pagina>
   )

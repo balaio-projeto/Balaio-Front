@@ -12,9 +12,14 @@ import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import { useRevalidacaoSacola, useSacola } from '@/store/sacola'
 import { usePecas } from '@/hooks/usePecas'
 import { validarCEP, validarEstado, validarObrigatorio } from '@/utils/validacao'
-import { useDados } from '@/store/dados'
+import { useCotacaoFrete } from '@/hooks/useCotacaoFrete'
+import { opcaoEscolhida, origemDaCotacao } from '@/utils/frete'
 import { emReais, precoComDesconto } from '@/utils/formato'
-import { obterUsuario } from '@/services/api/conta.servico'
+import { listarEnderecos } from '@/services/api/conta.servico'
+import type { EnderecoUsuario } from '@/types/dominio'
+import { useBuscaCep } from '@/hooks/useBuscaCep'
+import { entregaDoEnderecoSalvo, entregaPeloCep, formatarCep, type EnderecoPorCep, type EntregaDoCheckout } from '@/utils/cep'
+import SeletorEnderecoSalvo, { OUTRO_ENDERECO } from './SeletorEnderecoSalvo'
 import SeletorEstado from '@/components/forms/SeletorEstado'
 import { abrirPagamentoAposLimpeza } from './abrirPagamento'
 
@@ -23,9 +28,7 @@ export default function CheckoutFormulario() {
   const cotacao = useRevalidacaoSacola(itens, pronto && !erroSacola && !conflito)
   const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
   const { mapaPecas, carregando, erro } = usePecas()
-  const { fretes: opcoesFrete, carregando: carregandoFretes, erroFretes } = useDados()
-  const [freteId, definirFrete] = useState('padrao')
-  const frete = opcoesFrete.find((f) => f.id === freteId) ?? opcoesFrete[0]
+  const [freteId, definirFrete] = useState<string | null>(null)
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [salvando, definirSalvando] = useState(false)
   const [concluido, definirConcluido] = useState(false)
@@ -34,10 +37,47 @@ export default function CheckoutFormulario() {
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
   const entregaEditada = useRef(false)
   const enderecoSalvoId = useRef<string | null>(null)
+  const [enderecosSalvos, definirEnderecosSalvos] = useState<EnderecoUsuario[]>([])
+  const [enderecoEscolhido, definirEnderecoEscolhido] = useState(OUTRO_ENDERECO)
+  const buscaCep = useBuscaCep(preencherPeloCep)
+  const cotacaoFrete = useCotacaoFrete(entrega.cep, itens, pronto && !erroSacola && !conflito)
+  const opcoesFrete = cotacaoFrete.opcoes
+  const frete = opcaoEscolhida(opcoesFrete, freteId)
+
+  function limparErrosDaEntrega(carregada: EntregaDoCheckout) {
+    definirErros((atuais) => {
+      const proximos = { ...atuais }
+      if (!validarCEP(carregada.cep)) delete proximos['cep-checkout']
+      if (!validarObrigatorio(carregada.endereco)) delete proximos.endereco
+      if (!validarObrigatorio(carregada.cidade)) delete proximos.cidade
+      if (!validarEstado(carregada.estado)) delete proximos.estado
+      return proximos
+    })
+  }
+
+  function preencherPeloCep(encontrado: EnderecoPorCep) {
+    definirEntrega((atual) => entregaPeloCep(atual, encontrado))
+    limparErrosDaEntrega(entregaPeloCep({ cep: '', endereco: '', cidade: '', estado: '' }, encontrado))
+  }
+
+  function escolherEnderecoSalvo(id: string) {
+    const salvo = enderecosSalvos.find((item) => item.id === id)
+    definirEnderecoEscolhido(salvo ? salvo.id : OUTRO_ENDERECO)
+    buscaCep.esquecerCep()
+    entregaEditada.current = true
+    enderecoSalvoId.current = salvo?.id ?? null
+    const proxima = salvo ? entregaDoEnderecoSalvo(salvo) : { cep: '', endereco: '', cidade: '', estado: '' }
+    definirEntrega(proxima)
+    if (salvo) limparErrosDaEntrega(proxima)
+  }
 
   function atualizarEntrega(campo: keyof typeof entrega, valor: string) {
     entregaEditada.current = true
     enderecoSalvoId.current = null
+    definirEnderecoEscolhido(OUTRO_ENDERECO)
+    if (campo === 'cep') {
+      void buscaCep.buscarCep(valor)
+    }
     definirEntrega((atual) => ({ ...atual, [campo]: valor }))
     const id = campo === 'cep' ? 'cep-checkout' : campo
     definirErros((atuais) => {
@@ -57,32 +97,17 @@ export default function CheckoutFormulario() {
 
   useEffect(() => {
     let vivo = true
-    obterUsuario().then(({ dados }) => {
-      if (!vivo || entregaEditada.current) return
-      const principal = dados?.enderecos?.find((item) => item.principal) ?? dados?.enderecos?.[0]
+    listarEnderecos().then(({ dados: enderecos }) => {
+      if (!vivo) return
+      definirEnderecosSalvos(enderecos ?? [])
+      if (entregaEditada.current) return
+      const principal = enderecos?.find((item) => item.principal) ?? enderecos?.[0]
       if (!principal) return
       enderecoSalvoId.current = principal.id
-      const partes = principal.bairro.split(',').map((item) => item.trim())
-      const estado = partes.at(-1) ?? ''
-      const cidade = partes.at(-2) ?? ''
-      const reconhecido = partes.length >= 2 && cidade !== '' && !validarEstado(estado)
-      const bairro = reconhecido ? partes.slice(0, -2).filter(Boolean).join(', ') : ''
-      const enderecoCarregado = {
-        cep: principal.cep,
-        endereco: [principal.rua, bairro].filter(Boolean).join(', '),
-        cidade: reconhecido ? cidade : '',
-        estado: reconhecido ? estado.toUpperCase() : '',
-      }
+      definirEnderecoEscolhido(principal.id)
+      const enderecoCarregado = entregaDoEnderecoSalvo(principal)
       definirEntrega((atual) => entregaEditada.current ? atual : enderecoCarregado)
-      definirErros((atuais) => {
-        if (entregaEditada.current) return atuais
-        const proximos = { ...atuais }
-        if (!validarCEP(enderecoCarregado.cep)) delete proximos['cep-checkout']
-        if (!validarObrigatorio(enderecoCarregado.endereco)) delete proximos.endereco
-        if (!validarObrigatorio(enderecoCarregado.cidade)) delete proximos.cidade
-        if (!validarEstado(enderecoCarregado.estado)) delete proximos.estado
-        return proximos
-      })
+      if (!entregaEditada.current) limparErrosDaEntrega(enderecoCarregado)
     })
     return () => { vivo = false }
   }, [])
@@ -148,6 +173,7 @@ export default function CheckoutFormulario() {
     definirSalvando(false)
     if (resposta.erro || !resposta.dados) {
       const mensagem = resposta.erro?.mensagem ?? 'Tente novamente em instantes.'
+      if (resposta.erro?.codigo === 'FRETE_INDISPONIVEL') cotacaoFrete.tentarNovamente()
       definirErroConfirmacao(mensagem)
       avisar.erro('Não foi possível registrar o pedido', mensagem)
       return
@@ -184,7 +210,7 @@ export default function CheckoutFormulario() {
     definirDestinoPendente(null)
   }
 
-  if ((!pronto || carregando || carregandoFretes) && !concluido) {
+  if ((!pronto || carregando) && !concluido) {
     return (
       <>
         <Migalhas
@@ -205,7 +231,7 @@ export default function CheckoutFormulario() {
     descricao="Há um item que impede a mesclagem da sacola. Retire o item na sacola para continuar."
     acao={<Link href="/cart" className="botao botao-primario">Corrigir sacola</Link>}
   />
-  if (erro || erroFretes || !frete) return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
+  if (erro) return <EstadoErro mensagem={erro} />
 
   if (pronto && detalhados.length === 0 && !concluido) {
     return (
@@ -280,9 +306,15 @@ export default function CheckoutFormulario() {
         <div>
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">Endereço de entrega</h2>
+            <SeletorEnderecoSalvo enderecos={enderecosSalvos} selecionado={enderecoEscolhido} aoSelecionar={escolherEnderecoSalvo} />
             <Campo rotulo="CEP" erro={erros['cep-checkout']} id="cep-checkout">
-              <input id="cep-checkout" name="cep" inputMode="numeric" maxLength={9} placeholder="50000-000" value={entrega.cep} onChange={(e) => atualizarEntrega('cep', e.target.value)} />
+              <input id="cep-checkout" name="cep" inputMode="numeric" autoComplete="postal-code" maxLength={9} placeholder="50000-000" value={entrega.cep} onChange={(e) => atualizarEntrega('cep', formatarCep(e.target.value))} />
             </Campo>
+            {buscaCep.mensagem && (
+              <p className={buscaCep.situacao === 'inexistente' || buscaCep.situacao === 'erro' ? 'aviso abaixo-4' : 'campo-ajuda abaixo-4'} role="status" aria-live="polite" data-busca-cep={buscaCep.situacao}>
+                {buscaCep.mensagem}
+              </p>
+            )}
             <Campo rotulo="Endereço" erro={erros['endereco']} id="endereco">
               <input id="endereco" name="endereco" value={entrega.endereco} onChange={(e) => atualizarEntrega('endereco', e.target.value)} />
             </Campo>
@@ -301,10 +333,24 @@ export default function CheckoutFormulario() {
 
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">Como você quer receber</h2>
+            {!cotacaoFrete.cepValido ? (
+              <p className="texto-suave" role="status">Informe o CEP de entrega para ver as opções de frete.</p>
+            ) : cotacaoFrete.consultando ? (
+              <p className="texto-suave" role="status">Cotando o frete para o CEP informado…</p>
+            ) : cotacaoFrete.erro ? (
+              <div className="aviso" role="alert">
+                <p>Não foi possível cotar o frete: {cotacaoFrete.erro}</p>
+                <button type="button" className="botao-texto" onClick={cotacaoFrete.tentarNovamente}>Cotar novamente</button>
+              </div>
+            ) : opcoesFrete.length === 0 ? (
+              <p className="aviso" role="status">Nenhuma transportadora atende este CEP com as peças da sacola.</p>
+            ) : (
+              <p className="campo-ajuda abaixo-3" role="status">{origemDaCotacao(opcoesFrete)}</p>
+            )}
             <div className="opcoes">
               {opcoesFrete.map((opcao) => (
                 <label className="opcao opcao-topo" key={opcao.id}>
-                  <input type="radio" name="frete" checked={frete.id === opcao.id} onChange={() => definirFrete(opcao.id)} />
+                  <input type="radio" name="frete" checked={frete?.id === opcao.id} onChange={() => definirFrete(opcao.id)} />
                   <span className="encolhivel">
                     <span className="linha-flex" style={{ gap: 8, fontWeight: 600 }}>
                       <IconeCaminhao />
@@ -373,7 +419,7 @@ export default function CheckoutFormulario() {
           )}
           <p className="resumo">
             <span>Frete</span>
-            <strong>{emReais(frete.valor)}</strong>
+            <strong>{frete ? emReais(frete.valor) : 'A cotar'}</strong>
           </p>
           <p className="resumo resumo-total">
             <span>Total</span>
@@ -389,7 +435,7 @@ export default function CheckoutFormulario() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(total)}</span>
             </p>
-            <button disabled={salvando || concluido || (!destinoPendente && (!cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
+            <button disabled={salvando || concluido || (!destinoPendente && (!frete || !cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
               {salvando ? 'Aguarde…' : destinoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
               <IconeSetaDireita />
             </button>

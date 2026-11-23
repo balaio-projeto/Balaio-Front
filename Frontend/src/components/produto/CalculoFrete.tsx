@@ -3,24 +3,36 @@
 import { useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 import { validarCEP } from '@/utils/validacao'
-import { useDados } from '@/store/dados'
 import { emReais } from '@/utils/formato'
+import { cotarFretes } from '@/services/api/pedidos.servico'
+import { origemDaCotacao } from '@/utils/frete'
+import type { OpcaoFrete } from '@/types/dominio'
 
-export default function CalculoFrete({ territorio }: { territorio: string }) {
-  const { fretes: opcoesFrete, erroFretes, carregando } = useDados()
+export default function CalculoFrete({ territorio, slug }: { territorio: string; slug: string }) {
   const [cep, definirCep] = useState('')
   const [erro, definirErro] = useState<string | null>(null)
-  const [calculado, definirCalculado] = useState(false)
+  const [carregando, definirCarregando] = useState(false)
+  const [opcoesFrete, definirOpcoes] = useState<OpcaoFrete[] | null>(null)
 
-  function calcular() {
-    const problema = erroFretes ?? (opcoesFrete.length ? validarCEP(cep) : 'Nenhuma opção de entrega disponível.')
+  async function calcular() {
+    const problema = validarCEP(cep)
     definirErro(problema)
+    definirOpcoes(null)
     if (problema) {
-      definirCalculado(false)
       avisar.erro(problema)
       return
     }
-    definirCalculado(true)
+    definirCarregando(true)
+    const resposta = await cotarFretes(cep, [{ slug, quantidade: 1 }])
+    definirCarregando(false)
+    if (resposta.erro || !resposta.dados) {
+      const mensagem = resposta.erro?.mensagem ?? 'Não foi possível cotar o frete agora.'
+      definirErro(mensagem)
+      avisar.erro(mensagem)
+      return
+    }
+    if (!resposta.dados.length) definirErro('Nenhuma opção de entrega disponível para este CEP.')
+    definirOpcoes(resposta.dados)
   }
 
   return (
@@ -42,8 +54,8 @@ export default function CalculoFrete({ territorio }: { territorio: string }) {
           aria-invalid={erro ? true : undefined}
           aria-describedby={erro ? 'cep-erro' : undefined}
         />
-        <button type="button" className="botao botao-secundario" disabled={carregando} onClick={calcular}>
-          Calcular
+        <button type="button" className="botao botao-secundario" disabled={carregando} onClick={() => void calcular()}>
+          {carregando ? 'Calculando…' : 'Calcular'}
         </button>
       </div>
       {erro && (
@@ -51,7 +63,7 @@ export default function CalculoFrete({ territorio }: { territorio: string }) {
           {erro}
         </p>
       )}
-      {calculado && (
+      {opcoesFrete && opcoesFrete.length > 0 && (
         <div className="acima-3" role="status">
           {opcoesFrete.map((opcao) => (
             <p className="resumo" key={opcao.id}>
@@ -61,6 +73,7 @@ export default function CalculoFrete({ territorio }: { territorio: string }) {
               <strong>{emReais(opcao.valor)}</strong>
             </p>
           ))}
+          <p className="campo-ajuda">{origemDaCotacao(opcoesFrete)}</p>
         </div>
       )}
       <p className="campo-ajuda acima-3">Sai diretamente da oficina do artesão em {territorio}.</p>

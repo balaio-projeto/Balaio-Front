@@ -9,19 +9,30 @@ import { validarObrigatorio } from '@/utils/validacao'
 import MapaEventosCliente from '@/components/eventos/MapaEventosCliente'
 import { criarEvento, type SubmissaoEvento } from '@/services/api/eventos.servico'
 import { gerarSlugEvento } from '@/components/eventos/eventosLocais'
-import { mensagemErroSubmissao, TEXTO_PENDENCIA } from '@/components/eventos/mensagensSubmissao'
+import { coordenadasValidas } from '@/utils/eventos'
+import { errosDeCampoDaSubmissao, mensagemErroSubmissao, TEXTO_PENDENCIA } from '@/components/eventos/mensagensSubmissao'
 import { municipiosPE, rotuloTipoEvento } from '@/constants/eventos'
 import type { Ponto, TipoEvento } from '@/types/dominio'
 import { useDados } from '@/store/dados'
 
 const idPorCampo: Record<string, string> = {
   nome: 'evento-nome',
+  tipo: 'evento-tipo',
   organizador: 'evento-organizador',
   periodo: 'evento-periodo',
+  horario: 'evento-horario',
   cidade: 'evento-cidade',
+  entrada: 'evento-entrada',
   local: 'evento-local',
+  endereco: 'evento-endereco',
+  mapa: 'evento-mapa',
   descricao: 'evento-descricao',
   participantes: 'participantes',
+}
+
+function focarPrimeiroErro(problemas: Record<string, string>) {
+  const primeiraChave = Object.keys(idPorCampo).find((chave) => chave in problemas)
+  if (primeiraChave) document.getElementById(idPorCampo[primeiraChave])?.focus()
 }
 
 const opcoesTipoEvento = (Object.keys(rotuloTipoEvento) as TipoEvento[]).map((chave) => ({
@@ -125,14 +136,19 @@ export default function FormCriarEvento() {
 
     if (Object.keys(problemas).length > 0) {
       definirErros(problemas)
-      const primeiraChave = Object.keys(problemas)[0]
-      document.getElementById(idPorCampo[primeiraChave])?.focus()
+      focarPrimeiroErro(problemas)
       avisar.erro('Confira os campos destacados', 'Alguns dados do evento ainda estão faltando.')
       return
     }
 
     const referencia = pino ?? centroEscolha
-    if (!referencia) return
+    if (!coordenadasValidas(referencia)) {
+      const problemaMapa = { mapa: 'Marque no mapa o ponto exato do evento' }
+      definirErros(problemaMapa)
+      focarPrimeiroErro(problemaMapa)
+      avisar.erro('Confira o ponto no mapa', 'O local marcado não tem coordenadas válidas.')
+      return
+    }
 
     const submissao: SubmissaoEvento = {
       slug: gerarSlugEvento(nome),
@@ -157,6 +173,11 @@ export default function FormCriarEvento() {
     definirSalvando(false)
     if (resposta.erro) {
       const aviso = mensagemErroSubmissao(resposta.erro.codigo)
+      const doServidor = errosDeCampoDaSubmissao(resposta.erro)
+      if (Object.keys(doServidor).length > 0) {
+        definirErros(doServidor)
+        focarPrimeiroErro(doServidor)
+      }
       avisar.erro(aviso.titulo, aviso.mensagem)
       return
     }
@@ -206,12 +227,15 @@ export default function FormCriarEvento() {
       </Campo>
 
       <div className="grade-dois">
-        <Campo rotulo="Tipo de evento" id="evento-tipo">
+        <Campo rotulo="Tipo de evento" id="evento-tipo" erro={erros.tipo}>
           <Seletor
             id="evento-tipo"
             opcoes={opcoesTipoEvento}
             value={tipo}
-            onChange={(valor) => definirTipo(valor as TipoEvento)}
+            onChange={(valor) => {
+              definirTipo(valor as TipoEvento)
+              limparErro('tipo')
+            }}
           />
         </Campo>
         <Campo
@@ -246,13 +270,16 @@ export default function FormCriarEvento() {
             }}
           />
         </Campo>
-        <Campo rotulo="Horário (opcional)" id="evento-horario">
+        <Campo rotulo="Horário (opcional)" id="evento-horario" erro={erros.horario}>
           <input
             id="evento-horario"
             type="text"
             placeholder="Como '9h às 18h'"
             value={horario}
-            onChange={(e) => definirHorario(e.target.value)}
+            onChange={(e) => {
+              definirHorario(e.target.value)
+              limparErro('horario')
+            }}
           />
         </Campo>
       </div>
@@ -261,12 +288,15 @@ export default function FormCriarEvento() {
         <Campo rotulo="Município" id="evento-cidade" erro={erros.cidade}>
           <Seletor id="evento-cidade" opcoes={opcoesMunicipio} value={cidade} onChange={escolherCidade} />
         </Campo>
-        <Campo rotulo="Entrada" id="evento-entrada" ajuda="Deixe 'Gratuita' se não houver cobrança">
+        <Campo rotulo="Entrada" id="evento-entrada" ajuda="Deixe 'Gratuita' se não houver cobrança" erro={erros.entrada}>
           <input
             id="evento-entrada"
             type="text"
             value={entrada}
-            onChange={(e) => definirEntrada(e.target.value)}
+            onChange={(e) => {
+              definirEntrada(e.target.value)
+              limparErro('entrada')
+            }}
           />
         </Campo>
       </div>
@@ -284,17 +314,20 @@ export default function FormCriarEvento() {
         />
       </Campo>
 
-      <Campo rotulo="Endereço (opcional)" id="evento-endereco">
+      <Campo rotulo="Endereço (opcional)" id="evento-endereco" erro={erros.endereco}>
         <input
           id="evento-endereco"
           type="text"
           placeholder="Rua, número e bairro"
           value={endereco}
-          onChange={(e) => definirEndereco(e.target.value)}
+          onChange={(e) => {
+            definirEndereco(e.target.value)
+            limparErro('endereco')
+          }}
         />
       </Campo>
 
-      <div className="campo">
+      <div className="campo" id="evento-mapa" tabIndex={-1}>
         <span className="campo-rotulo">Ponto exato no mapa</span>
         <span className="campo-ajuda">
           {cidade
@@ -303,13 +336,21 @@ export default function FormCriarEvento() {
         </span>
         <div className="mapa-eventos mapa-eventos-escolha">
           <MapaEventosCliente
-            aoEscolher={(ponto) => definirPino(ponto)}
+            aoEscolher={(ponto) => {
+              definirPino(ponto)
+              limparErro('mapa')
+            }}
             escolhido={pino}
             centro={centroEscolha}
             zoom={13}
             rotulo="Mapa para marcar o local exato do evento"
           />
         </div>
+        {erros.mapa && (
+          <p className="campo-erro acima-2" role="status">
+            {erros.mapa}
+          </p>
+        )}
       </div>
 
       <Campo rotulo="O que vai acontecer" id="evento-descricao" erro={erros.descricao}>

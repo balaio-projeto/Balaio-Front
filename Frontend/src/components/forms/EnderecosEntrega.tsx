@@ -1,19 +1,17 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
-import { Campo } from '@/components/ui/Basicos'
+import { useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeEditar, IconeEstrela, IconeLixeira } from '@/components/ui/Icones'
-import { validarCEP, validarObrigatorio } from '@/utils/validacao'
 import type { EnderecoUsuario } from '@/types/dominio'
-import { atualizarEndereco, criarEndereco, excluirEndereco } from '@/services/api/conta.servico'
+import { atualizarEndereco, criarEndereco, excluirEndereco, listarEnderecos } from '@/services/api/conta.servico'
+import FormularioEndereco, { type DadosEndereco } from './FormularioEndereco'
 
 const NOVO = '__novo__'
 
 export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuario[] }) {
   const [enderecos, definirEnderecos] = useState(iniciais)
   const [emEdicao, definirEmEdicao] = useState<string | null>(null)
-  const [erros, definirErros] = useState<Record<string, string>>({})
   const [processando, definirProcessando] = useState(false)
   const operacaoEmAndamento = useRef(false)
 
@@ -31,8 +29,12 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
 
   function abrir(apelido: string) {
     if (operacaoEmAndamento.current) return
-    definirErros({})
     definirEmEdicao(apelido)
+  }
+
+  async function recarregar() {
+    const resposta = await listarEnderecos()
+    if (resposta.dados) definirEnderecos(resposta.dados)
   }
 
   async function tornarPrincipal(endereco: EnderecoUsuario) {
@@ -41,6 +43,7 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
       const resposta = await atualizarEndereco(endereco.id, { principal: true })
       if (!resposta.dados) return avisar.erro('Não foi possível atualizar', resposta.erro?.mensagem)
       definirEnderecos((atuais) => atuais.map((e) => ({ ...e, principal: e.id === endereco.id })))
+      await recarregar()
       avisar.sucesso(`"${endereco.apelido}" agora é o endereço principal`)
     } finally {
       finalizarOperacao()
@@ -58,6 +61,7 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
           ? restantes.map((e, indice) => ({ ...e, principal: indice === 0 }))
           : restantes
       })
+      await recarregar()
       definirEmEdicao((atual) => atual === endereco.id ? null : atual)
       avisar.sucesso(`Endereço "${endereco.apelido}" excluído`)
     } finally {
@@ -65,45 +69,14 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
     }
   }
 
-  async function salvar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault()
-    if (operacaoEmAndamento.current || !emEdicao) return
-    const id = emEdicao
-    const dados = new FormData(evento.currentTarget)
-    const apelido = String(dados.get('apelido') ?? '')
-    const rua = String(dados.get('rua') ?? '')
-    const bairro = String(dados.get('bairro') ?? '')
-    const cep = String(dados.get('cep') ?? '')
-
-    const proximosErros: Record<string, string> = {}
-    const problemaApelido = validarObrigatorio(apelido, 'Dê um nome a este endereço, como Casa')
-    if (problemaApelido) proximosErros['end-apelido'] = problemaApelido
-    const problemaRua = validarObrigatorio(rua, 'Informe rua e número')
-    if (problemaRua) proximosErros['end-rua'] = problemaRua
-    const problemaCep = validarCEP(cep)
-    if (problemaCep) proximosErros['end-cep'] = problemaCep
-
-    definirErros(proximosErros)
-    const primeiro = Object.keys(proximosErros)[0]
-    if (primeiro) {
-      document.getElementById(primeiro)?.focus()
-      avisar.erro('Confira os campos destacados')
-      return
-    }
-
+  async function salvar(id: string, dados: DadosEndereco) {
     if (!iniciarOperacao()) return
     try {
-      if (id === NOVO) {
-        const resposta = await criarEndereco({ apelido, rua, bairro, cep })
-        if (!resposta.dados) return avisar.erro('Não foi possível salvar', resposta.erro?.mensagem)
-        const novo = resposta.dados
-        definirEnderecos((atuais) => [...atuais, novo])
-      } else {
-        const resposta = await atualizarEndereco(id, { apelido, rua, bairro, cep })
-        if (!resposta.dados) return avisar.erro('Não foi possível salvar', resposta.erro?.mensagem)
-        const atualizado = resposta.dados
-        definirEnderecos((atuais) => atuais.map((e) => (e.id === id ? atualizado : e)))
-      }
+      const resposta = id === NOVO ? await criarEndereco(dados) : await atualizarEndereco(id, dados)
+      if (!resposta.dados) return avisar.erro('Não foi possível salvar', resposta.erro?.mensagem)
+      const salvo = resposta.dados
+      definirEnderecos((atuais) => id === NOVO ? [...atuais, salvo] : atuais.map((e) => (e.id === id ? salvo : e)))
+      await recarregar()
       definirEmEdicao((atual) => atual === id ? null : atual)
       avisar.sucesso('Endereço salvo')
     } finally {
@@ -112,37 +85,15 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
   }
 
   function formulario(endereco?: EnderecoUsuario) {
+    const id = endereco?.id ?? NOVO
     return (
-      <form onSubmit={salvar} noValidate className="acima-3">
-        <Campo rotulo="Nome do endereço" erro={erros['end-apelido']} id="end-apelido">
-          <input id="end-apelido" name="apelido" defaultValue={endereco?.apelido} placeholder="Casa" disabled={processando} />
-        </Campo>
-        <Campo rotulo="Rua e número" erro={erros['end-rua']} id="end-rua">
-          <input id="end-rua" name="rua" defaultValue={endereco?.rua} placeholder="Rua da Aurora, 240" disabled={processando} />
-        </Campo>
-        <Campo rotulo="Bairro, cidade e estado" id="end-bairro">
-          <input id="end-bairro" name="bairro" defaultValue={endereco?.bairro} placeholder="Boa Vista, Recife, PE" disabled={processando} />
-        </Campo>
-        <Campo rotulo="CEP" erro={erros['end-cep']} id="end-cep">
-          <input
-            id="end-cep"
-            name="cep"
-            inputMode="numeric"
-            maxLength={9}
-            defaultValue={endereco?.cep}
-            placeholder="50000-000"
-            disabled={processando}
-          />
-        </Campo>
-        <div className="acoes-linha">
-          <button type="submit" className="botao botao-primario" disabled={processando}>
-            {processando ? 'Salvando…' : 'Salvar endereço'}
-          </button>
-          <button type="button" className="botao botao-fantasma" disabled={processando} onClick={() => definirEmEdicao(null)}>
-            Cancelar
-          </button>
-        </div>
-      </form>
+      <FormularioEndereco
+        key={id}
+        endereco={endereco}
+        processando={processando}
+        aoSalvar={(dados) => void salvar(id, dados)}
+        aoCancelar={() => definirEmEdicao(null)}
+      />
     )
   }
 

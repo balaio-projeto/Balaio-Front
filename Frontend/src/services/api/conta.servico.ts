@@ -12,6 +12,7 @@ export const entrar = (credenciais: Credenciais) => enviarAutenticacao<Usuario>(
 export const sair = () => enviarAutenticacao<{ encerrada: boolean }>('/auth/logout', {})
 export const obterUsuario = (token?: string) => buscar<Usuario>('/usuario', comToken(token))
 export const atualizarUsuario = (usuario: AtualizacaoUsuario) => enviar<Usuario>('/usuario', usuario, 'PATCH')
+export const listarEnderecos = (token?: string) => buscar<EnderecoUsuario[]>('/usuario/enderecos', comToken(token))
 export const criarEndereco = (endereco: Omit<EnderecoUsuario, 'id' | 'principal'>) => enviar<EnderecoUsuario>('/usuario/enderecos', endereco)
 export const atualizarEndereco = (id: string, endereco: Partial<EnderecoUsuario>) => enviar<EnderecoUsuario>(`/usuario/enderecos/${encodeURIComponent(id)}`, endereco, 'PATCH')
 export const excluirEndereco = (id: string) => buscar<EnderecoUsuario>(`/usuario/enderecos/${encodeURIComponent(id)}`, { method: 'DELETE' })

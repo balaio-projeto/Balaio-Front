@@ -1,5 +1,17 @@
 import type { Evento, Ponto } from '@/types/dominio'
 
+export function coordenadasValidas(ponto: Partial<Ponto> | null | undefined): ponto is Ponto {
+  if (!ponto) return false
+  const { lat, lng } = ponto
+  return typeof lat === 'number' && typeof lng === 'number'
+    && Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
+export function pontoDeConsulta(posicao: Partial<Ponto> | null | undefined, padrao: Ponto): Ponto {
+  return coordenadasValidas(posicao) ? { lat: posicao.lat, lng: posicao.lng } : padrao
+}
+
 export function distanciaKm(a: Ponto, b: Ponto): number {
   const raioTerraKm = 6371
   const emRad = (graus: number) => (graus * Math.PI) / 180

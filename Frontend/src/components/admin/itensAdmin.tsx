@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { IconeAviso, IconeSelo, IconeGrade } from '@/components/ui/Icones'
+import { IconeAviso, IconeCalendario, IconeSelo, IconeGrade } from '@/components/ui/Icones'
 
-export type ChaveAdmin = 'curadoria' | 'mediacoes' | 'criterios'
+export type ChaveAdmin = 'curadoria' | 'eventos' | 'mediacoes' | 'criterios'
 
 export type GrupoAdmin = 'moderacao' | 'referencia'
 
@@ -15,14 +15,14 @@ export type ItemAdmin = {
   marcador?: { texto: string; alerta?: boolean }
 }
 
-export type ContagensAdmin = { curadoria: number; mediacoes: number }
+export type ContagensAdmin = { curadoria: number; mediacoes: number; eventos?: number }
 
 export const rotulosGrupoAdmin: Record<GrupoAdmin, string> = {
   moderacao: 'Moderação',
   referencia: 'Referência',
 }
 
-export function itensAdmin({ curadoria, mediacoes }: ContagensAdmin = { curadoria: 0, mediacoes: 0 }): ItemAdmin[] {
+export function itensAdmin({ curadoria, mediacoes, eventos = 0 }: ContagensAdmin = { curadoria: 0, mediacoes: 0 }): ItemAdmin[] {
   return [
     {
       chave: 'curadoria',
@@ -32,6 +32,15 @@ export function itensAdmin({ curadoria, mediacoes }: ContagensAdmin = { curadori
       icone: <IconeSelo />,
       grupo: 'moderacao',
       marcador: curadoria > 0 ? { texto: `${curadoria} na fila` } : undefined,
+    },
+    {
+      chave: 'eventos',
+      texto: 'Moderação de eventos',
+      textoCurto: 'Eventos',
+      href: '/admin/events',
+      icone: <IconeCalendario />,
+      grupo: 'moderacao',
+      marcador: eventos > 0 ? { texto: eventos === 1 ? '1 evento pendente' : `${eventos} eventos pendentes` } : undefined,
     },
     {
       chave: 'mediacoes',

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { atualizarPeca } from '@/services/api/pecas.servico'
+import { excluirPeca, reativarPeca } from '@/services/api/pecas.servico'
 import { avisar } from '@/components/feedback/Avisos'
 
 type Props = { slug: string; nome: string; inativada?: boolean }
@@ -17,10 +17,10 @@ export default function InativarPeca({ slug, nome, inativada = false }: Props) {
       : `Inativar "${nome}"? Ela deixará de aparecer na vitrine e na busca.`
     if (!window.confirm(mensagem)) return
     definirSalvando(true)
-    const resposta = await atualizarPeca(slug, { inativadoEm: inativada ? null : new Date().toISOString() })
+    const resposta = inativada ? await reativarPeca(slug) : await excluirPeca(slug)
     definirSalvando(false)
     if (resposta.erro) {
-      avisar.erro('Não foi possível inativar', resposta.erro.mensagem)
+      avisar.erro(inativada ? 'Não foi possível reativar' : 'Não foi possível inativar', resposta.erro.mensagem)
       return
     }
     avisar.sucesso(inativada ? 'Peça reativada' : 'Peça inativada')

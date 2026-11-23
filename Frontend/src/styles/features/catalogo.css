@@ -161,6 +161,18 @@ a.chip-filtro:hover {
   @apply pb-3 border-b border-linha;
 }
 
+.faixa-preco {
+  @apply grid grid-cols-2 gap-3 pb-2;
+}
+
+.faixa-preco .campo {
+  @apply mb-0;
+}
+
+.faixa-preco-acoes {
+  @apply col-span-2 flex flex-wrap items-center gap-3;
+}
+
 .filtros-ativos {
   @apply flex flex-wrap items-center gap-2 list-none m-0 mb-4 p-0;
 }

@@ -12,13 +12,14 @@ import { useSessao } from '@/store/sessao'
 
 type Props = {
   iniciais: PerguntaPublica[]
+  erroCarregamento?: string
   slug: string
   artesaoSlug?: string
   artesaoNome?: string
   artesaoImagem?: string
 }
 
-export default function PerguntasPublicas({ iniciais, slug, artesaoSlug, artesaoNome, artesaoImagem }: Props) {
+export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, artesaoSlug, artesaoNome, artesaoImagem }: Props) {
   const caminho = usePathname()
   const { sessao } = useSessao()
   const ehDonoDaPeca = sessao?.papel === 'artesao' && sessao.artesao === artesaoSlug
@@ -88,7 +89,8 @@ export default function PerguntasPublicas({ iniciais, slug, artesaoSlug, artesao
 
   return (
     <>
-      <h2 className="secao-titulo">Perguntas e respostas ({todas.length})</h2>
+      <h2 className="secao-titulo">Perguntas e respostas{erroCarregamento ? '' : ` (${todas.length})`}</h2>
+      {erroCarregamento && <p className="aviso abaixo-3" role="status">{erroCarregamento}</p>}
 
       <ul
         className={`lista-perguntas${todas.length > 3 ? ' lista-perguntas-rolavel' : ''}`}

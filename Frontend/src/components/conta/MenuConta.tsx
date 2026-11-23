@@ -11,6 +11,7 @@ export type ChaveConta = 'pedidos' | 'favoritos' | 'enderecos' | 'dados'
 
 export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?: ChaveConta; usuario: Usuario; totalPedidos?: number }) {
   const imagem = useImagemConta(usuario)
+  const papel = usuario.papel ?? usuario.perfil
   return (
     <nav className="menu-lateral" aria-label="Minha conta">
       <div className="menu-oficina">
@@ -22,7 +23,7 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
       </div>
 
       <div className="menu-grupo">
-        <Link
+        {papel === 'comprador' && <Link
           href="/orders"
           className={`menu-item${ativo === 'pedidos' ? ' menu-item-ativo' : ''}`}
           aria-current={ativo === 'pedidos' ? 'page' : undefined}
@@ -30,7 +31,7 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
           <IconePacote />
           Meus pedidos
           <span className="menu-marcador">{totalPedidos}</span>
-        </Link>
+        </Link>}
         <Link
           href="/favorites"
           className={`menu-item${ativo === 'favoritos' ? ' menu-item-ativo' : ''}`}
@@ -39,14 +40,14 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
           <IconeCoracao />
           Peças salvas
         </Link>
-        <Link
+        {papel === 'comprador' && <Link
           href="/account/addresses"
           className={`menu-item${ativo === 'enderecos' ? ' menu-item-ativo' : ''}`}
           aria-current={ativo === 'enderecos' ? 'page' : undefined}
         >
           <IconeMapa />
           Endereços de entrega
-        </Link>
+        </Link>}
         <Link
           href="/account/details"
           className={`menu-item${ativo === 'dados' ? ' menu-item-ativo' : ''}`}
@@ -59,7 +60,7 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
           <IconeCadeado />
           Alterar senha
         </Link>
-        {usuario.perfil === 'artesao' && (
+        {papel === 'artesao' && (
           <Link href="/dashboard" className="menu-item">
             <IconePincel />
             Painel do artesão

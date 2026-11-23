@@ -3,38 +3,48 @@
 import Link from 'next/link'
 import { useEffect, useRef, type MouseEvent } from 'react'
 import { IconeCheck, IconeFiltro, IconeSetaBaixo } from '@/components/ui/Icones'
-import { categorias, tecnicas, territorios, tipos } from '@/constants/referencias'
 import { rotuloDisponibilidade } from '@/constants/rotulos'
 import {
   disponibilidades,
   filtrosAtivos,
   hrefCom,
   hrefListagem,
+  hrefSem,
+  parametrosPreservadosNaFaixaDePreco,
+  PRECO_MAXIMO_FILTRO,
+  referenciasDeReserva,
   type ChaveFiltro,
   type FiltrosListagem as Filtros,
+  type ReferenciasFiltro,
 } from '@/utils/filtrosUrl'
 
 type Opcao = { valor: string; rotulo: string }
 
-type Grupo = { chave: Exclude<ChaveFiltro, 'q' | 'desconto'>; titulo: string; opcoes: Opcao[] }
+type Grupo = { chave: Exclude<ChaveFiltro, 'q' | 'desconto' | 'preco'>; titulo: string; opcoes: Opcao[] }
 
 const comoOpcoes = (lista: readonly string[]): Opcao[] => lista.map((valor) => ({ valor, rotulo: valor }))
 
-const grupos: Grupo[] = [
-  { chave: 'tipo', titulo: 'Tipo de peça', opcoes: comoOpcoes(tipos) },
-  { chave: 'tecnica', titulo: 'Técnica', opcoes: comoOpcoes(tecnicas) },
-  { chave: 'categoria', titulo: 'Categoria', opcoes: comoOpcoes(categorias) },
-  { chave: 'territorio', titulo: 'Território', opcoes: comoOpcoes(territorios) },
-  {
-    chave: 'disponibilidade',
-    titulo: 'Disponibilidade',
-    opcoes: disponibilidades.map((valor) => ({ valor, rotulo: rotuloDisponibilidade[valor] })),
-  },
-]
+function montarGrupos(referencias: ReferenciasFiltro): Grupo[] {
+  return [
+    { chave: 'tipo', titulo: 'Tipo de peça', opcoes: comoOpcoes(referencias.tipos) },
+    { chave: 'tecnica', titulo: 'Técnica', opcoes: comoOpcoes(referencias.tecnicas) },
+    { chave: 'categoria', titulo: 'Categoria', opcoes: comoOpcoes(referencias.categorias) },
+    { chave: 'territorio', titulo: 'Território', opcoes: comoOpcoes(referencias.territorios) },
+    {
+      chave: 'disponibilidade',
+      titulo: 'Disponibilidade',
+      opcoes: disponibilidades.map((valor) => ({ valor, rotulo: rotuloDisponibilidade[valor] })),
+    },
+  ]
+}
 
-export default function FiltrosListagem({ filtros, total }: { filtros: Filtros; total: number }) {
+type Props = { filtros: Filtros; total: number; referencias?: ReferenciasFiltro }
+
+export default function FiltrosListagem({ filtros, total, referencias = referenciasDeReserva }: Props) {
   const dialogo = useRef<HTMLDialogElement>(null)
   const ativos = filtrosAtivos(filtros).filter((filtro) => filtro.chave !== 'q').length
+  const grupos = montarGrupos(referencias)
+  const temFaixaDePreco = filtros.precoMin !== undefined || filtros.precoMax !== undefined
 
   useEffect(() => {
     const telaLarga = window.matchMedia('(min-width: 1000px)')
@@ -86,6 +96,57 @@ export default function FiltrosListagem({ filtros, total }: { filtros: Filtros; 
             Só peças com desconto
           </Link>
         </div>
+
+        <details className="filtros-grupo" open>
+          <summary className="filtros-titulo">
+            Faixa de preço
+            {temFaixaDePreco && <span className="filtro-contagem">1</span>}
+            <span className="seta-grupo">
+              <IconeSetaBaixo />
+            </span>
+          </summary>
+          <form action="/search" method="get" className="faixa-preco" key={`${filtros.precoMin ?? ''}-${filtros.precoMax ?? ''}`}>
+            {parametrosPreservadosNaFaixaDePreco(filtros).map(([nome, valor]) => (
+              <input key={nome} type="hidden" name={nome} value={valor} />
+            ))}
+            <label className="campo">
+              <span className="campo-rotulo">Mínimo (R$)</span>
+              <input
+                type="number"
+                name="precoMin"
+                min={0}
+                max={PRECO_MAXIMO_FILTRO}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0"
+                defaultValue={filtros.precoMin}
+              />
+            </label>
+            <label className="campo">
+              <span className="campo-rotulo">Máximo (R$)</span>
+              <input
+                type="number"
+                name="precoMax"
+                min={0}
+                max={PRECO_MAXIMO_FILTRO}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="Sem limite"
+                defaultValue={filtros.precoMax}
+              />
+            </label>
+            <div className="faixa-preco-acoes">
+              <button type="submit" className="botao botao-secundario">
+                Aplicar faixa
+              </button>
+              {temFaixaDePreco && (
+                <Link href={hrefSem(filtros, 'preco')} className="botao-texto" scroll={false}>
+                  Remover
+                </Link>
+              )}
+            </div>
+          </form>
+        </details>
 
         {grupos.map((grupo) => {
           const selecionado = filtros[grupo.chave]

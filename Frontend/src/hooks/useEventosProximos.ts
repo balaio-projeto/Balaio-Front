@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { distanciaKm } from '@/utils/eventos'
+import { coordenadasValidas, distanciaKm, pontoDeConsulta } from '@/utils/eventos'
+import { pontoPadrao } from '@/constants/eventos'
 import type { Evento } from '@/types/dominio'
 import { listarEventos } from '@/services/api/eventos.servico'
 import { useLocalizacao } from '@/hooks/useLocalizacao'
@@ -13,23 +14,26 @@ export function useEventosProximos() {
 
   const [carregando, definirCarregando] = useState(true)
   const [erro, definirErro] = useState<string | null>(null)
+  const consulta = pontoDeConsulta(posicao, pontoPadrao)
+  const { lat, lng } = consulta
   useEffect(() => {
     let vivo = true
-    listarEventos().then((resposta) => {
+    listarEventos({ lat, lng }).then((resposta) => {
       if (!vivo) return
       definirLocais(resposta.dados ?? [])
       definirErro(resposta.erro?.mensagem ?? null)
       definirCarregando(false)
     })
     return () => { vivo = false }
-  }, [])
+  }, [lat, lng])
 
   const ordenados = useMemo<EventoComDistancia[]>(
     () =>
       locais
-        .map((evento) => ({ evento, distancia: distanciaKm(posicao, evento) }))
+        .filter((evento) => coordenadasValidas(evento))
+        .map((evento) => ({ evento, distancia: distanciaKm({ lat, lng }, evento) }))
         .sort((a, b) => a.distancia - b.distancia),
-    [locais, posicao],
+    [locais, lat, lng],
   )
 
   const pontos = useMemo<PontoEvento[]>(

@@ -86,6 +86,10 @@ export type Pedido = {
   rastreio?: string
   transportadora?: string
   previsaoEntrega?: string
+  linkRastreio?: string | null
+  frete?: number
+  freteOpcao?: string | null
+  freteProvedor?: string | null
   etapas: EtapaPedido[]
   motivoEncerramento?: string
   endereco?: { cep: string; endereco: string; cidade: string; estado: string }
@@ -245,7 +249,6 @@ export type Usuario = {
   territorio?: string
   tecnica?: string
   artesaoId?: string
-  enderecos?: EnderecoUsuario[]
 }
 
-export type OpcaoFrete = { id: string; nome: string; prazo: string; valor: number }
+export type OpcaoFrete = { id: string; nome: string; prazo: string; valor: number; provedor?: string; transportadora?: string | null }
