@@ -1,5 +1,6 @@
 'use client'
 
+import { CODIGO_TROCA_SENHA_OBRIGATORIA } from '@/components/admin/AvisoTrocaSenhaAdmin'
 import { useRef, useState, type FormEvent } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 import { Campo } from '@/components/ui/Basicos'
@@ -32,7 +33,9 @@ function mensagemDaBusca(erro: ErroApi): string {
     case 401:
       return 'Sua sessão expirou. Entre de novo para continuar.'
     case 403:
-      return 'Sua conta não tem permissão para consultar contas. Se a senha inicial de administrador ainda não foi trocada, troque-a e entre de novo.'
+      return erro.codigo === CODIGO_TROCA_SENHA_OBRIGATORIA
+        ? 'Troque a senha inicial de administrador em Minha conta > Meus dados para liberar esta tela.'
+        : 'Sua conta não tem permissão para consultar contas.'
     default:
       return erro.mensagem || 'Não foi possível buscar a conta. Tente novamente.'
   }
@@ -49,7 +52,9 @@ function mensagemDaAlteracao(erro: ErroApi): string {
     case 401:
       return 'Sua sessão expirou. Entre de novo para continuar.'
     case 403:
-      return 'Sua conta não tem permissão para alterar papéis.'
+      return erro.codigo === CODIGO_TROCA_SENHA_OBRIGATORIA
+        ? 'Troque a senha inicial de administrador em Minha conta > Meus dados para liberar esta tela.'
+        : 'Sua conta não tem permissão para alterar papéis.'
     default:
       return erro.mensagem || 'Não foi possível alterar o papel. Tente novamente.'
   }

@@ -1,10 +1,11 @@
 import { urlDoGateway } from './gateway'
-import { CAMINHOS_DE_AUTENTICACAO, ehLeituraDeImagemPerfil, ehRotaDeMidia, limiteDoCorpo } from './rotas-proxy'
+import { CAMINHOS_DE_AUTENTICACAO, ehLeituraDeFotoDePeca, ehLeituraDeImagemPerfil, ehRotaDeMidia, limiteDoCorpo } from './rotas-proxy'
 
 const AUTENTICACAO = new Set(CAMINHOS_DE_AUTENTICACAO)
 const PREFIXO_DA_API = '/api/v1'
 const COOKIE_DE_SESSAO = 'balaio_sessao='
 const PRAZO_PADRAO_MS = 10_000
+const CACHE_DE_ARQUIVO_IMUTAVEL = 'public, max-age=31536000, immutable'
 const PRAZO_ESCRITA_DE_PECA_MS = 60_000
 const CAMINHO_DE_SAIDA = '/auth/logout'
 const PRAZO_CABECALHOS_MIDIA_MS = 10 * 60_000
@@ -89,6 +90,15 @@ function cabecalhosParaOGateway(requisicao: Request, midia: boolean): Headers {
   return headers
 }
 
+function respostaDeFotoDePeca(resposta: Response, semCorpo: boolean): Response {
+  const saida = new Headers({ 'Cache-Control': resposta.ok ? CACHE_DE_ARQUIVO_IMUTAVEL : 'no-store' })
+  for (const nome of ['content-type', 'content-length', 'etag', 'last-modified', 'x-content-type-options']) {
+    const valor = resposta.headers.get(nome)
+    if (valor) saida.set(nome, valor)
+  }
+  return new Response(semCorpo ? null : resposta.body, { status: resposta.status, headers: saida })
+}
+
 function respostaAoNavegador(resposta: Response, url: URL, midia: boolean, imagemPerfil: boolean, semCorpo: boolean,
     sessaoRecusada: boolean): Response {
   const saida = new Headers({ 'Cache-Control': 'no-store' })
@@ -123,6 +133,7 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
   }
   const semCorpo = ['GET', 'HEAD'].includes(metodo)
   const imagemPerfil = ehLeituraDeImagemPerfil(metodo, caminho)
+  const fotoDePeca = ehLeituraDeFotoDePeca(metodo, caminho)
   if (caminho.startsWith('/arquivos/perfis') && !imagemPerfil) {
     return erro(404, 'RECURSO_NAO_ENCONTRADO', 'Arquivo não encontrado.')
   }
@@ -135,7 +146,7 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
     return erro(413, 'REQUISICAO_INVALIDA', 'O conteúdo enviado é grande demais.')
   }
   const headers = cabecalhosParaOGateway(requisicao, midia)
-  if (imagemPerfil) {
+  if (imagemPerfil || fotoDePeca) {
     headers.delete('cookie')
     headers.delete('authorization')
   }
@@ -163,6 +174,7 @@ export async function encaminharApi(requisicao: Request): Promise<Response> {
       return erro(502, 'API_INDISPONIVEL', 'A API retornou um redirecionamento inesperado.')
     }
     const sessaoRecusada = resposta.status === 401 && tokenDoCookie(requisicao) !== null
+    if (fotoDePeca) return respostaDeFotoDePeca(resposta, metodo === 'HEAD')
     return respostaAoNavegador(resposta, url, midia, imagemPerfil, metodo === 'HEAD', sessaoRecusada)
   } catch {
     const cookiesDeSaida = caminho === CAMINHO_DE_SAIDA

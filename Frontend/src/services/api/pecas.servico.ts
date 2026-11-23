@@ -38,7 +38,7 @@ export function pecasPainelArtesao(slug: string, token: string): Promise<Respost
   return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas/painel', comToken(token))
 }
 export type FotoParaEnviar = Pick<FotoPeca, 'id' | 'nome' | 'url'>
-export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categoria' | 'tipo' | 'historia' | 'preco' | 'disponibilidade'> & {
+export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categoria' | 'tipo' | 'historia' | 'preco' | 'desconto' | 'disponibilidade'> & {
   situacao: NonNullable<Peca['situacao']>
   prazoProducaoDias?: number | null
   fotos: FotoParaEnviar[]

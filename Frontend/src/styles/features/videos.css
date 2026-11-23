@@ -534,3 +534,167 @@
 .video-midia {
   @apply w-full h-full object-cover bg-black cursor-pointer;
 }
+
+.lista-comentarios {
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.video-aberto .comentarios[open] .lista-comentarios {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.video-aberto .comentarios[open] .comentarios-topo,
+.video-aberto .comentarios[open] .novo-comentario {
+  flex: none;
+}
+
+.video-controles {
+  position: absolute;
+  top: 26px;
+  left: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.video-som {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+  border-radius: var(--raio-pilula);
+  background: rgba(17, 22, 37, 0.5);
+}
+
+.video-controle {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(17, 22, 37, 0.5);
+  color: var(--branco);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida);
+}
+
+.video-som .video-controle {
+  background: transparent;
+}
+
+.video-controle:hover {
+  background: rgba(17, 22, 37, 0.75);
+}
+
+.video-controle:focus-visible,
+.video-volume:focus-visible {
+  outline: 2px solid var(--amarelo);
+  outline-offset: 2px;
+}
+
+.video-volume {
+  display: none;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 0;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: width var(--transicao), opacity var(--transicao), margin var(--transicao);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .video-volume {
+    display: block;
+  }
+
+  .video-som:hover .video-volume,
+  .video-som:focus-within .video-volume {
+    width: 84px;
+    margin-right: var(--esp-3);
+    opacity: 1;
+  }
+}
+
+.video-volume::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--amarelo) var(--volume-preenchido, 100%), rgba(255, 255, 255, 0.4) var(--volume-preenchido, 100%));
+}
+
+.video-volume::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.video-volume::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--amarelo);
+}
+
+.video-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--branco);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.video-volume::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--branco);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.video-carregando {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  translate: -50% -50%;
+  display: flex;
+  color: var(--branco);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+}
+
+.video-carregando svg {
+  animation: video-girar 0.9s linear infinite;
+}
+
+@keyframes video-girar {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-volume {
+    transition: none;
+  }
+
+  .video-carregando svg {
+    animation-duration: 2.4s;
+  }
+}

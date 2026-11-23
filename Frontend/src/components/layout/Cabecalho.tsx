@@ -15,7 +15,7 @@ export default function Cabecalho({ semSugestoesDeBusca = false }: { semSugestoe
     <header className="cabecalho">
       <div className="container cabecalho-linha">
         <Link href="/" className="marca" aria-label="Balaio, artesanato de Pernambuco">
-          <img className="marca-logo" src="/balaio-logo.svg" alt="" width={52} height={52} />
+          <img className="marca-logo" src="/balaio-logo.png" alt="" width={52} height={52} />
           <span>
             <span className="marca-nome">Balaio</span>
             <span className="marca-linha">Artesanato de Pernambuco</span>

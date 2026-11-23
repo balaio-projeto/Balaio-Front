@@ -7,10 +7,10 @@ import { Campo } from '@/components/ui/Basicos'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeFechar } from '@/components/ui/Icones'
-import { emReais } from '@/utils/formato'
 import { atualizarEstadoPedido } from '@/services/api/pedidos.servico'
 import { avisarPainelAtualizado } from '@/hooks/useArtesaoLogado'
 import { validarRastreio } from '@/utils/painel'
+import Preco from '@/components/ui/Preco'
 
 export type PedidoEmAndamento = {
   id: string
@@ -88,7 +88,7 @@ export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedi
           </div>
           <div className="dado">
             <span className="dado-rotulo">Valor</span>
-            <span className="dado-valor preco-destaque">{emReais(pedido.valor)}</span>
+            <Preco valor={pedido.valor} className="dado-valor preco-destaque" />
           </div>
           <div className="acoes-linha">
             <span className={`selo ${pedido.estado === 'enviado' ? 'selo-neutro' : 'selo-encomenda'}`}>

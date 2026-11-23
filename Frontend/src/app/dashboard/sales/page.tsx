@@ -11,6 +11,7 @@ import { rotuloDoPonto } from '@/utils/painel'
 import { exigirArtesao } from '@/services/autenticacao'
 import { relatorioVendas, type PeriodoVendas } from '@/services/api/pedidos.servico'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
+import Preco from '@/components/ui/Preco'
 
 export const dynamic = 'force-dynamic'
 
@@ -120,7 +121,7 @@ export default async function Vendas({ searchParams }: Props) {
                 <article className="linha-pedido" key={item.slug}>
                   <div className="dado"><span className="dado-rotulo">Peça</span><span className="dado-valor">{nomes.get(item.slug) ?? item.slug.replace(/-/g, ' ')}</span></div>
                   <div className="dado"><span className="dado-rotulo">Unidades</span><span className="dado-valor">{item.unidades}</span></div>
-                  <div className="dado"><span className="dado-rotulo">Receita</span><span className="dado-valor preco-destaque">{emReais(item.receita)}</span></div>
+                  <div className="dado"><span className="dado-rotulo">Receita</span><Preco valor={item.receita} className="dado-valor preco-destaque" /></div>
                   <span className="selo selo-neutro"><IconeGrafico tamanho={13} />{item.participacao.toLocaleString('pt-BR')}% do total</span>
                 </article>
               ))}

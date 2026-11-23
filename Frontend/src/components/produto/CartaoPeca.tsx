@@ -6,26 +6,11 @@ import BotaoFavoritar from '@/components/produto/BotaoFavoritar'
 import { IconeEstrela } from '@/components/ui/Icones'
 import { useDados } from '@/store/dados'
 import { type Peca } from '@/types/dominio'
-import { emReais, precoComDesconto } from '@/utils/formato'
-
-function PrecoGrande({ valor }: { valor: number }) {
-  const inteiro = Math.floor(valor)
-  const centavos = Math.round((valor - inteiro) * 100)
-  return (
-    <span className="preco-grande">
-      <span className="so-leitor">{emReais(valor)}</span>
-      <span aria-hidden>
-        R$ {inteiro.toLocaleString('pt-BR')}
-        {centavos > 0 && <sup className="preco-centavos">{String(centavos).padStart(2, '0')}</sup>}
-      </span>
-    </span>
-  )
-}
+import PrecoPeca from '@/components/produto/PrecoPeca'
 
 export default function CartaoPeca({ peca }: { peca: Peca }) {
   const { artesaos, carregando } = useDados()
   const artesao = artesaos.find((a) => a.slug === peca.artesao)
-  const temDesconto = (peca.desconto ?? 0) > 0
 
   return (
     <article className="cartao-peca">
@@ -55,16 +40,7 @@ export default function CartaoPeca({ peca }: { peca: Peca }) {
         )}
 
         <div className="cartao-peca-precos">
-          {temDesconto && <span className="preco-riscado">{emReais(peca.preco)}</span>}
-          <span className="linha-preco-grande">
-            <PrecoGrande valor={precoComDesconto(peca)} />
-            {temDesconto && (
-              <span className="chip-desconto">
-                {peca.desconto}% de desconto<span className="so-leitor"> da plataforma</span>
-              </span>
-            )}
-          </span>
-          {temDesconto && <span className="chip-beneficio">Economize {emReais(peca.preco - precoComDesconto(peca))}</span>}
+          <PrecoPeca peca={peca} />
         </div>
       </div>
       <BotaoFavoritar slug={peca.slug} nome={peca.nome} />

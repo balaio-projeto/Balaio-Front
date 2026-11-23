@@ -14,6 +14,7 @@ import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import { useDados } from '@/store/dados'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { agruparPorAtelie } from './gruposAtelie'
+import Preco from '@/components/ui/Preco'
 
 const QUANTIDADES = ['1', '2', '3']
 
@@ -145,7 +146,7 @@ export default function ItensSacola() {
                           {(peca.desconto ?? 0) > 0 && !cotacao.valido && (
                             <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>
                           )}
-                          <strong className="preco">{emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}</strong>
+                          <strong className="preco"><Preco valor={(cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade} /></strong>
                         </span>
                       </div>
 
@@ -161,7 +162,7 @@ export default function ItensSacola() {
                             prazoDias={peca.prazoProducaoDias} />}
                         {(peca.desconto ?? 0) > 0 && !cotacao.valido && (
                           <span className="etiqueta-desconto">
-                            {peca.desconto}%<span className="so-leitor"> de desconto da plataforma</span>
+                            {peca.desconto}%<span className="so-leitor"> de desconto do artesão</span>
                           </span>
                         )}
                         {peca.disponibilidade !== 'unica' && !conflito && (
@@ -210,7 +211,7 @@ export default function ItensSacola() {
           </p>
           {economia > 0 && (
             <p className="resumo resumo-desconto">
-              <span>Desconto da plataforma</span>
+              <span>Desconto do artesão</span>
               <strong>{emReais(economia)}</strong>
             </p>
           )}
@@ -220,13 +221,13 @@ export default function ItensSacola() {
           </p>
           <p className="resumo resumo-total">
             <span>Total</span>
-            <span className="preco-destaque">{emReais(subtotal + frete)}</span>
+            <Preco valor={subtotal + frete} className="preco-destaque" />
           </p>
 
           <div className="barra-fixa barra-fixa-total">
             <p className="barra-fixa-info">
               <span className="barra-fixa-rotulo">Total</span>
-              <span className="barra-fixa-valor">{emReais(subtotal + frete)}</span>
+              <Preco valor={subtotal + frete} className="barra-fixa-valor" />
             </p>
             {!conflito && indisponiveis.length === 0 && !semPapelDeComprador && (!sessao || (cotacao.valido && cotacao.dados?.podeProsseguir)) && <Link href="/checkout" className="botao botao-primario botao-largo">
               Ir para o pagamento

@@ -127,9 +127,11 @@ export default function FormNovoColetivo({ artesaos }: { artesaos: ArtesaoParaCo
       if (resposta.erro || !resposta.dados) {
         const porCampo = resposta.erro ? errosDaResposta(resposta.erro) : {}
         if (Object.keys(porCampo).length > 0) mostrarErros(porCampo)
-        avisar.erro('Não foi possível cadastrar o coletivo', resposta.erro?.status === 403
-          ? 'Só a administração pode cadastrar coletivos.'
-          : resposta.erro?.mensagem)
+        avisar.erro('Não foi possível cadastrar o coletivo', resposta.erro?.codigo === 'TROCA_SENHA_OBRIGATORIA'
+          ? 'Troque a senha inicial de administrador em Minha conta > Meus dados para liberar o cadastro.'
+          : resposta.erro?.status === 403
+            ? 'Só a administração pode cadastrar coletivos.'
+            : resposta.erro?.mensagem)
         return
       }
       concluido = true

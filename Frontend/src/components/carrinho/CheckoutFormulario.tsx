@@ -24,6 +24,7 @@ import SeletorEnderecoSalvo, { OUTRO_ENDERECO } from './SeletorEnderecoSalvo'
 import SeletorEstado from '@/components/forms/SeletorEstado'
 import { abrirPagamentoAposLimpeza, linkDePagamentoConfiavel } from './abrirPagamento'
 import { agruparPorAtelie, grupoEscolhido } from './gruposAtelie'
+import Preco from '@/components/ui/Preco'
 
 const LIMITE_ENDERECO = 200
 const LIMITE_CIDADE = 100
@@ -466,7 +467,7 @@ export default function CheckoutFormulario() {
           </p>
           {economia > 0 && (
             <p className="resumo resumo-desconto">
-              <span>Desconto da plataforma</span>
+              <span>Desconto do artesão</span>
               <strong>{emReais(economia)}</strong>
             </p>
           )}
@@ -476,7 +477,7 @@ export default function CheckoutFormulario() {
           </p>
           <p className="resumo resumo-total">
             <span>Total</span>
-            <span className="preco-destaque">{emReais(total)}</span>
+            <Preco valor={total} className="preco-destaque" />
           </p>
 
           {erroConfirmacao && (
@@ -486,7 +487,7 @@ export default function CheckoutFormulario() {
           <div className="barra-fixa barra-fixa-total">
             <p className="barra-fixa-info">
               <span className="barra-fixa-rotulo">Total</span>
-              <span className="barra-fixa-valor">{emReais(total)}</span>
+              <Preco valor={total} className="barra-fixa-valor" />
             </p>
             <button disabled={salvando || concluido || (!pagamentoPendente && (!frete || !cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
               {salvando ? 'Aguarde…' : pagamentoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>

@@ -49,6 +49,11 @@ export function ehLeituraDeImagemPerfil(metodo: string, caminho: string): boolea
   return LEITURA.includes(metodo) && /^\/arquivos\/perfis\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caminho)
 }
 
+export function ehLeituraDeFotoDePeca(metodo: string, caminho: string): boolean {
+  return LEITURA.includes(metodo)
+    && /^\/arquivos\/pecas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i.test(caminho)
+}
+
 export function limiteDoCorpo(metodo: string, caminho: string): number | null {
   if (metodo === 'PUT' && ROTAS_DE_IMAGEM_PERFIL.includes(caminho)) return LIMITE_IMAGEM_PERFIL
   if (ehRotaDeMidia(caminho)) return LIMITE_MIDIA
