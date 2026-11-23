@@ -1,5 +1,5 @@
-import type { ConversaArtesao, Mensagem, Pedido, PedidoPendente } from '@/types/dominio'
-import { buscar, comToken, enviar } from './cliente'
+import type { ConversaArtesao, Mensagem, OpcaoFrete, Pedido, PedidoPendente } from '@/types/dominio'
+import { buscar, comToken, enviar, montarQuery } from './cliente'
 import { type RespostaApi } from './tipos'
 
 export type Checkout = {
@@ -66,7 +66,50 @@ export async function listarVendasArtesao(artesao?: string, token?: string): Pro
     comToken(token))
 }
 
-export const atualizarEstadoPedido = (id: string, estado: Pedido['estado']) => enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/estado`, { estado }, 'PATCH')
+export type DadosEnvio = { rastreio: string; transportadora?: string }
+
+export const atualizarEstadoPedido = (id: string, estado: Pedido['estado'], envio?: DadosEnvio) =>
+  enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/estado`, { estado, ...envio }, 'PATCH')
+
+export type PeriodoVendas = '7d' | '30d' | '90d' | 'mes'
+
+export type RelatorioVendas = {
+  periodo: { de: string; ate: string; preset: PeriodoVendas | 'personalizado'; fusoHorario: string }
+  receita: number
+  frete: number
+  quantidadePedidos: number
+  unidadesVendidas: number
+  ticketMedio: number
+  estadosConsiderados: string[]
+  formulaReceita: string
+  ranking: { slug: string; unidades: number; pedidos: number; receita: number; participacao: number }[]
+  serie: { granularidade: 'dia' | 'mes'; pontos: { inicio: string; receita: number }[] }
+}
+
+export function relatorioVendas(periodo: PeriodoVendas, token?: string): Promise<RespostaApi<RelatorioVendas>> {
+  return buscar<RelatorioVendas>(`/artesao/vendas/relatorio${montarQuery({ periodo })}`, comToken(token))
+}
+
+export type ResumoPainel = {
+  versaoContrato: string
+  faturamentoMes: number
+  pedidosAAceitar: number
+  emProducao: number
+  enviados: number
+  pecasAtivas: number | null
+  avisos: { slug: string; nome: string; motivo: string }[] | null
+  parcial: boolean
+  fontesIndisponiveis: string[]
+}
+
+export function resumoPainel(token?: string): Promise<RespostaApi<ResumoPainel>> {
+  return buscar<ResumoPainel>('/artesao/painel/resumo', comToken(token))
+}
+
+export function cotarFretes(cep: string, itens: { slug: string; quantidade: number }[], sinal?: AbortSignal): Promise<RespostaApi<OpcaoFrete[]>> {
+  const consulta = montarQuery({ cep, itens: itens.map((item) => `${item.slug}:${item.quantidade}`).join(',') })
+  return buscar<OpcaoFrete[]>(`/fretes${consulta}`, sinal ? { signal: sinal } : undefined)
+}
 
 export const recusarPedido = (id: string, motivo: string) =>
   enviar<Pedido>(`/pedidos/${encodeURIComponent(id)}/recusar`, { motivo }, 'PATCH')

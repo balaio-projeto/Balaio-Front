@@ -7,12 +7,25 @@ export const COOKIE_SESSAO = 'balaio-sessao'
 export const COOKIE_AUTENTICACAO = 'balaio_sessao'
 export const DURACAO_SESSAO_SEGUNDOS = 60 * 60 * 24 * 7
 
-const PAPEIS: Papel[] = ['comprador', 'artesao', 'admin']
+const PAPEIS: Papel[] = ['comprador', 'artesao', 'admin', 'organizador']
 
 const DESTINO_POR_PAPEL: Record<Papel, string> = {
   comprador: '/account',
   artesao: '/dashboard',
   admin: '/admin',
+  organizador: '/events/new',
+}
+
+export function podeOrganizarEventos(sessao: Pick<Sessao, 'papel'> | null | undefined): boolean {
+  return sessao?.papel === 'organizador'
+}
+
+/** Aplica o papel persistido devolvido por /api/v1/usuario, somente para o mesmo usuário. */
+export function sessaoAtualizadaDoUsuario(atual: Sessao, usuario: unknown): Sessao | null {
+  if (!usuario || typeof usuario !== 'object') return null
+  const nova = sessaoDoUsuario(usuario as Usuario)
+  if (!nova || nova.id !== atual.id) return null
+  return nova
 }
 
 export function sessaoDoUsuario(usuario: Usuario): Sessao | null {

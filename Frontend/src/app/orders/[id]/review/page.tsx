@@ -17,7 +17,7 @@ export default async function Avaliar({ params }: { params: Promise<{ id: string
   const { id } = await params
   const { usuario, token } = await exigirSessao()
   const { dados: pedido, erro } = await obterPedido(id, token)
-  if (erro && erro.codigo !== 'RECURSO_NAO_ENCONTRADO') throw new Error(erro.mensagem)
+  if (erro && erro.status !== 404 && !['RECURSO_NAO_ENCONTRADO', 'PEDIDO_NAO_ENCONTRADO'].includes(erro.codigo)) throw new Error(erro.mensagem)
   if (!pedido || (pedido.compradorId ?? pedido.usuarioId) !== usuario.id) notFound()
 
   const avaliacao = pedido.estado === 'entregue' ? await consultarAvaliado(pedido.id, token) : null

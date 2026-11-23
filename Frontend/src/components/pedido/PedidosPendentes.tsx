@@ -10,6 +10,7 @@ import { IconeAviso, IconeFechar, IconePacote } from '@/components/ui/Icones'
 import { emReais } from '@/utils/formato'
 import { atualizarEstadoPedido, recusarPedido } from '@/services/api/pedidos.servico'
 import { avisarPainelAtualizado } from '@/hooks/useArtesaoLogado'
+import { textoDaMetrica } from '@/utils/painel'
 
 export type PedidoPendente = {
   id: string
@@ -31,10 +32,10 @@ export default function PedidosPendentes({
 }: {
   iniciais: PedidoPendente[]
   erroCarregamento?: string
-  faturamentoMes: number
+  faturamentoMes: number | null
   emProducao: number
-  pecasAtivas: number
-  avisosPecas: { slug: string; nome: string; motivo: string }[]
+  pecasAtivas: number | null
+  avisosPecas: { slug: string; nome: string; motivo: string }[] | null
 }) {
   const roteador = useRouter()
   const dialogoRecusa = useRef<HTMLDialogElement>(null)
@@ -67,11 +68,16 @@ export default function PedidosPendentes({
       classe: 'metrica-amarela',
     },
     { rotulo: 'Em produção', valor: String(emProducao), nota: 'Nas bancadas e fornos', classe: 'metrica-azul' },
-    { rotulo: 'Peças ativas', valor: String(pecasAtivas), nota: 'Publicadas na vitrine', classe: 'metrica-verde' },
+    {
+      rotulo: 'Peças ativas',
+      valor: textoDaMetrica(pecasAtivas),
+      nota: pecasAtivas === null ? 'Catálogo fora do ar agora' : 'Publicadas na vitrine',
+      classe: 'metrica-verde',
+    },
     {
       rotulo: 'Faturamento do mês',
-      valor: emReais(faturamentoMes),
-      nota: 'Pedidos registrados neste mês',
+      valor: textoDaMetrica(faturamentoMes, emReais),
+      nota: faturamentoMes === null ? 'Não foi possível calcular agora' : 'Pagamentos confirmados neste mês',
       classe: 'metrica-branca',
     },
   ]
@@ -133,7 +139,10 @@ export default function PedidosPendentes({
 
   return (
     <>
-      {avisosPecas.length > 0 && (
+      {avisosPecas === null && (
+        <p className="aviso abaixo-4" role="status">Não foi possível verificar suas peças no catálogo agora. Os avisos de peças voltam quando o catálogo responder.</p>
+      )}
+      {avisosPecas && avisosPecas.length > 0 && (
         <section className="painel-alertas" aria-labelledby="alertas-estoque">
           <div className="painel-alertas-icone"><IconeAviso tamanho={22} /></div>
           <div>

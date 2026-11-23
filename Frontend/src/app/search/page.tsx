@@ -9,10 +9,17 @@ import { Migalhas } from '@/components/ui/Basicos'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import { IconeBusca } from '@/components/ui/Icones'
-import { tecnicas } from '@/constants/referencias'
 import { rotuloDisponibilidade } from '@/constants/rotulos'
-import { filtrosAtivos, hrefListagem, lerFiltros, type FiltrosListagem as Filtros } from '@/utils/filtrosUrl'
+import {
+  filtrosAtivos,
+  hrefListagem,
+  lerFiltros,
+  referenciasParaFiltros,
+  rotuloFaixaDePreco,
+  type FiltrosListagem as Filtros,
+} from '@/utils/filtrosUrl'
 import { listarPecas } from '@/services/api/pecas.servico'
+import { obterReferencias } from '@/services/api/referencias.servico'
 
 const POR_PAGINA = 12
 
@@ -23,11 +30,13 @@ function tituloDaListagem(filtros: Filtros): string {
   if (filtros.tipo) return filtros.tipo
   if (filtros.desconto) return 'Ofertas do ateliê'
   if (filtros.disponibilidade) return rotuloDisponibilidade[filtros.disponibilidade]
-  return filtros.tecnica ?? filtros.categoria ?? filtros.territorio ?? 'Todo o catálogo'
+  return filtros.tecnica ?? filtros.categoria ?? filtros.territorio ?? rotuloFaixaDePreco(filtros) ?? 'Todo o catálogo'
 }
 
 export default async function Busca({ searchParams }: Props) {
-  const filtros = lerFiltros(await searchParams)
+  const [parametros, respostaReferencias] = await Promise.all([searchParams, obterReferencias()])
+  const referencias = referenciasParaFiltros(respostaReferencias)
+  const filtros = lerFiltros(parametros, referencias)
   const { dados, erro, paginacao } = await listarPecas({ ...filtros, tamanho: POR_PAGINA })
   const resultados = dados ?? []
   const total = paginacao?.total ?? resultados.length
@@ -54,7 +63,7 @@ export default async function Busca({ searchParams }: Props) {
         <EstadoErro mensagem={erro.mensagem} />
       ) : (
         <div className="catalogo secao">
-          <FiltrosListagem filtros={filtros} total={total} />
+          <FiltrosListagem filtros={filtros} total={total} referencias={referencias} />
 
           <div className="catalogo-conteudo">
             <div className="catalogo-topo" role="status">
@@ -91,7 +100,7 @@ export default async function Busca({ searchParams }: Props) {
                     </Link>
                   ) : (
                     <div className="acoes-linha" style={{ justifyContent: 'center' }}>
-                      {tecnicas.slice(0, 3).map((tecnica) => (
+                      {referencias.tecnicas.slice(0, 3).map((tecnica) => (
                         <Link key={tecnica} href={hrefListagem({ tecnica })} className="botao botao-secundario">
                           {tecnica}
                         </Link>

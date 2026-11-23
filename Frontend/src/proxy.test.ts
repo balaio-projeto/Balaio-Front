@@ -30,6 +30,38 @@ test('permissão usa papel retornado pelo backend', async () => {
   assert.equal(new URL(resposta.headers.get('location')!).pathname, '/account')
 })
 
+test('cada papel só entra nas áreas permitidas e volta ao próprio início nas demais', async () => {
+  const casos: [string, string, string | null][] = [
+    ['comprador', '/checkout', null],
+    ['comprador', '/account/addresses', null],
+    ['comprador', '/orders/123', null],
+    ['comprador', '/dashboard', '/account'],
+    ['artesao', '/dashboard/pieces', null],
+    ['artesao', '/account', null],
+    ['artesao', '/checkout', '/dashboard'],
+    ['artesao', '/orders', '/dashboard'],
+    ['artesao', '/account/addresses', '/dashboard'],
+    ['artesao', '/admin', '/dashboard'],
+    ['organizador', '/account', null],
+    ['organizador', '/orders', '/events/new'],
+    ['organizador', '/confirmation/123', '/events/new'],
+    ['organizador', '/dashboard', '/events/new'],
+    ['organizador', '/admin', '/events/new'],
+    ['admin', '/admin/criteria', null],
+    ['admin', '/checkout', '/admin'],
+    ['admin', '/dashboard', '/admin'],
+  ]
+  for (const [papel, caminho, destino] of casos) {
+    globalThis.fetch = async () => Response.json({ dados: { id: '1', nome: 'Ana', email: 'ana@example.com', papel, imagem: '' }, erro: null })
+    const resposta = await proxy(request(caminho))
+    if (destino === null) assert.equal(resposta.status, 200, `${papel} em ${caminho}`)
+    else {
+      assert.equal(resposta.status, 307, `${papel} em ${caminho}`)
+      assert.equal(new URL(resposta.headers.get('location')!).pathname, destino, `${papel} em ${caminho}`)
+    }
+  }
+})
+
 test('escrita de peças encaminha cookie de sessão como Bearer ao gateway', async () => {
   for (const [path, method] of [
     ['/api/v1/pecas', 'POST'],

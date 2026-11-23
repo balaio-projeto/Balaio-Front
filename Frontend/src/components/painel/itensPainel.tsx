@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { IconeConversa, IconeEngrenagem, IconeGrafico, IconePacote, IconePincel, IconePlay } from '@/components/ui/Icones'
+import { IconeAviso, IconeConversa, IconeEngrenagem, IconeGrafico, IconePacote, IconePincel, IconePlay } from '@/components/ui/Icones'
 
-export type ChavePainel = 'pedidos' | 'pecas' | 'videos' | 'conversas' | 'vendas' | 'config'
+export type ChavePainel = 'pedidos' | 'pecas' | 'videos' | 'conversas' | 'vendas' | 'disputas' | 'config'
 
 export type GrupoPainel = 'vender' | 'divulgar' | 'oficina'
 
@@ -48,6 +48,14 @@ export function itensPainel({ pendentes, naoLidas }: ContagensPainel = { pendent
       textoCurto: 'Vendas',
       href: '/dashboard/sales',
       icone: <IconeGrafico />,
+      grupo: 'vender',
+    },
+    {
+      chave: 'disputas',
+      texto: 'Disputas',
+      textoCurto: 'Disputas',
+      href: '/dashboard/disputes',
+      icone: <IconeAviso />,
       grupo: 'vender',
     },
     {

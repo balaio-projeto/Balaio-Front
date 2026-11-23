@@ -7,6 +7,7 @@ export type Ordenacao = 'recentes' | 'preco-asc' | 'preco-desc' | 'avaliacao'
 export type FiltrosPeca = {
   tecnica?: string; territorio?: string; categoria?: string; tipo?: string; q?: string; disponibilidade?: string
   desconto?: boolean
+  precoMin?: number; precoMax?: number
   ordenar?: Ordenacao
   pagina?: number; tamanho?: number
 }
@@ -42,7 +43,7 @@ export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categori
   prazoProducaoDias?: number | null
   fotos: FotoParaEnviar[]
 }
-export type AlteracoesPeca = Partial<DadosPeca> & { inativadoEm?: string | null }
+export type AlteracoesPeca = Partial<DadosPeca>
 
 export function criarPeca(dados: DadosPeca): Promise<RespostaApi<Peca>> {
   return enviar('/pecas', dados)
@@ -52,4 +53,7 @@ export function atualizarPeca(slug: string, alteracoes: AlteracoesPeca): Promise
 }
 export function excluirPeca(slug: string): Promise<RespostaApi<Peca>> {
   return buscar(`/pecas/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+}
+export function reativarPeca(slug: string): Promise<RespostaApi<Peca>> {
+  return enviar(`/pecas/${encodeURIComponent(slug)}/reativacao`, {})
 }

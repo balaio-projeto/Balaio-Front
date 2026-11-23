@@ -1,18 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { Campo } from '@/components/ui/Basicos'
-import { redefinirSenha } from '@/services/api/conta.servico'
+import { redefinirSenha, sair } from '@/services/api/conta.servico'
 import { useSessao } from '@/store/sessao'
 import { validarSenha } from '@/utils/validacao'
 
 export default function FormRedefinirSenha() {
-  const token = useSearchParams().get('token')
+  const parametros = useSearchParams()
+  const token = parametros.get('token')
+  const redefinidaNaUrl = parametros.get('redefinida') === '1'
+  const roteador = useRouter()
   const [erro, definirErro] = useState<string | null>(null)
   const [concluido, definirConcluido] = useState(false)
   const [enviando, definirEnviando] = useState(false)
+  const [linkRecusado, definirLinkRecusado] = useState<string | null>(null)
   const { encerrarSessao } = useSessao()
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -28,13 +32,16 @@ export default function FormRedefinirSenha() {
     definirEnviando(true)
     const resposta = await redefinirSenha(token, senha)
     definirEnviando(false)
+    if (resposta.erro?.codigo === 'TOKEN_INVALIDO') return definirLinkRecusado(resposta.erro.mensagem)
     if (!resposta.dados) return definirErro(resposta.erro?.mensagem ?? 'Não foi possível redefinir a senha.')
-    encerrarSessao()
     definirConcluido(true)
+    await sair()
+    roteador.replace('/login/reset?redefinida=1')
+    encerrarSessao()
   }
 
-  if (concluido) return <div className="cartao cartao-auth-sucesso" role="status"><p className="texto-forte">Senha redefinida</p><p>Entre com sua nova senha.</p><Link href="/login" className="botao botao-primario botao-largo">Ir para o login</Link></div>
-  if (!token) return <div className="cartao" role="alert"><p>Link inválido. Solicite outro link de recuperação.</p><Link href="/login/recover">Solicitar novo link</Link></div>
+  if (concluido || redefinidaNaUrl) return <div className="cartao cartao-auth-sucesso" role="status"><p className="texto-forte">Senha redefinida</p><p>Entre com sua nova senha.</p><Link href="/login" className="botao botao-primario botao-largo">Ir para o login</Link></div>
+  if (!token || linkRecusado) return <div className="cartao" role="alert"><p>{linkRecusado ?? 'Link inválido. Solicite outro link de recuperação.'}</p><Link href="/login/recover">Solicitar novo link</Link></div>
 
   return <form className="cartao" onSubmit={enviar} noValidate>
     <Campo id="nova-senha" rotulo="Nova senha" ajuda="No mínimo 12 caracteres e no máximo 72 bytes em UTF-8.">

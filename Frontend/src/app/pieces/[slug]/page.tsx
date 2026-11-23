@@ -145,7 +145,7 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
             <FaixaBeneficios compacta />
           </div>
 
-          <CalculoFrete territorio={peca.territorio} />
+          <CalculoFrete territorio={peca.territorio} slug={peca.slug} />
         </div>
       </div>
 
@@ -236,6 +236,7 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
       <section className="secao">
         <PerguntasPublicas
           iniciais={perguntas}
+          erroCarregamento={perguntasResposta.erro ? 'Não foi possível carregar as perguntas desta peça agora.' : undefined}
           slug={peca.slug}
           artesaoSlug={peca.artesao}
           artesaoNome={artesao?.nome}

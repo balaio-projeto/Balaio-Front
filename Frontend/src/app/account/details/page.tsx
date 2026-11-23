@@ -9,7 +9,7 @@ import FormAlterarSenha from '@/components/conta/FormAlterarSenha'
 
 export default async function DadosDaConta() {
   const { usuario, token } = await exigirSessao()
-  const { dados: pedidos } = await listarPedidos(token)
+  const { dados: pedidos } = usuario.papel === 'comprador' ? await listarPedidos(token) : { dados: [] }
   return (
     <Pagina>
       <Migalhas

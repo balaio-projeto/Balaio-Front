@@ -4,7 +4,10 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, Foto } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
-import { criarMediacao, listarMediacoes } from '@/services/api/mediacoes.servico'
+import EstadoCarregando from '@/components/feedback/EstadoCarregando'
+import EstadoErro from '@/components/feedback/EstadoErro'
+import { mediacaoDoPedido, situacaoDaMediacao } from '@/components/pedido/situacaoMediacao'
+import { criarMediacao, listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
 
 const motivos = [
@@ -35,17 +38,35 @@ export default function FormMediacao({ pedidoId, pecaNome, pecaImagem }: Props) 
   const [erroMotivo, definirErroMotivo] = useState<string | null>(null)
   const [erroRelato, definirErroRelato] = useState<string | null>(null)
   const [aberta, definirAberta] = useState<Mediacao | null>(null)
+  const [consulta, definirConsulta] = useState<'carregando' | 'pronta' | 'erro'>('carregando')
+  const [erroConsulta, definirErroConsulta] = useState<string | null>(null)
+  const [tentativa, definirTentativa] = useState(0)
   const envioEmAndamento = useRef(false)
 
   useEffect(() => {
     let vivo = true
-    listarMediacoes().then((r) => {
+    listarMediacoesDasPartes().then((r) => {
       if (!vivo) return
-      if (r.erro) avisar.erro('Não foi possível consultar mediações', r.erro.mensagem)
-      else definirAberta((atual) => atual?.pedido === pedidoId ? atual : r.dados?.find((m) => m.pedido === pedidoId) ?? null)
+      if (r.erro || !r.dados) {
+        definirErroConsulta(r.erro?.mensagem ?? 'Não foi possível consultar as mediações deste pedido.')
+        definirConsulta('erro')
+        return
+      }
+      const doPedido = mediacaoDoPedido(r.dados, pedidoId)
+      definirAberta((atual) => atual?.pedido === pedidoId ? atual : doPedido)
+      definirConsulta('pronta')
+    }).catch(() => {
+      if (!vivo) return
+      definirErroConsulta('Não foi possível consultar as mediações deste pedido.')
+      definirConsulta('erro')
     })
     return () => { vivo = false }
-  }, [pedidoId])
+  }, [pedidoId, tentativa])
+
+  function consultarNovamente() {
+    definirConsulta('carregando')
+    definirTentativa((atual) => atual + 1)
+  }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
@@ -78,6 +99,11 @@ export default function FormMediacao({ pedidoId, pecaNome, pecaImagem }: Props) 
 
 Solução desejada: ${solucaoDesejada}` : relato.trim(),
       })
+      if (resposta.erro?.codigo === 'MEDIACAO_EXISTENTE') {
+        avisar.info('Este pedido já tem uma mediação', 'Mostramos abaixo o andamento da mediação existente.')
+        consultarNovamente()
+        return
+      }
       if (resposta.erro || !resposta.dados) { avisar.erro('Não foi possível abrir mediação', resposta.erro?.mensagem); return }
       avisar.sucesso('Pedido de mediação registrado')
       definirAberta(resposta.dados)
@@ -87,23 +113,38 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
     }
   }
 
+  if (consulta === 'carregando' && !aberta) return <EstadoCarregando rotulo="Consultando mediações do pedido…" cartoes={1} />
+  if (consulta === 'erro' && !aberta) return <EstadoErro mensagem={erroConsulta ?? undefined} aoTentarNovamente={consultarNovamente} />
+
   if (aberta) {
+    const situacao = situacaoDaMediacao(aberta)
     return (
       <section className="cartao">
-        <span className="selo selo-encomenda abaixo-3">
+        <span className={`selo ${situacao.encerrada ? 'selo-neutro' : 'selo-encomenda'} abaixo-3`}>
           <span className="selo-ponto" />
-          Mediação aberta
+          {situacao.rotulo}
         </span>
-        <h2 className="secao-titulo">Recebemos seu pedido de ajuda</h2>
+        <h2 className="secao-titulo">{situacao.encerrada ? 'Sua mediação foi decidida' : 'Recebemos seu pedido de ajuda'}</h2>
         <p className="texto-suave abaixo-4">
-          Sua mediação ficou registrada com o protocolo <strong>{aberta.id}</strong>, sobre o pedido #{aberta.pedido}.
+          Sua mediação ficou registrada com o protocolo <strong>{aberta.id}</strong>, sobre o pedido #{aberta.pedido}
+          {aberta.aberta ? `, aberta em ${aberta.aberta}` : ''}.
         </p>
-        <h3 className="campo-rotulo abaixo-2">O que acontece agora</h3>
-        <ol className="lista-passos-evento abaixo-4">
-          <li>O artesão é avisado e tem 48h para responder por aqui.</li>
-          <li>Enquanto isso, o repasse do pagamento fica retido pela plataforma.</li>
-          <li>Se não houver acordo, a equipe de curadoria decide com base na conversa e nas fotos.</li>
-        </ol>
+        <dl className="abaixo-4">
+          <dt className="dado-rotulo">Motivo</dt>
+          <dd className="dado-valor abaixo-2">{aberta.assunto}</dd>
+          <dt className="dado-rotulo">Decisão da plataforma</dt>
+          <dd className="dado-valor">{situacao.decisao ?? 'Ainda não há decisão.'}</dd>
+        </dl>
+        {!situacao.encerrada && (
+          <>
+            <h3 className="campo-rotulo abaixo-2">O que acontece agora</h3>
+            <ol className="lista-passos-evento abaixo-4">
+              <li>O artesão é avisado e tem 48h para responder por aqui.</li>
+              <li>Enquanto isso, o repasse do pagamento fica retido pela plataforma.</li>
+              <li>Se não houver acordo, a equipe de curadoria decide com base na conversa e nas fotos.</li>
+            </ol>
+          </>
+        )}
         <div className="acoes-linha acoes-empilhaveis">
           <Link href={`/orders/${aberta.pedido}`} className="botao botao-primario">
             Voltar ao pedido

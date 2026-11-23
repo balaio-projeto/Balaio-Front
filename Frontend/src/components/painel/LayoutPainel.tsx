@@ -12,6 +12,7 @@ type Props = { children: ReactNode }
 function itemAtivo(caminho: string): ChavePainel {
   if (caminho.startsWith('/dashboard/pieces')) return 'pecas'
   if (caminho.startsWith('/dashboard/sales')) return 'vendas'
+  if (caminho.startsWith('/dashboard/disputes')) return 'disputas'
   if (caminho.startsWith('/dashboard/messages')) return 'conversas'
   if (caminho.startsWith('/dashboard/videos')) return 'videos'
   if (caminho.startsWith('/dashboard/settings')) return 'config'

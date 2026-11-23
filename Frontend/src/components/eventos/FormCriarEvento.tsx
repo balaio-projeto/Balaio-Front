@@ -7,20 +7,32 @@ import Seletor from '@/components/ui/Seletor'
 import { avisar } from '@/components/feedback/Avisos'
 import { validarObrigatorio } from '@/utils/validacao'
 import MapaEventosCliente from '@/components/eventos/MapaEventosCliente'
-import { criarEvento } from '@/services/api/eventos.servico'
+import { criarEvento, type SubmissaoEvento } from '@/services/api/eventos.servico'
 import { gerarSlugEvento } from '@/components/eventos/eventosLocais'
+import { coordenadasValidas } from '@/utils/eventos'
+import { errosDeCampoDaSubmissao, mensagemErroSubmissao, TEXTO_PENDENCIA } from '@/components/eventos/mensagensSubmissao'
 import { municipiosPE, rotuloTipoEvento } from '@/constants/eventos'
-import type { Evento, Ponto, TipoEvento } from '@/types/dominio'
+import type { Ponto, TipoEvento } from '@/types/dominio'
 import { useDados } from '@/store/dados'
 
 const idPorCampo: Record<string, string> = {
   nome: 'evento-nome',
+  tipo: 'evento-tipo',
   organizador: 'evento-organizador',
   periodo: 'evento-periodo',
+  horario: 'evento-horario',
   cidade: 'evento-cidade',
+  entrada: 'evento-entrada',
   local: 'evento-local',
+  endereco: 'evento-endereco',
+  mapa: 'evento-mapa',
   descricao: 'evento-descricao',
   participantes: 'participantes',
+}
+
+function focarPrimeiroErro(problemas: Record<string, string>) {
+  const primeiraChave = Object.keys(idPorCampo).find((chave) => chave in problemas)
+  if (primeiraChave) document.getElementById(idPorCampo[primeiraChave])?.focus()
 }
 
 const opcoesTipoEvento = (Object.keys(rotuloTipoEvento) as TipoEvento[]).map((chave) => ({
@@ -50,7 +62,7 @@ export default function FormCriarEvento() {
   const [artesaosEscolhidos, definirArtesaosEscolhidos] = useState<string[]>([])
   const [coletivosEscolhidos, definirColetivosEscolhidos] = useState<string[]>([])
   const [erros, definirErros] = useState<Record<string, string>>({})
-  const [publicado, definirPublicado] = useState<Evento | null>(null)
+  const [enviado, definirEnviado] = useState<string | null>(null)
 
   const municipio = municipiosPE.find((m) => m.nome === cidade)
   const centroEscolha = municipio ? { lat: municipio.lat, lng: municipio.lng } : undefined
@@ -101,7 +113,7 @@ export default function FormCriarEvento() {
     definirArtesaosEscolhidos([])
     definirColetivosEscolhidos([])
     definirErros({})
-    definirPublicado(null)
+    definirEnviado(null)
   }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -124,16 +136,21 @@ export default function FormCriarEvento() {
 
     if (Object.keys(problemas).length > 0) {
       definirErros(problemas)
-      const primeiraChave = Object.keys(problemas)[0]
-      document.getElementById(idPorCampo[primeiraChave])?.focus()
+      focarPrimeiroErro(problemas)
       avisar.erro('Confira os campos destacados', 'Alguns dados do evento ainda estão faltando.')
       return
     }
 
     const referencia = pino ?? centroEscolha
-    if (!referencia) return
+    if (!coordenadasValidas(referencia)) {
+      const problemaMapa = { mapa: 'Marque no mapa o ponto exato do evento' }
+      definirErros(problemaMapa)
+      focarPrimeiroErro(problemaMapa)
+      avisar.erro('Confira o ponto no mapa', 'O local marcado não tem coordenadas válidas.')
+      return
+    }
 
-    const novoEvento: Evento = {
+    const submissao: SubmissaoEvento = {
       slug: gerarSlugEvento(nome),
       nome: nome.trim(),
       tipo,
@@ -149,35 +166,39 @@ export default function FormCriarEvento() {
       lng: referencia.lng,
       artesaos: artesaosEscolhidos,
       coletivos: coletivosEscolhidos,
-      criadoPorVoce: true,
     }
 
     definirSalvando(true)
-    const resposta = await criarEvento(novoEvento)
+    const resposta = await criarEvento(submissao)
     definirSalvando(false)
-    if (resposta.erro) { avisar.erro('Não foi possível publicar', resposta.erro.mensagem); return }
-    avisar.sucesso('Evento publicado na agenda')
-    definirPublicado(resposta.dados)
+    if (resposta.erro) {
+      const aviso = mensagemErroSubmissao(resposta.erro.codigo)
+      const doServidor = errosDeCampoDaSubmissao(resposta.erro)
+      if (Object.keys(doServidor).length > 0) {
+        definirErros(doServidor)
+        focarPrimeiroErro(doServidor)
+      }
+      avisar.erro(aviso.titulo, aviso.mensagem)
+      return
+    }
+    avisar.sucesso('Evento enviado para análise')
+    definirEnviado(submissao.nome)
   }
 
-  if (publicado) {
+  if (enviado !== null) {
     return (
       <section className="cartao">
-        <span className="selo selo-disponivel abaixo-3">
+        <span className="selo abaixo-3">
           <span className="selo-ponto" />
-          Publicado
+          Pendente de análise
         </span>
-        <h2 className="secao-titulo">Evento na agenda!</h2>
+        <h2 className="secao-titulo">Evento enviado!</h2>
         <p className="texto-suave abaixo-4">
-          “{publicado.nome}” já aparece no mapa da vitrine e na agenda, com o pino marcado em {publicado.cidade}.
-          O evento foi salvo e está disponível na agenda.
+          “{enviado}” foi recebido. {TEXTO_PENDENCIA}
         </p>
         <div className="acoes-linha acoes-empilhaveis">
-          <Link href={`/events/${publicado.slug}`} className="botao botao-primario">
-            Ver a página do evento
-          </Link>
           <Link href="/events" className="botao botao-secundario">
-            Ver a agenda
+            Ver a agenda pública
           </Link>
           <button type="button" className="botao botao-fantasma" onClick={limparFormulario}>
             Criar outro evento
@@ -206,12 +227,15 @@ export default function FormCriarEvento() {
       </Campo>
 
       <div className="grade-dois">
-        <Campo rotulo="Tipo de evento" id="evento-tipo">
+        <Campo rotulo="Tipo de evento" id="evento-tipo" erro={erros.tipo}>
           <Seletor
             id="evento-tipo"
             opcoes={opcoesTipoEvento}
             value={tipo}
-            onChange={(valor) => definirTipo(valor as TipoEvento)}
+            onChange={(valor) => {
+              definirTipo(valor as TipoEvento)
+              limparErro('tipo')
+            }}
           />
         </Campo>
         <Campo
@@ -246,13 +270,16 @@ export default function FormCriarEvento() {
             }}
           />
         </Campo>
-        <Campo rotulo="Horário (opcional)" id="evento-horario">
+        <Campo rotulo="Horário (opcional)" id="evento-horario" erro={erros.horario}>
           <input
             id="evento-horario"
             type="text"
             placeholder="Como '9h às 18h'"
             value={horario}
-            onChange={(e) => definirHorario(e.target.value)}
+            onChange={(e) => {
+              definirHorario(e.target.value)
+              limparErro('horario')
+            }}
           />
         </Campo>
       </div>
@@ -261,12 +288,15 @@ export default function FormCriarEvento() {
         <Campo rotulo="Município" id="evento-cidade" erro={erros.cidade}>
           <Seletor id="evento-cidade" opcoes={opcoesMunicipio} value={cidade} onChange={escolherCidade} />
         </Campo>
-        <Campo rotulo="Entrada" id="evento-entrada" ajuda="Deixe 'Gratuita' se não houver cobrança">
+        <Campo rotulo="Entrada" id="evento-entrada" ajuda="Deixe 'Gratuita' se não houver cobrança" erro={erros.entrada}>
           <input
             id="evento-entrada"
             type="text"
             value={entrada}
-            onChange={(e) => definirEntrada(e.target.value)}
+            onChange={(e) => {
+              definirEntrada(e.target.value)
+              limparErro('entrada')
+            }}
           />
         </Campo>
       </div>
@@ -284,17 +314,20 @@ export default function FormCriarEvento() {
         />
       </Campo>
 
-      <Campo rotulo="Endereço (opcional)" id="evento-endereco">
+      <Campo rotulo="Endereço (opcional)" id="evento-endereco" erro={erros.endereco}>
         <input
           id="evento-endereco"
           type="text"
           placeholder="Rua, número e bairro"
           value={endereco}
-          onChange={(e) => definirEndereco(e.target.value)}
+          onChange={(e) => {
+            definirEndereco(e.target.value)
+            limparErro('endereco')
+          }}
         />
       </Campo>
 
-      <div className="campo">
+      <div className="campo" id="evento-mapa" tabIndex={-1}>
         <span className="campo-rotulo">Ponto exato no mapa</span>
         <span className="campo-ajuda">
           {cidade
@@ -303,13 +336,21 @@ export default function FormCriarEvento() {
         </span>
         <div className="mapa-eventos mapa-eventos-escolha">
           <MapaEventosCliente
-            aoEscolher={(ponto) => definirPino(ponto)}
+            aoEscolher={(ponto) => {
+              definirPino(ponto)
+              limparErro('mapa')
+            }}
             escolhido={pino}
             centro={centroEscolha}
             zoom={13}
             rotulo="Mapa para marcar o local exato do evento"
           />
         </div>
+        {erros.mapa && (
+          <p className="campo-erro acima-2" role="status">
+            {erros.mapa}
+          </p>
+        )}
       </div>
 
       <Campo rotulo="O que vai acontecer" id="evento-descricao" erro={erros.descricao}>
@@ -373,7 +414,7 @@ export default function FormCriarEvento() {
 
       <div className="acoes-linha acoes-empilhaveis acima-4">
         <button disabled={salvando || !!erroParticipantes} type="submit" className="botao botao-primario">
-          Publicar na agenda
+          Enviar para análise
         </button>
         <Link href="/events" className="botao botao-fantasma">
           Cancelar

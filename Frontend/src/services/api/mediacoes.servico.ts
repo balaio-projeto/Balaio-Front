@@ -1,5 +1,5 @@
 import type { Mediacao } from '@/types/dominio'
-import { buscar, comToken, enviar } from './cliente'
+import { buscar, comToken, enviar, montarQuery } from './cliente'
 import { type RespostaApi } from './tipos'
 
 export type AberturaMediacao = { pedido: string; assunto: string; relato: string }
@@ -20,6 +20,12 @@ export function criarMediacao(abertura: AberturaMediacao): Promise<RespostaApi<M
 
 export async function listarMediacoes(token?: string): Promise<RespostaApi<Mediacao[]>> {
   return buscar<Mediacao[]>('/admin/mediacoes', comToken(token))
+}
+
+export const MAXIMO_MEDIACOES_POR_PAGINA = 100
+
+export function listarMediacoesDasPartes(token?: string): Promise<RespostaApi<Mediacao[]>> {
+  return buscar<Mediacao[]>('/admin/mediacoes' + montarQuery({ tamanho: MAXIMO_MEDIACOES_POR_PAGINA }), comToken(token))
 }
 
 export function iniciarAnaliseDaMediacao(id: string): Promise<RespostaApi<Mediacao>> {

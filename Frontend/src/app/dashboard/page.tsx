@@ -1,19 +1,22 @@
 import Link from 'next/link'
 import { Migalhas } from '@/components/ui/Basicos'
 import PedidosPendentes from '@/components/pedido/PedidosPendentes'
+import PedidosEmAndamento from '@/components/pedido/PedidosEmAndamento'
 import { IconeSetaDireita } from '@/components/ui/Icones'
-import { listarVendasArtesao, listarPedidosPendentes, listarConversasArtesao } from '@/services/api/pedidos.servico'
+import { listarVendasArtesao, listarPedidosPendentes, listarConversasArtesao, resumoPainel } from '@/services/api/pedidos.servico'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
+import { listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
 import { exigirArtesao } from '@/services/autenticacao'
-import { ESTADOS_ENCERRADOS, faturamentoNoMes, vendasDoArtesao } from '@/utils/vendas'
 
 export default async function Painel() {
   const { artesao, token } = await exigirArtesao()
-  const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }] = await Promise.all([
+  const [{ dados: pend, erro: erroPendentes }, { dados: conversas }, { dados: pecas }, { dados: pedidos }, { dados: resumo }, { dados: mediacoes }] = await Promise.all([
     listarPedidosPendentes(token),
     listarConversasArtesao(artesao.slug),
     pecasPainelArtesao(artesao.slug, token),
     listarVendasArtesao(artesao.slug, token),
+    resumoPainel(token),
+    listarMediacoesDasPartes(token),
   ])
   const mapaPecas = new Map((pecas ?? []).map((p) => [p.slug, p]))
   const conversasArtesao = conversas ?? []
@@ -33,26 +36,11 @@ export default async function Painel() {
 
   const naoLidas = conversasArtesao.filter((c) => c.naoLida).length
   const pedidosDoArtesao = pedidos ?? []
-  const pecasUnicasVendidas = new Set(
-    pedidosDoArtesao.filter((pedido) => !ESTADOS_ENCERRADOS.has(pedido.estado)).flatMap((pedido) =>
-      (pedido.itens ?? [{ slug: pedido.pecaSlug }])
-        .filter((item) => mapaPecas.get(item.slug)?.disponibilidade === 'unica')
-        .map((item) => item.slug),
-    ),
-  )
-  const pecasAtivas = (pecas ?? []).filter((peca) =>
-    !peca.inativadoEm && !pecasUnicasVendidas.has(peca.slug) && (peca.situacao ?? 'publicada') === 'publicada',
-  ).length
-  const avisosPecas = (pecas ?? []).flatMap((peca) => {
-    if (pecasUnicasVendidas.has(peca.slug) || peca.vendidaEmPedido) return [{ slug: peca.slug, nome: peca.nome, motivo: 'Peça única vendida' }]
-    if (peca.inativadoEm) return [{ slug: peca.slug, nome: peca.nome, motivo: 'Peça inativada' }]
-    return []
-  })
-  const agora = new Date()
-  const faturamentoMes = faturamentoNoMes(vendasDoArtesao(pedidosDoArtesao, pecas ?? []), {
-    ano: agora.getFullYear(),
-    mes: agora.getMonth() + 1,
-  })
+  const pedidosEmDisputa = new Set((mediacoes ?? []).map((mediacao) => mediacao.pedido))
+  const emAndamento = pedidosDoArtesao.flatMap((pedido) => pedido.estado === 'producao' || pedido.estado === 'enviado'
+    ? [{ id: pedido.id, estado: pedido.estado, pecaNome: mapaPecas.get(pedido.pecaSlug)?.nome, quando: pedido.data,
+        valor: pedido.total, rastreio: pedido.rastreio, emDisputa: pedidosEmDisputa.has(pedido.id) }]
+    : [])
 
   return (
     <>
@@ -65,11 +53,13 @@ export default async function Painel() {
       <PedidosPendentes
         iniciais={pendentes}
         erroCarregamento={erroPendentes?.mensagem}
-        emProducao={pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length}
-        pecasAtivas={pecasAtivas}
-        avisosPecas={avisosPecas}
-        faturamentoMes={faturamentoMes}
+        emProducao={resumo?.emProducao ?? pedidosDoArtesao.filter((pedido) => pedido.estado === 'producao').length}
+        pecasAtivas={resumo?.pecasAtivas ?? null}
+        avisosPecas={resumo?.avisos ?? null}
+        faturamentoMes={resumo?.faturamentoMes ?? null}
       />
+
+      <PedidosEmAndamento pedidos={emAndamento} />
 
       <section className="secao">
         <h2 className="secao-titulo">Conversas</h2>

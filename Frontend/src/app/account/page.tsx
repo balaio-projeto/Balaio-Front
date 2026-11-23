@@ -4,6 +4,7 @@ import { Migalhas, Retrato } from '@/components/ui/Basicos'
 import BotaoSair from '@/components/conta/BotaoSair'
 import {
   IconeCadeado,
+  IconeCalendario,
   IconeCoracao,
   IconeMapa,
   IconePacote,
@@ -17,8 +18,9 @@ import { exigirSessao } from '@/services/autenticacao'
 
 export default async function Conta() {
   const { usuario: usuarioAtual, token } = await exigirSessao()
+  const comprador = usuarioAtual.papel === 'comprador'
   const [{ dados: pedidos }, perfil] = await Promise.all([
-    listarPedidos(token),
+    comprador ? listarPedidos(token) : { dados: [] },
     usuarioAtual.papel === 'artesao' ? obterMeuAtelie(token) : null,
   ])
   const imagem = perfil?.dados?.imagem ?? usuarioAtual.imagem
@@ -43,14 +45,14 @@ export default async function Conta() {
           {usuarioAtual.papel === 'artesao' && <Link href="/dashboard/settings" className="menu-item">
             <IconeUsuario />Perfil do ateliê<span className="menu-item-seta"><IconeSetaDireita /></span>
           </Link>}
-          <Link href="/orders" className="menu-item">
+          {comprador && <Link href="/orders" className="menu-item">
             <IconePacote />
             Meus pedidos
             <span className="menu-marcador">{totalPedidos}</span>
             <span className="menu-item-seta">
               <IconeSetaDireita />
             </span>
-          </Link>
+          </Link>}
           <Link href="/favorites" className="menu-item">
             <IconeCoracao />
             Peças salvas
@@ -58,13 +60,13 @@ export default async function Conta() {
               <IconeSetaDireita />
             </span>
           </Link>
-          <Link href="/account/addresses" className="menu-item">
+          {comprador && <Link href="/account/addresses" className="menu-item">
             <IconeMapa />
             Endereços de entrega
             <span className="menu-item-seta">
               <IconeSetaDireita />
             </span>
-          </Link>
+          </Link>}
           <Link href="/account/details" className="menu-item">
             <IconeUsuario />
             Meus dados
@@ -79,6 +81,15 @@ export default async function Conta() {
               <IconeSetaDireita />
             </span>
           </Link>
+          {usuarioAtual.papel === 'organizador' && (
+            <Link href="/events/new" className="menu-item">
+              <IconeCalendario />
+              Organizar um evento
+              <span className="menu-item-seta">
+                <IconeSetaDireita />
+              </span>
+            </Link>
+          )}
           {usuarioAtual.papel === 'admin' && (
             <Link href="/admin" className="menu-item">
               <IconePincel />

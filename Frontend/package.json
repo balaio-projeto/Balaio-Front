@@ -13,10 +13,16 @@
     "test:curadoria": "tsx --test tests/curadoria.test.ts",
     "test:recovery": "tsx --test tests/recovery.test.ts",
     "test:e2e:auth": "playwright test",
+    "test:e2e:real": "playwright test -c playwright.real.config.ts",
+    "dados:e2e:real": "tsx tests/e2e-real/dados/preparar-dados.ts",
     "test:session": "tsx --test src/proxy.test.ts",
     "test:sacola": "tsx --test src/store/sacola.test.ts src/components/carrinho/abrirPagamento.test.ts",
-    "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts",
-    "test:community": "tsx --test src/services/api/community.test.ts"
+    "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts src/utils/frete.test.ts src/utils/painel.test.ts",
+    "test:community": "tsx --test src/services/api/community.test.ts src/components/produto/favoritosListados.test.ts src/components/pedido/situacaoMediacao.test.ts",
+    "test:pi210": "tsx --test tests/pi210.test.ts",
+    "test:filtros": "tsx --test src/utils/filtrosUrl.test.ts",
+    "test:eventos": "tsx --test tests/eventos.test.ts",
+    "test:cep": "tsx --test src/utils/cep.test.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
