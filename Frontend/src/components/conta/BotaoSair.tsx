@@ -19,12 +19,14 @@ export default function BotaoSair() {
     definirSaindo(true)
     try {
       const resposta = await sairDaConta()
-      if (resposta.erro || !resposta.dados?.encerrada) {
+      const servidorFora = resposta.erro?.codigo === 'ERRO_REDE' || (resposta.erro?.status ?? 0) >= 500
+      if (!servidorFora && (resposta.erro || !resposta.dados?.encerrada)) {
         avisar.erro('Não foi possível sair da conta', resposta.erro?.mensagem ?? 'Tente novamente em instantes.')
         return
       }
       encerrarSessao()
-      avisar.sucesso('Você saiu da conta', 'Até a próxima visita!')
+      if (servidorFora) avisar.sucesso('Você saiu deste dispositivo', 'O servidor não respondeu, mas a sessão foi removida deste navegador.')
+      else avisar.sucesso('Você saiu da conta', 'Até a próxima visita!')
       roteador.push('/login')
       roteador.refresh()
     } finally {

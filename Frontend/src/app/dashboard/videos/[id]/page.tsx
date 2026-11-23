@@ -3,22 +3,22 @@ import FormEditarVideo from '@/components/forms/FormEditarVideo'
 import { Migalhas } from '@/components/ui/Basicos'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
-import { listarVideos } from '@/services/api/videos.servico'
+import { obterVideo } from '@/services/api/videos.servico'
 import { exigirArtesao } from '@/services/autenticacao'
-import { fallbackDe, imagemBase } from '@/utils/imagem'
+import { IconePlay } from '@/components/ui/Icones'
 
 type Props = { params: Promise<{ id: string }> }
 
 export default async function EditarVideo({ params }: Props) {
   const { artesao, token } = await exigirArtesao()
   const { id } = await params
-  const [{ dados: videos, erro }, { dados: pecasArtesao }] = await Promise.all([
-    listarVideos(true, token),
+  const [{ dados: video, erro }, { dados: pecasArtesao }] = await Promise.all([
+    obterVideo(id, token),
     pecasPainelArtesao(artesao.slug, token),
   ])
+  if (erro?.status === 404 || erro?.status === 400) notFound()
   if (erro) throw new Error(erro.mensagem)
-  const video = videos?.find((item) => item.id === id)
-  if (!video) notFound()
+  if (!video || video.artesao !== artesao.slug) notFound()
   const pecas = (pecasArtesao ?? []).map((peca) => ({ slug: peca.slug, nome: peca.nome }))
 
   return (
@@ -33,7 +33,7 @@ export default async function EditarVideo({ params }: Props) {
       <h1 className="titulo-pagina">Editar vídeo</h1>
       <div className="editar-video-capa">
         <div className="video-painel-capa">
-          <ImagemComFallback src={video.capa ?? imagemBase} reserva={fallbackDe(video.capa ?? imagemBase)} alt="" loading="lazy" />
+          <ImagemComFallback src={video.capa} alt="" loading="lazy" semImagem={<span className="capa-video-vazia" aria-hidden><IconePlay tamanho={28} /></span>} />
         </div>
         <p className="autoria">O arquivo do vídeo não pode ser trocado aqui. Para usar outro, publique um novo vídeo.</p>
       </div>

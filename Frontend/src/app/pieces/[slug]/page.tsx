@@ -97,7 +97,7 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
             <Link href={hrefListagem({ tecnica: peca.tecnica })}>{peca.tecnica}</Link>
           </p>
 
-          {peca.avaliacao && (
+          {!!peca.avaliacao && (
             <p className="acima-3">
               <Estrelas nota={peca.avaliacao} /> <span className="autoria">({peca.totalAvaliacoes} avaliações)</span>
             </p>
@@ -112,7 +112,7 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
               <p className="preco-pagina">{emReais(peca.preco)}</p>
             )}
 
-            {peca.desconto && (
+            {(peca.desconto ?? 0) > 0 && (
               <p className="aviso abaixo-4">
                 <IconeEtiqueta />
                 <span>
@@ -183,8 +183,8 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
                 </span>
               )}
               <span>
-                <strong>{artesao.obrasComercializadas}</strong>
-                peças vendidas
+                <strong>{artesao.obrasComercializadas ?? '—'}</strong>
+                {artesao.obrasComercializadas == null ? 'dados de vendas indisponíveis' : 'peças vendidas'}
               </span>
               <span>
                 <strong>{doArtesao.length + 1}</strong>

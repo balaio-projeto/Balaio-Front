@@ -11,6 +11,7 @@ import { useSessao } from '@/store/sessao'
 import SeletorComOutro from '@/components/forms/SeletorComOutro'
 import { validarEmail, validarObrigatorio, validarSenha } from '@/utils/validacao'
 import { cadastrarUsuario } from '@/services/api/conta.servico'
+import { atualizarMeuAtelie, type PerfilArtesao } from '@/services/api/artesaos.servico'
 
 const perfis: { chave: PapelCadastro; rotulo: string }[] = [
   { chave: 'comprador', rotulo: 'Quero comprar peças' },
@@ -20,6 +21,17 @@ const perfis: { chave: PapelCadastro; rotulo: string }[] = [
 type Props = {
   tecnicas: string[]
   territorios: string[]
+}
+
+type OrigemDoAtelie = Partial<Pick<PerfilArtesao, 'territorio' | 'tecnica'>>
+
+function origemPreenchida(dados: FormData): OrigemDoAtelie {
+  const territorio = String(dados.get('territorio') ?? '').trim()
+  const tecnica = String(dados.get('tecnica') ?? '').trim()
+  return {
+    ...(territorio ? { territorio } : {}),
+    ...(tecnica ? { tecnica: tecnica as PerfilArtesao['tecnica'] } : {}),
+  }
 }
 
 export default function FormCadastro({ tecnicas, territorios }: Props) {
@@ -62,19 +74,28 @@ export default function FormCadastro({ tecnicas, territorios }: Props) {
       email: String(dados.get('email')),
       senha: String(dados.get('senha')),
       perfil,
-      territorio: vendedor ? String(dados.get('territorio') ?? '') : undefined,
-      tecnica: vendedor ? String(dados.get('tecnica') ?? '') : undefined,
     })
-    definirEnviando(false)
     if (!usuario) {
+      definirEnviando(false)
       definirErroEnvio(erro?.mensagem ?? 'Não foi possível criar a conta.')
       avisar.erro('Não foi possível criar a conta', erro?.mensagem)
       return
     }
 
     const sessao = sessaoDoUsuario(usuario)
-    if (!sessao) { definirErroEnvio('A API não retornou uma conta válida.'); return }
+    if (!sessao) {
+      definirEnviando(false)
+      definirErroEnvio('A API não retornou uma conta válida.')
+      return
+    }
     iniciarSessao(sessao)
+
+    const origem = vendedor ? origemPreenchida(dados) : {}
+    if (Object.keys(origem).length > 0) {
+      const { erro: erroOrigem } = await atualizarMeuAtelie(origem)
+      if (erroOrigem) avisar.info('Território e técnica não foram salvos', 'Complete essas informações nas configurações do ateliê.')
+    }
+    definirEnviando(false)
     const destino = destinoInicial(sessao)
     avisar.sucesso(
       'Conta criada!',

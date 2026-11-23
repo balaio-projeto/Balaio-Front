@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
-import { Foto, Migalhas } from '@/components/ui/Basicos'
+import { Foto, Migalhas, SeloDisponibilidade } from '@/components/ui/Basicos'
 import { IconePacote, IconeSetaDireita } from '@/components/ui/Icones'
 import InativarPeca from '@/components/painel/InativarPeca'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
@@ -33,7 +33,7 @@ export default async function MinhasPecas() {
   const { artesao, token } = await exigirArtesao()
   const [{ dados: pecas, erro }, { dados: pedidos }] = await Promise.all([
     pecasPainelArtesao(artesao.slug, token),
-    listarVendasArtesao(artesao.slug, token),
+    listarVendasArtesao(token),
   ])
   const pecasLista = pecas ?? []
   const mapaPecas = new Map(pecasLista.map((peca) => [peca.slug, peca]))
@@ -79,22 +79,23 @@ export default async function MinhasPecas() {
               const chave = peca.situacao ?? 'publicada'
               const situacao = situacoes[chave] ?? situacoes.publicada
               const linkEdicao = `/dashboard/pieces/${peca.slug}`
+              const inativada = Boolean(peca.inativadoEm)
 
               return (
-                <article className="peca-painel" data-inativada={peca.inativadoEm ? true : undefined} key={peca.slug}>
+                <article className="peca-painel" data-inativada={inativada || undefined} key={peca.slug}>
                   <div className="peca-painel-topo">
                     <div className="peca-painel-figura">
                       <Foto nome={peca.nome} imagem={peca.imagem} decorativa />
                     </div>
                     <div className="encolhivel">
                       <h2 className="peca-painel-nome">
-                        <Link href={linkEdicao}>{peca.nome}</Link>
+                        {inativada ? peca.nome : <Link href={linkEdicao}>{peca.nome}</Link>}
                       </h2>
                       <p className="autoria">{peca.tecnica}</p>
                     </div>
                     <div className="peca-painel-valores">
                       <span className="peca-painel-preco">{emReais(peca.preco)}</span>
-                      {peca.inativadoEm ? (
+                      {inativada ? (
                         <span className="selo selo-neutro">
                           <span className="selo-ponto" />
                           Inativada
@@ -111,23 +112,31 @@ export default async function MinhasPecas() {
                   <div className="peca-painel-rodape">
                     <div className="peca-painel-disponibilidade">
                       <span className="dado-rotulo">Disponibilidade</span>
-                      <DisponibilidadeRapida
-                        slug={peca.slug}
-                        inicial={peca.disponibilidade}
-                        prazoInicial={peca.prazoProducaoDias}
-                        vendida={pecasUnicasVendidas.has(peca.slug) || Boolean(peca.vendidaEmPedido)}
-                      />
+                      {inativada ? (
+                        <SeloDisponibilidade tipo={peca.disponibilidade} prazoDias={peca.prazoProducaoDias} />
+                      ) : (
+                        <DisponibilidadeRapida
+                          slug={peca.slug}
+                          inicial={peca.disponibilidade}
+                          prazoInicial={peca.prazoProducaoDias}
+                          vendida={pecasUnicasVendidas.has(peca.slug) || Boolean(peca.vendidaEmPedido)}
+                        />
+                      )}
                     </div>
 
                     <div className="peca-painel-acoes">
-                      <Link href={linkEdicao} className="botao botao-secundario">Editar</Link>
-                      {!peca.inativadoEm && chave === 'publicada' && (
-                        <Link href={`/pieces/${peca.slug}`} className="botao botao-fantasma">Ver na loja</Link>
+                      {!inativada && (
+                        <>
+                          <Link href={linkEdicao} className="botao botao-secundario">Editar</Link>
+                          {chave === 'publicada' && (
+                            <Link href={`/pieces/${peca.slug}`} className="botao botao-fantasma">Ver na loja</Link>
+                          )}
+                          <Link href={`/dashboard/pieces/new?base=${encodeURIComponent(peca.slug)}`} className="botao botao-fantasma">
+                            Cadastrar semelhante
+                          </Link>
+                        </>
                       )}
-                      <Link href={`/dashboard/pieces/new?base=${encodeURIComponent(peca.slug)}`} className="botao botao-fantasma">
-                        Cadastrar semelhante
-                      </Link>
-                      <InativarPeca slug={peca.slug} nome={peca.nome} inativada={Boolean(peca.inativadoEm)} />
+                      <InativarPeca slug={peca.slug} nome={peca.nome} inativada={inativada} />
                     </div>
                   </div>
                 </article>

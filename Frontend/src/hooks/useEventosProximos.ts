@@ -45,7 +45,6 @@ export function useEventosProximos() {
         periodo: evento.periodo,
         lat: evento.lat,
         lng: evento.lng,
-        proprio: evento.criadoPorVoce,
       })),
     [ordenados],
   )

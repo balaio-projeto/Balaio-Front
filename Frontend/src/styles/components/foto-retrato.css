@@ -13,6 +13,20 @@
   background: linear-gradient(140deg, var(--barro-claro), var(--barro));
 }
 
+.retrato-silhueta {
+  @apply w-full h-full flex items-center justify-center text-branco;
+}
+
+.retrato-silhueta svg {
+  width: 58%;
+  height: 58%;
+}
+
+.capa-video-vazia {
+  @apply absolute inset-0 w-full h-full flex items-center justify-center text-branco;
+  background: linear-gradient(140deg, var(--barro-claro), var(--barro));
+}
+
 .retrato-grande {
   @apply w-24 h-24 border-4 border-branco;
 }

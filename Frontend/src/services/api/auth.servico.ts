@@ -1,5 +1,4 @@
 import { enviar } from './cliente'
-import { enviarAutenticacao } from './conta.servico'
 import type { RespostaApi } from './tipos'
 
 export type Papel = 'comprador' | 'artesao' | 'admin' | 'organizador'
@@ -26,14 +25,6 @@ export type DadosCadastro = {
   papel: PapelCadastro
   territorio?: string
   tecnica?: string
-}
-
-export function entrar(email: string, senha: string): Promise<RespostaApi<UsuarioAutenticado>> {
-  return enviarAutenticacao<UsuarioAutenticado>('/auth/entrar', { email, senha })
-}
-
-export function cadastrar(dados: DadosCadastro): Promise<RespostaApi<UsuarioAutenticado>> {
-  return enviarAutenticacao<UsuarioAutenticado>('/auth/cadastro', dados)
 }
 
 export function atualizarConta(

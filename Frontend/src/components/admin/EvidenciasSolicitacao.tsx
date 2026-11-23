@@ -14,18 +14,20 @@ const iconePorSituacao: Record<SituacaoCriterio, ReactNode> = {
   falta: <IconeFechar tamanho={15} />,
 }
 
-function conferirCriterios({ tecnica, territorio, pecas, coletivo }: SolicitacaoComEvidencias) {
+function conferirCriterios({ tecnica, territorio, pecas, pecasIndisponiveis, coletivo }: SolicitacaoComEvidencias) {
   const comFoto = pecas.filter((peca) => peca.imagem).length
 
   const identificacao = tecnica && territorio
     ? { situacao: 'ok' as const, texto: 'Técnica e território informados' }
     : { situacao: 'falta' as const, texto: 'Técnica ou território não informados' }
 
-  const fotos = pecas.length === 0
-    ? { situacao: 'falta' as const, texto: 'Nenhuma peça publicada' }
-    : comFoto === pecas.length
-      ? { situacao: 'ok' as const, texto: 'Todas as peças com foto' }
-      : { situacao: 'conferir' as const, texto: `${comFoto} de ${pecas.length} peças com foto` }
+  const fotos = pecasIndisponiveis
+    ? { situacao: 'conferir' as const, texto: 'Peças indisponíveis no momento' }
+    : pecas.length === 0
+      ? { situacao: 'falta' as const, texto: 'Nenhuma peça publicada' }
+      : comFoto === pecas.length
+        ? { situacao: 'ok' as const, texto: 'Todas as peças com foto' }
+        : { situacao: 'conferir' as const, texto: `${comFoto} de ${pecas.length} peças com foto` }
 
   const vinculo = coletivo
     ? { situacao: 'ok' as const, texto: `Participa de ${coletivo}` }

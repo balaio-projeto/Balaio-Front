@@ -376,3 +376,38 @@ test('consultas server-side vão todas ao gateway', async () => {
     else process.env.API_GATEWAY_URL = gatewayAnterior
   }
 })
+
+test('sessão recusada pelo gateway é removida do navegador e só o primeiro cookie é repassado', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const cookiesRepassados: (string | null)[] = []
+  globalThis.fetch = async (_entrada, opcoes) => {
+    cookiesRepassados.push(new Headers(opcoes?.headers).get('cookie'))
+    return Response.json({ dados: null, erro: { codigo: 'NAO_AUTENTICADO' } }, { status: 401 })
+  }
+  try {
+    const resposta = await encaminharApi(new Request('http://localhost:4321/api/v1/pecas', {
+      headers: { cookie: 'balaio_sessao=legado; balaio_sessao=atual' },
+    }))
+    assert.equal(resposta.status, 401)
+    assert.deepEqual(cookiesRepassados, ['balaio_sessao=legado'])
+    assert.ok(resposta.headers.getSetCookie().some((cookie) => /^balaio_sessao=;.*Path=\/;.*Max-Age=0/.test(cookie)))
+  } finally {
+    process.env.API_GATEWAY_URL = anterior
+  }
+})
+
+test('sair da conta limpa a sessão mesmo com o servidor fora do ar', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  globalThis.fetch = async () => { throw new TypeError('fetch failed') }
+  try {
+    const resposta = await encaminharApi(new Request('http://localhost:4321/api/v1/auth/logout', {
+      method: 'POST', headers: { cookie: 'balaio_sessao=jwt', origin: 'http://localhost:4321' },
+    }))
+    assert.equal(resposta.status, 502)
+    assert.ok(resposta.headers.getSetCookie().some((cookie) => /^balaio_sessao=;.*Path=\/;.*Max-Age=0/.test(cookie)))
+  } finally {
+    process.env.API_GATEWAY_URL = anterior
+  }
+})

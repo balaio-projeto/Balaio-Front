@@ -31,7 +31,7 @@ export async function pecasPorTipo(
   if (!resposta.dados) return resposta
   return { ...resposta, dados: resposta.dados.filter((peca) => peca.slug !== excluir).slice(0, limite) }
 }
-export function pecasPorArtesao(slug: string, token?: string): Promise<RespostaApi<Peca[]>> {
+export function pecasPorArtesao(slug: string): Promise<RespostaApi<Peca[]>> {
   return buscar('/artesaos/' + encodeURIComponent(slug) + '/pecas')
 }
 export function pecasPainelArtesao(slug: string, token: string): Promise<RespostaApi<Peca[]>> {
@@ -45,11 +45,22 @@ export type DadosPeca = Pick<Peca, 'nome' | 'tecnica' | 'territorio' | 'categori
 }
 export type AlteracoesPeca = Partial<DadosPeca>
 
+const PRAZO_ESCRITA_DE_PECA_MS = 60_000
+const AVISO_ESCRITA_INCERTA = 'O envio demorou demais e não sabemos se a peça foi salva. Confira a lista de peças antes de tentar de novo.'
+
+async function escreverPeca(caminho: string, corpo: unknown, metodo: 'POST' | 'PATCH'): Promise<RespostaApi<Peca>> {
+  const resposta = await buscar<Peca>(caminho, {
+    method: metodo, body: JSON.stringify(corpo), signal: AbortSignal.timeout(PRAZO_ESCRITA_DE_PECA_MS),
+  })
+  if (resposta.erro?.codigo === 'ERRO_REDE') return { dados: null, erro: { ...resposta.erro, mensagem: AVISO_ESCRITA_INCERTA } }
+  return resposta
+}
+
 export function criarPeca(dados: DadosPeca): Promise<RespostaApi<Peca>> {
-  return enviar('/pecas', dados)
+  return escreverPeca('/pecas', dados, 'POST')
 }
 export function atualizarPeca(slug: string, alteracoes: AlteracoesPeca): Promise<RespostaApi<Peca>> {
-  return enviar(`/pecas/${encodeURIComponent(slug)}`, alteracoes, 'PATCH')
+  return escreverPeca(`/pecas/${encodeURIComponent(slug)}`, alteracoes, 'PATCH')
 }
 export function excluirPeca(slug: string): Promise<RespostaApi<Peca>> {
   return buscar(`/pecas/${encodeURIComponent(slug)}`, { method: 'DELETE' })

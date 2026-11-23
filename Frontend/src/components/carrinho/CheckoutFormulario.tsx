@@ -11,8 +11,9 @@ import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import { useRevalidacaoSacola, useSacola } from '@/store/sacola'
 import { usePecas } from '@/hooks/usePecas'
-import { validarCEP, validarEstado, validarObrigatorio } from '@/utils/validacao'
+import { validarCEP, validarComprimento, validarEstado, validarObrigatorio } from '@/utils/validacao'
 import { useCotacaoFrete } from '@/hooks/useCotacaoFrete'
+import { useDados } from '@/store/dados'
 import { opcaoEscolhida, origemDaCotacao } from '@/utils/frete'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { listarEnderecos } from '@/services/api/conta.servico'
@@ -22,17 +23,48 @@ import { entregaDoEnderecoSalvo, entregaPeloCep, formatarCep, type EnderecoPorCe
 import SeletorEnderecoSalvo, { OUTRO_ENDERECO } from './SeletorEnderecoSalvo'
 import SeletorEstado from '@/components/forms/SeletorEstado'
 import { abrirPagamentoAposLimpeza, linkDePagamentoConfiavel } from './abrirPagamento'
+import { agruparPorAtelie, grupoEscolhido } from './gruposAtelie'
+
+const LIMITE_ENDERECO = 200
+const LIMITE_CIDADE = 100
+
+type PagamentoPendente = { destino: string; slugs: string[] }
+
+function problemaDaEntrega(campo: keyof EntregaDoCheckout, valor: string): string | null {
+  if (campo === 'cep') return validarCEP(valor)
+  if (campo === 'estado') return validarEstado(valor)
+  if (campo === 'endereco') return validarObrigatorio(valor, 'Informe o endereço de entrega')
+    ?? validarComprimento(valor, LIMITE_ENDERECO, `Use até ${LIMITE_ENDERECO} caracteres no endereço`)
+  return validarObrigatorio(valor, 'Informe a cidade')
+    ?? validarComprimento(valor, LIMITE_CIDADE, `Use até ${LIMITE_CIDADE} caracteres na cidade`)
+}
+
+const ID_DO_CAMPO: Record<keyof EntregaDoCheckout, string> = {
+  cep: 'cep-checkout', endereco: 'endereco', cidade: 'cidade', estado: 'estado',
+}
 
 export default function CheckoutFormulario() {
-  const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar, limparConfirmado } = useSacola()
-  const cotacao = useRevalidacaoSacola(itens, pronto && !erroSacola && !conflito)
-  const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
+  const { itens, pronto, erro: erroSacola, aviso, conflito, sincronizando, recarregar, removerConfirmado } = useSacola()
   const { mapaPecas, carregando, erro } = usePecas()
+  const { artesaos } = useDados()
+  const [atelieEscolhido, definirAtelieEscolhido] = useState<string | null>(null)
+  const detalhados = itens.flatMap((item) => {
+    const peca = mapaPecas.get(item.slug)
+    return peca ? [{ item, peca }] : []
+  })
+  const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
+  const grupos = agruparPorAtelie(detalhados, artesaos)
+  const grupo = grupoEscolhido(grupos, atelieEscolhido)
+  const doGrupo = grupo?.entradas ?? []
+  const itensDoGrupo = doGrupo.map(({ item }) => item)
+  const cotacao = useRevalidacaoSacola(itens, pronto && !erroSacola && !conflito && !sincronizando,
+    itensDoGrupo.map((item) => item.slug))
+  const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
   const [freteId, definirFrete] = useState<string | null>(null)
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [salvando, definirSalvando] = useState(false)
   const [concluido, definirConcluido] = useState(false)
-  const [destinoPendente, definirDestinoPendente] = useState<string | null>(null)
+  const [pagamentoPendente, definirPagamentoPendente] = useState<PagamentoPendente | null>(null)
   const [erroConfirmacao, definirErroConfirmacao] = useState<string | null>(null)
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
   const entregaEditada = useRef(false)
@@ -40,19 +72,24 @@ export default function CheckoutFormulario() {
   const [enderecosSalvos, definirEnderecosSalvos] = useState<EnderecoUsuario[]>([])
   const [enderecoEscolhido, definirEnderecoEscolhido] = useState(OUTRO_ENDERECO)
   const buscaCep = useBuscaCep(preencherPeloCep)
-  const cotacaoFrete = useCotacaoFrete(entrega.cep, itens, pronto && !erroSacola && !conflito)
+  const cotacaoFrete = useCotacaoFrete(entrega.cep, itensDoGrupo, pronto && !erroSacola && !conflito)
   const opcoesFrete = cotacaoFrete.opcoes
   const frete = opcaoEscolhida(opcoesFrete, freteId)
 
   function limparErrosDaEntrega(carregada: EntregaDoCheckout) {
     definirErros((atuais) => {
       const proximos = { ...atuais }
-      if (!validarCEP(carregada.cep)) delete proximos['cep-checkout']
-      if (!validarObrigatorio(carregada.endereco)) delete proximos.endereco
-      if (!validarObrigatorio(carregada.cidade)) delete proximos.cidade
-      if (!validarEstado(carregada.estado)) delete proximos.estado
+      for (const campo of Object.keys(ID_DO_CAMPO) as (keyof EntregaDoCheckout)[])
+        if (!problemaDaEntrega(campo, carregada[campo])) delete proximos[ID_DO_CAMPO[campo]]
       return proximos
     })
+  }
+
+  function escolherAtelie(artesao: string) {
+    if (salvando || pagamentoPendente) return
+    definirAtelieEscolhido(artesao)
+    definirFrete(null)
+    definirErroConfirmacao(null)
   }
 
   function preencherPeloCep(encontrado: EnderecoPorCep) {
@@ -79,14 +116,10 @@ export default function CheckoutFormulario() {
       void buscaCep.buscarCep(valor)
     }
     definirEntrega((atual) => ({ ...atual, [campo]: valor }))
-    const id = campo === 'cep' ? 'cep-checkout' : campo
+    const id = ID_DO_CAMPO[campo]
     definirErros((atuais) => {
       if (!atuais[id]) return atuais
-      const problema = campo === 'cep'
-        ? validarCEP(valor)
-        : campo === 'estado'
-          ? validarEstado(valor)
-          : validarObrigatorio(valor, campo === 'endereco' ? 'Informe o endereço de entrega' : 'Informe a cidade')
+      const problema = problemaDaEntrega(campo, valor)
       if (problema === atuais[id]) return atuais
       const proximos = { ...atuais }
       if (problema) proximos[id] = problema
@@ -112,36 +145,28 @@ export default function CheckoutFormulario() {
     return () => { vivo = false }
   }, [])
 
-  const detalhados = itens.flatMap((item) => {
-    const peca = mapaPecas.get(item.slug)
-    return peca ? [{ item, peca }] : []
-  })
-  const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
-
-  const subtotalCheio = detalhados.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
-  const subtotal = detalhados.reduce((total, d) => total
+  const subtotalCheio = doGrupo.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
+  const subtotal = doGrupo.reduce((total, d) => total
     + (precos.get(d.item.slug)?.precoAtual ?? precoComDesconto(d.peca)) * d.item.quantidade, 0)
   const economia = cotacao.valido ? 0 : subtotalCheio - subtotal
   const total = subtotal + (frete?.valor ?? 0)
 
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    if (destinoPendente) { await abrirPagamento(destinoPendente); return }
-    if (salvando || !detalhados.length || !frete || !cotacao.valido || !cotacao.dados?.podeProsseguir) return
+    if (pagamentoPendente) { await abrirPagamento(pagamentoPendente); return }
+    if (salvando || !itensDoGrupo.length || !frete || !cotacao.valido || !cotacao.dados?.podeProsseguir) return
     const dados = new FormData(evento.currentTarget)
+    const preenchida: EntregaDoCheckout = {
+      cep: String(dados.get('cep') ?? '').trim(),
+      endereco: String(dados.get('endereco') ?? '').trim(),
+      cidade: String(dados.get('cidade') ?? '').trim(),
+      estado: String(dados.get('estado') ?? '').trim(),
+    }
     const proximosErros: Record<string, string> = {}
-
-    const problemaCep = validarCEP(String(dados.get('cep') ?? ''))
-    if (problemaCep) proximosErros['cep-checkout'] = problemaCep
-
-    const problemaEndereco = validarObrigatorio(String(dados.get('endereco') ?? ''), 'Informe o endereço de entrega')
-    if (problemaEndereco) proximosErros['endereco'] = problemaEndereco
-
-    const problemaCidade = validarObrigatorio(String(dados.get('cidade') ?? ''), 'Informe a cidade')
-    if (problemaCidade) proximosErros['cidade'] = problemaCidade
-
-    const problemaEstado = validarEstado(String(dados.get('estado') ?? ''))
-    if (problemaEstado) proximosErros['estado'] = problemaEstado
+    for (const campo of Object.keys(ID_DO_CAMPO) as (keyof EntregaDoCheckout)[]) {
+      const problema = problemaDaEntrega(campo, preenchida[campo])
+      if (problema) proximosErros[ID_DO_CAMPO[campo]] = problema
+    }
 
     definirErros(proximosErros)
     const primeiro = Object.keys(proximosErros)[0]
@@ -165,14 +190,17 @@ export default function CheckoutFormulario() {
       definirErroConfirmacao('O preço ou a disponibilidade mudou. Revise os valores atuais antes de confirmar.')
       return
     }
+    const slugsDoGrupo = itensDoGrupo.map((item) => item.slug)
     const resposta = await finalizarCompra({
-      itens, freteId: frete.id, meio: 'checkout_pro',
-      endereco: { cep: String(dados.get('cep')), endereco: String(dados.get('endereco')), cidade: String(dados.get('cidade')), estado: String(dados.get('estado')) },
+      itens: itensDoGrupo, freteId: frete.id, meio: 'checkout_pro',
+      endereco: preenchida,
       ...(enderecoSalvoId.current ? { enderecoId: enderecoSalvoId.current } : {}),
     })
     definirSalvando(false)
     if (resposta.erro || !resposta.dados) {
-      const mensagem = resposta.erro?.mensagem ?? 'Tente novamente em instantes.'
+      const mensagem = resposta.erro?.codigo === 'PEDIDO_CONFLITANTE'
+        ? 'Cada ateliê é pago separadamente e alguma peça deste pagamento pertence a outro ateliê. Volte à sacola, confira as peças e tente novamente.'
+        : resposta.erro?.mensagem ?? 'Tente novamente em instantes.'
       if (resposta.erro?.codigo === 'FRETE_INDISPONIVEL') cotacaoFrete.tentarNovamente()
       definirErroConfirmacao(mensagem)
       avisar.erro('Não foi possível registrar o pedido', mensagem)
@@ -187,25 +215,28 @@ export default function CheckoutFormulario() {
       definirErroConfirmacao('A página de pagamento retornada é inválida. Tente novamente mais tarde.')
       return
     }
-    await abrirPagamento(destino.href)
+    await abrirPagamento({ destino: destino.href, slugs: slugsDoGrupo })
   }
 
-  async function abrirPagamento(destino: string) {
+  async function abrirPagamento(pendente: PagamentoPendente) {
     if (salvando) return
     definirSalvando(true)
-    const limpeza = await abrirPagamentoAposLimpeza(limparConfirmado, destino, (url) => {
+    const restamOutrosAtelies = grupos.length > 1
+    const limpeza = await abrirPagamentoAposLimpeza(() => removerConfirmado(pendente.slugs), pendente.destino, (url) => {
       concluirCheckoutPendente()
       definirConcluido(true)
-      avisar.sucesso('Pedido registrado', 'Abrindo o checkout de teste do Mercado Pago.')
+      avisar.sucesso('Pedido registrado', restamOutrosAtelies
+        ? 'Abrindo o checkout de teste do Mercado Pago. As peças dos outros ateliês continuam na sacola.'
+        : 'Abrindo o checkout de teste do Mercado Pago.')
       window.location.assign(url)
     })
     definirSalvando(false)
     if (!limpeza.ok) {
-      definirDestinoPendente(destino)
-      definirErroConfirmacao(`Pedido registrado, mas a sacola da conta ainda não foi limpa. ${limpeza.mensagem ?? 'Tente novamente.'}`)
+      definirPagamentoPendente(pendente)
+      definirErroConfirmacao(`Pedido registrado, mas as peças pagas ainda não saíram da sacola. ${limpeza.mensagem ?? 'Tente novamente.'}`)
       return
     }
-    definirDestinoPendente(null)
+    definirPagamentoPendente(null)
   }
 
   if ((!pronto || carregando) && !concluido) {
@@ -302,6 +333,29 @@ export default function CheckoutFormulario() {
 
       <form className="duas-colunas" onSubmit={confirmar} noValidate>
         <div>
+          {grupos.length > 1 && (
+            <section className="cartao abaixo-5">
+              <h2 className="secao-titulo" id="titulo-atelie-checkout">Qual ateliê finalizar agora</h2>
+              <p className="campo-ajuda abaixo-3">
+                Cada ateliê é pago separadamente. As peças dos outros ateliês continuam na sacola para o próximo pagamento.
+              </p>
+              <div className="opcoes" role="radiogroup" aria-labelledby="titulo-atelie-checkout">
+                {grupos.map((opcao) => {
+                  const pecas = opcao.entradas.reduce((soma, { item }) => soma + item.quantidade, 0)
+                  return (
+                    <label className="opcao opcao-topo" key={opcao.artesao}>
+                      <input type="radio" name="atelie" checked={grupo?.artesao === opcao.artesao}
+                        disabled={salvando || Boolean(pagamentoPendente)} onChange={() => escolherAtelie(opcao.artesao)} />
+                      <span className="encolhivel">
+                        <span style={{ fontWeight: 600 }}>{opcao.nome}</span>
+                        <span className="campo-ajuda"> · {pecas} {pecas === 1 ? 'peça' : 'peças'}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </section>
+          )}
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">Endereço de entrega</h2>
             <SeletorEnderecoSalvo enderecos={enderecosSalvos} selecionado={enderecoEscolhido} aoSelecionar={escolherEnderecoSalvo} />
@@ -314,11 +368,11 @@ export default function CheckoutFormulario() {
               </p>
             )}
             <Campo rotulo="Endereço" erro={erros['endereco']} id="endereco">
-              <input id="endereco" name="endereco" value={entrega.endereco} onChange={(e) => atualizarEntrega('endereco', e.target.value)} />
+              <input id="endereco" name="endereco" maxLength={LIMITE_ENDERECO} value={entrega.endereco} onChange={(e) => atualizarEntrega('endereco', e.target.value)} />
             </Campo>
             <div className="grade-dois">
               <Campo rotulo="Cidade" erro={erros['cidade']} id="cidade">
-                <input id="cidade" name="cidade" value={entrega.cidade} onChange={(e) => atualizarEntrega('cidade', e.target.value)} />
+                <input id="cidade" name="cidade" maxLength={LIMITE_CIDADE} value={entrega.cidade} onChange={(e) => atualizarEntrega('cidade', e.target.value)} />
               </Campo>
               <SeletorEstado
                 erro={erros['estado']}
@@ -371,6 +425,7 @@ export default function CheckoutFormulario() {
 
         <aside className="cartao coluna-compra">
           <h2 className="secao-titulo">Seu pedido</h2>
+          {grupos.length > 1 && grupo && <p className="campo-ajuda abaixo-3">Peças de {grupo.nome}</p>}
 
           {indisponiveis.length > 0 && (
             <div className="aviso abaixo-4" role="status">
@@ -380,7 +435,7 @@ export default function CheckoutFormulario() {
             </div>
           )}
 
-          {detalhados.map(({ peca, item }) => {
+          {doGrupo.map(({ peca, item }) => {
             const cotado = precos.get(item.slug)
             return (
             <div className="item-sacola" key={peca.slug} style={{ gridTemplateColumns: '64px minmax(0, 1fr)' }}>
@@ -393,7 +448,7 @@ export default function CheckoutFormulario() {
                   {item.quantidade > 1 ? ` × ${item.quantidade}` : ''}
                 </p>
                 <p className="autoria linha-preco">
-                  {peca.desconto && !cotacao.valido && <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>}
+                  {(peca.desconto ?? 0) > 0 && !cotacao.valido && <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>}
                   {emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}
                 </p>
                 {cotado?.situacao === 'indisponivel' &&
@@ -433,8 +488,8 @@ export default function CheckoutFormulario() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(total)}</span>
             </p>
-            <button disabled={salvando || concluido || (!destinoPendente && (!frete || !cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
-              {salvando ? 'Aguarde…' : destinoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
+            <button disabled={salvando || concluido || (!pagamentoPendente && (!frete || !cotacao.valido || !cotacao.dados?.podeProsseguir))} type="submit" className="botao botao-sucesso botao-largo">
+              {salvando ? 'Aguarde…' : pagamentoPendente ? 'Tentar abrir pagamento' : 'Confirmar compra'} <span className="esconde-mobile">{emReais(total)}</span>
               <IconeSetaDireita />
             </button>
           </div>

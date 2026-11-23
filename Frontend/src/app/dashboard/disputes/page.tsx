@@ -15,7 +15,7 @@ export default async function Disputas() {
   const { artesao, token } = await exigirArtesao()
   const [{ dados: mediacoes, erro }, { dados: vendas }, { dados: pecas }] = await Promise.all([
     listarMediacoesDasPartes(token),
-    listarVendasArtesao(artesao.slug, token),
+    listarVendasArtesao(token),
     pecasPainelArtesao(artesao.slug, token),
   ])
   const nomesDasPecas = new Map((pecas ?? []).map((peca) => [peca.slug, peca.nome]))
@@ -67,7 +67,7 @@ export default async function Disputas() {
                   <span className="dado-rotulo">Decisão da plataforma</span>
                   <span className="dado-valor">{situacao.decisao ?? 'Ainda não há decisão.'}</span>
                 </div>
-                <Link href="/dashboard/messages" className="botao-texto acima-3">Responder pela conversa do pedido</Link>
+                <Link href={`/dashboard/messages?pedido=${encodeURIComponent(mediacao.pedido)}`} className="botao-texto acima-3">Responder pela conversa do pedido</Link>
               </li>
             )
           })}

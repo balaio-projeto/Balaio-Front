@@ -10,6 +10,7 @@ export function useEstadoPersistido<T>(
   mensagemErro: string,
 ) {
   const [otimista, definirOtimista] = useState<{ valor: T } | null>(null)
+  const [gravacoesPendentes, definirGravacoesPendentes] = useState(0)
   const alteracao = useRef<Alteracao<T> | null>(null)
   const fila = useRef<Promise<void>>(Promise.resolve())
   const ativo = useRef(true)
@@ -38,6 +39,7 @@ export function useEstadoPersistido<T>(
     }
 
     // Cada PUT substitui a lista inteira; mantenha a ordem das intenções do usuário.
+    definirGravacoesPendentes((n) => n + 1)
     fila.current = fila.current.then(async () => {
       if (!ativo.current) return
       try {
@@ -55,7 +57,7 @@ export function useEstadoPersistido<T>(
       } catch {
         reverter('Tente novamente em instantes.')
       }
-    })
+    }).finally(() => { if (ativo.current) definirGravacoesPendentes((n) => n - 1) })
 
     return proximo
   }
@@ -81,5 +83,5 @@ export function useEstadoPersistido<T>(
     return operacao
   }
 
-  return { valor: otimista ? otimista.valor : inicial, atualizar, substituirConfirmado }
+  return { valor: otimista ? otimista.valor : inicial, atualizar, substituirConfirmado, sincronizando: gravacoesPendentes > 0 }
 }

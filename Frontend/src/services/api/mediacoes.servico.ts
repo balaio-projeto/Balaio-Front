@@ -18,11 +18,25 @@ export function criarMediacao(abertura: AberturaMediacao): Promise<RespostaApi<M
   return enviar('/admin/mediacoes', abertura)
 }
 
+export const MAXIMO_MEDIACOES_POR_PAGINA = 100
+export const LIMITE_DE_PAGINAS_DE_MEDIACOES = 20
+
 export async function listarMediacoes(token?: string): Promise<RespostaApi<Mediacao[]>> {
-  return buscar<Mediacao[]>('/admin/mediacoes', comToken(token))
+  const porId = new Map<string, Mediacao>()
+  for (let pagina = 0; pagina < LIMITE_DE_PAGINAS_DE_MEDIACOES; pagina++) {
+    const consulta = montarQuery({ pagina, tamanho: MAXIMO_MEDIACOES_POR_PAGINA })
+    const resposta = await buscar<Mediacao[]>('/admin/mediacoes' + consulta, comToken(token))
+    if (resposta.erro) return resposta
+    const paginaAtual = resposta.dados ?? []
+    for (const mediacao of paginaAtual) porId.set(mediacao.id, mediacao)
+    if (paginaAtual.length < MAXIMO_MEDIACOES_POR_PAGINA) break
+  }
+  return { dados: [...porId.values()], erro: null }
 }
 
-export const MAXIMO_MEDIACOES_POR_PAGINA = 100
+export function contarMediacoesEmAberto(mediacoes: Mediacao[]): number {
+  return mediacoes.filter((mediacao) => mediacao.estado !== 'decidida').length
+}
 
 export function listarMediacoesDasPartes(token?: string): Promise<RespostaApi<Mediacao[]>> {
   return buscar<Mediacao[]>('/admin/mediacoes' + montarQuery({ tamanho: MAXIMO_MEDIACOES_POR_PAGINA }), comToken(token))

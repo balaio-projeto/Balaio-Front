@@ -23,7 +23,7 @@ export default async function Conta() {
     comprador ? listarPedidos(token) : { dados: [] },
     usuarioAtual.papel === 'artesao' ? obterMeuAtelie(token) : null,
   ])
-  const imagem = perfil?.dados?.imagem ?? usuarioAtual.imagem
+  const imagem = usuarioAtual.imagem || perfil?.dados?.imagem
   const totalPedidos = (pedidos ?? []).length
   return (
     <Pagina>

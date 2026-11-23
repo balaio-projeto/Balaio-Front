@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, type FormEvent } from 'react'
 import { Campo } from '@/components/ui/Basicos'
+import EstadoErro from '@/components/feedback/EstadoErro'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeFechar } from '@/components/ui/Icones'
 import { emReais } from '@/utils/formato'
@@ -21,7 +22,7 @@ export type PedidoEmAndamento = {
   emDisputa?: boolean
 }
 
-export default function PedidosEmAndamento({ pedidos }: { pedidos: PedidoEmAndamento[] }) {
+export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedidos: PedidoEmAndamento[]; erroCarregamento?: string }) {
   const roteador = useRouter()
   const dialogo = useRef<HTMLDialogElement>(null)
   const [processando, definirProcessando] = useState<string | null>(null)
@@ -73,7 +74,8 @@ export default function PedidosEmAndamento({ pedidos }: { pedidos: PedidoEmAndam
   return (
     <section className="secao">
       <h2 className="secao-titulo">Pedidos em andamento</h2>
-      {pedidos.length === 0 && <p className="texto-suave">Nenhum pedido em produção ou a caminho do comprador.</p>}
+      {erroCarregamento && <EstadoErro mensagem={erroCarregamento} aoTentarNovamente={() => roteador.refresh()} />}
+      {!erroCarregamento && pedidos.length === 0 && <p className="texto-suave">Nenhum pedido em produção ou a caminho do comprador.</p>}
       {pedidos.map((pedido) => (
         <article className="linha-pedido" key={pedido.id}>
           <div className="dado">

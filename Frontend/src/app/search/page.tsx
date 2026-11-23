@@ -56,7 +56,7 @@ export default async function Busca({ searchParams }: Props) {
 
       <h1 className="titulo-pagina">{titulo}</h1>
       <p className="subtitulo-pagina">
-        Busque por tipo, técnica, território ou pelo nome da peça e do artesão.
+        Busque por tipo, técnica, território ou pelo nome da peça.
       </p>
 
       {erro ? (
@@ -91,7 +91,7 @@ export default async function Busca({ searchParams }: Props) {
                 descricao={
                   temFiltro
                     ? 'Tente tirar algum filtro. O catálogo cresce toda semana.'
-                    : 'Tente uma técnica, um território ou o nome de um artesão.'
+                    : 'Tente uma técnica, um território ou o nome de uma peça.'
                 }
                 acao={
                   temFiltro ? (

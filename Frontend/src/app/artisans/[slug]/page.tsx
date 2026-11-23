@@ -7,6 +7,7 @@ import EstadoErro from '@/components/feedback/EstadoErro'
 import { Migalhas, Retrato } from '@/components/ui/Basicos'
 import ListaEscalonada from '@/components/ui/ListaEscalonada'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
+import DistribuicaoNotas from '@/components/vitrine/DistribuicaoNotas'
 import { IconeConversa, IconeMapa, IconePacote, IconeSelo } from '@/components/ui/Icones'
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { pecasPorArtesao } from '@/services/api/pecas.servico'
@@ -116,6 +117,8 @@ export default async function PerfilArtesao({ params }: { params: Promise<{ slug
           </div>
         </section>
       </div>
+
+      {reputacao && reputacao.total > 0 && <DistribuicaoNotas reputacao={reputacao} />}
 
       <section className="secao">
         <h2 className="secao-titulo">Coleção viva do atelier</h2>

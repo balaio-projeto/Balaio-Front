@@ -6,9 +6,31 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import { IconeEnviar } from '@/components/ui/Icones'
 import { avisar } from '@/components/feedback/Avisos'
-import { criarPergunta, responderPergunta, type PerguntaPublica } from '@/services/api/perguntas.servico'
+import {
+  criarPergunta, listarPerguntas, responderPergunta, TAMANHO_PAGINA_PERGUNTAS, type PerguntaPublica,
+} from '@/services/api/perguntas.servico'
 import { rotaDeLogin } from '@/services/sessao/cookie'
 import { useSessao } from '@/store/sessao'
+
+const formatoDataPergunta = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeZone: 'America/Recife' })
+
+function DataDaConversa({ valor, prefixo }: { valor?: string | null; prefixo: string }) {
+  if (!valor) return null
+  const data = new Date(valor)
+  if (Number.isNaN(data.getTime())) return null
+  return (
+    <time dateTime={valor}>
+      <span aria-hidden>· </span>
+      <span className="so-leitor">{prefixo} </span>
+      {formatoDataPergunta.format(data)}
+    </time>
+  )
+}
+
+function unirSemRepetir(atuais: PerguntaPublica[], novas: PerguntaPublica[]): PerguntaPublica[] {
+  const vistas = new Set(atuais.map((pergunta) => pergunta.id))
+  return [...atuais, ...novas.filter((pergunta) => !vistas.has(pergunta.id))]
+}
 
 type Props = {
   iniciais: PerguntaPublica[]
@@ -33,14 +55,45 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
   const envioPerguntaEmAndamento = useRef(false)
   const envioRespostaEmAndamento = useRef(false)
   const campoResposta = useRef<HTMLInputElement>(null)
+  const [proximaPagina, definirProximaPagina] = useState(1)
+  const [haMaisPerguntas, definirHaMaisPerguntas] = useState(iniciais.length >= TAMANHO_PAGINA_PERGUNTAS)
+  const [carregandoMais, definirCarregandoMais] = useState(false)
+  const [erroMais, definirErroMais] = useState<string | null>(null)
+  const carregamentoEmAndamento = useRef(false)
 
-  useEffect(() => definirPerguntas(iniciais), [iniciais])
+  useEffect(() => {
+    definirPerguntas(iniciais)
+    definirProximaPagina(1)
+    definirHaMaisPerguntas(iniciais.length >= TAMANHO_PAGINA_PERGUNTAS)
+    definirErroMais(null)
+  }, [iniciais])
 
   useEffect(() => {
     if (respondendo) campoResposta.current?.focus()
   }, [respondendo])
 
   const todas = perguntas
+
+  async function verMaisPerguntas() {
+    if (carregamentoEmAndamento.current) return
+    carregamentoEmAndamento.current = true
+    definirCarregandoMais(true)
+    definirErroMais(null)
+    try {
+      const resposta = await listarPerguntas(slug, proximaPagina)
+      if (resposta.erro || !resposta.dados) {
+        definirErroMais(resposta.erro?.mensagem ?? 'Não foi possível carregar mais perguntas.')
+        return
+      }
+      const pagina = resposta.dados
+      definirPerguntas((atuais) => unirSemRepetir(atuais, pagina))
+      definirProximaPagina((atual) => atual + 1)
+      definirHaMaisPerguntas(pagina.length >= TAMANHO_PAGINA_PERGUNTAS)
+    } finally {
+      carregamentoEmAndamento.current = false
+      definirCarregandoMais(false)
+    }
+  }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
@@ -58,7 +111,7 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
       const resposta = await criarPergunta(slug, limpo)
       if (!resposta.dados) return avisar.erro('Não foi possível enviar', resposta.erro?.mensagem)
       const nova = resposta.dados
-      definirPerguntas((atuais) => [...atuais, nova])
+      definirPerguntas((atuais) => unirSemRepetir(atuais, [nova]))
       definirTexto((atual) => atual === textoEnviado ? '' : atual)
       avisar.sucesso('Pergunta enviada', 'Ela já aparece aqui com o seu nome.')
     } finally {
@@ -89,7 +142,7 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
 
   return (
     <>
-      <h2 className="secao-titulo">Perguntas e respostas{erroCarregamento ? '' : ` (${todas.length})`}</h2>
+      <h2 className="secao-titulo">Perguntas e respostas{erroCarregamento ? '' : ` (${todas.length}${haMaisPerguntas ? '+' : ''})`}</h2>
       {erroCarregamento && <p className="aviso abaixo-3" role="status">{erroCarregamento}</p>}
 
       <ul
@@ -104,6 +157,7 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
               <div className="encolhivel">
                 <p className="pergunta-autor">
                   {p.autor ?? 'Visitante'}
+                  <DataDaConversa valor={p.criadaEm} prefixo="Perguntado em" />
                 </p>
                 <p className="balao balao-pergunta">{p.pergunta}</p>
               </div>
@@ -116,6 +170,7 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
                   <p className="resposta-autor">
                     {artesaoNome}
                     <span className="selo selo-encomenda">artesão</span>
+                    <DataDaConversa valor={p.respondidaEm} prefixo="Respondido em" />
                   </p>
                   <p className="balao balao-resposta">{p.resposta}</p>
                 </div>
@@ -172,6 +227,16 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
           </li>
         ))}
       </ul>
+
+      {haMaisPerguntas && !erroCarregamento && (
+        <div className="acima-3">
+          <button type="button" className="botao botao-secundario" onClick={() => void verMaisPerguntas()}
+            disabled={carregandoMais} aria-busy={carregandoMais}>
+            {carregandoMais ? 'Carregando perguntas…' : 'Ver mais perguntas'}
+          </button>
+          {erroMais && <p className="campo-erro acima-2" role="alert">{erroMais}</p>}
+        </div>
+      )}
 
       {sessao ? (
         <>

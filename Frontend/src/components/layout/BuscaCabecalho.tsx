@@ -1,18 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { IconeBusca, IconeRelogio } from '@/components/ui/Icones'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, use, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { IconeBusca, IconeRelogio, IconeUsuario } from '@/components/ui/Icones'
+import type { SugestaoBusca } from '@/components/layout/sugestoesBusca'
 import { useHistoricoBusca } from '@/store/historicoBusca'
 
 const LIMITE_SUGESTOES = 8
+const LIMITE_TERMO = 80
 
 const normalizarTermo = (valor: string) =>
   valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
+const hrefDaBusca = (termo: string) => `/search?q=${encodeURIComponent(termo)}`
+
+type Props = { sugestoes?: Promise<SugestaoBusca[]> }
+
+export default function BuscaCabecalho({ sugestoes }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
+  const roteador = useRouter()
   const parametros = useSearchParams()
   const [consulta, definirConsulta] = useState('')
   const { recentes, registrar, limpar } = useHistoricoBusca()
@@ -31,26 +38,20 @@ export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
     return () => document.removeEventListener('pointerdown', fecharAoClicarFora)
   }, [])
 
-  const termoNormalizado = normalizarTermo(consulta.trim())
-  const sugestoesVisiveis = useMemo(() => {
-    if (!termoNormalizado) return []
-    return sugestoes
-      .filter((sugestao) => normalizarTermo(sugestao).includes(termoNormalizado))
-      .slice(0, LIMITE_SUGESTOES)
-  }, [sugestoes, termoNormalizado])
-
-  const mostrarHistorico = !consulta.trim()
+  const consultaLimpa = consulta.trim()
+  const mostrarHistorico = !consultaLimpa
   const mostrarPainel = aberto && (mostrarHistorico ? recentes.length > 0 : true)
 
-  function registrarBusca() {
-    const termo = consulta.trim().slice(0, 80)
-    if (!termo) return
-    registrar(termo)
+  function buscar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault()
+    const termo = consultaLimpa.slice(0, LIMITE_TERMO)
     definirAberto(false)
-  }
-
-  function limparHistorico() {
-    limpar()
+    if (!termo) {
+      roteador.push('/search')
+      return
+    }
+    registrar(termo)
+    roteador.push(hrefDaBusca(termo))
   }
 
   function selecionarBusca(termo: string) {
@@ -60,7 +61,7 @@ export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
 
   return (
     <div ref={raiz} className="cabecalho-busca">
-      <form action="/search" role="search" onSubmit={registrarBusca}>
+      <form action="/search" role="search" onSubmit={buscar}>
         <button type="submit" className="cabecalho-busca-botao" aria-label="Buscar">
           <IconeBusca />
         </button>
@@ -92,12 +93,12 @@ export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
             <>
               <div className="cabecalho-busca-cabecalho">
                 <span>Buscas recentes</span>
-                <button type="button" onClick={limparHistorico}>Limpar histórico</button>
+                <button type="button" onClick={limpar}>Limpar histórico</button>
               </div>
               <ul>
                 {recentes.map((termo) => (
                   <li key={termo}>
-                    <Link href={`/search?q=${encodeURIComponent(termo)}`} onClick={() => selecionarBusca(termo)}>
+                    <Link href={hrefDaBusca(termo)} onClick={() => selecionarBusca(termo)}>
                       <IconeRelogio tamanho={15} />
                       <span>{termo}</span>
                     </Link>
@@ -108,19 +109,17 @@ export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
           ) : (
             <>
               <div className="cabecalho-busca-cabecalho"><span>Sugestões</span></div>
-              {sugestoesVisiveis.length > 0 ? (
-                <ul>
-                  {sugestoesVisiveis.map((sugestao) => (
-                    <li key={sugestao}>
-                            <Link href={`/search?q=${encodeURIComponent(sugestao)}`} onClick={() => selecionarBusca(sugestao)}>
-                        <IconeBusca tamanho={15} />
-                        <span>{sugestao}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+              {sugestoes ? (
+                <Suspense fallback={<p>Carregando sugestões…</p>}>
+                  <ListaSugestoes
+                    sugestoes={sugestoes}
+                    consulta={consultaLimpa}
+                    aoEscolherTermo={selecionarBusca}
+                    aoAbrirPerfil={() => definirAberto(false)}
+                  />
+                </Suspense>
               ) : (
-                <p>Nenhuma sugestão. Pressione Enter para buscar por “{consulta.trim()}”.</p>
+                <SemSugestoes consulta={consultaLimpa} />
               )}
             </>
           )}
@@ -128,4 +127,43 @@ export default function BuscaCabecalho({ sugestoes }: { sugestoes: string[] }) {
       )}
     </div>
   )
+}
+
+type PropsLista = {
+  sugestoes: Promise<SugestaoBusca[]>
+  consulta: string
+  aoEscolherTermo: (termo: string) => void
+  aoAbrirPerfil: () => void
+}
+
+function ListaSugestoes({ sugestoes, consulta, aoEscolherTermo, aoAbrirPerfil }: PropsLista) {
+  const todas = use(sugestoes)
+  const termoNormalizado = normalizarTermo(consulta)
+  const visiveis = useMemo(
+    () => todas.filter((sugestao) => normalizarTermo(sugestao.texto).includes(termoNormalizado)).slice(0, LIMITE_SUGESTOES),
+    [todas, termoNormalizado],
+  )
+
+  if (visiveis.length === 0) return <SemSugestoes consulta={consulta} />
+
+  return (
+    <ul>
+      {visiveis.map((sugestao) => (
+        <li key={sugestao.href}>
+          <Link
+            href={sugestao.href}
+            onClick={() => (sugestao.perfilDeArtesao ? aoAbrirPerfil() : aoEscolherTermo(sugestao.texto))}
+          >
+            {sugestao.perfilDeArtesao ? <IconeUsuario tamanho={15} /> : <IconeBusca tamanho={15} />}
+            <span>{sugestao.texto}</span>
+            {sugestao.perfilDeArtesao && <span className="so-leitor"> (perfil do artesão)</span>}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SemSugestoes({ consulta }: { consulta: string }) {
+  return <p>Nenhuma sugestão. Pressione Enter para buscar por “{consulta}”.</p>
 }

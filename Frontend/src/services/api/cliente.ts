@@ -1,6 +1,14 @@
 import { falha, type RespostaApi } from './tipos'
 import { urlDoGateway } from './gateway'
 
+export const EVENTO_SESSAO_RECUSADA = 'balaio:sessao-recusada'
+const PRAZO_PADRAO_MS = 10_000
+
+function avisarSessaoRecusada(caminho: string) {
+  if (typeof window === 'undefined' || caminho.startsWith('/auth/')) return
+  window.dispatchEvent(new Event(EVENTO_SESSAO_RECUSADA))
+}
+
 function baseDaApi(): string {
   return typeof window === 'undefined' ? urlDoGateway() : '/api/v1'
 }
@@ -15,10 +23,11 @@ export async function buscar<T>(caminho: string, opcoes?: RequestInit): Promise<
       credentials: 'same-origin',
       ...opcoes,
       headers,
-      signal: opcoes?.signal ?? AbortSignal.timeout(10000),
+      signal: opcoes?.signal ?? AbortSignal.timeout(PRAZO_PADRAO_MS),
     })
     const corpo = await resposta.json().catch(() => null)
     if (!resposta.ok) {
+      if (resposta.status === 401) avisarSessaoRecusada(caminho)
       const resultado = falha(corpo?.erro?.codigo ?? `HTTP_${resposta.status}`,
         corpo?.erro?.mensagem ?? 'Não foi possível concluir a solicitação.',
         corpo?.erro?.campos, corpo?.erro?.campo)

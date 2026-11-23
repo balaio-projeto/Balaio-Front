@@ -13,16 +13,19 @@ import EstadoErro from '@/components/feedback/EstadoErro'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import { useDados } from '@/store/dados'
 import { emReais, precoComDesconto } from '@/utils/formato'
+import { agruparPorAtelie } from './gruposAtelie'
 
 const QUANTIDADES = ['1', '2', '3']
 
 export default function ItensSacola() {
   const { mapaPecas, carregando, erro } = usePecas()
-  const { artesaos, fretes, carregando: carregandoFretes, erroFretes } = useDados()
+  const { artesaos, fretes, carregando: carregandoFretes } = useDados()
   const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar,
-    remover, removerParaMesclar, repor, alterarQuantidade } = useSacola()
-  const { sessao } = useSessao()
-  const cotacao = useRevalidacaoSacola(itens, Boolean(sessao && pronto && !erroSacola && !conflito))
+    remover, removerParaMesclar, repor, alterarQuantidade, sincronizando } = useSacola()
+  const { sessao: sessaoAtual } = useSessao()
+  const sessao = sessaoAtual?.papel === 'comprador' ? sessaoAtual : null
+  const semPapelDeComprador = Boolean(sessaoAtual) && !sessao
+  const cotacao = useRevalidacaoSacola(itens, Boolean(sessao && pronto && !erroSacola && !conflito && !sincronizando))
   const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
 
   const detalhados = itens.flatMap((item) => {
@@ -30,12 +33,16 @@ export default function ItensSacola() {
     return peca ? [{ item, peca }] : []
   })
   const indisponiveis = itens.filter((item) => !mapaPecas.has(item.slug))
+  const grupos = agruparPorAtelie(detalhados, artesaos)
+  const variosAtelies = grupos.length > 1
 
   const subtotalCheio = detalhados.reduce((total, d) => total + d.peca.preco * d.item.quantidade, 0)
   const subtotal = detalhados.reduce((total, d) => total
     + (precos.get(d.item.slug)?.precoAtual ?? precoComDesconto(d.peca)) * d.item.quantidade, 0)
   const economia = cotacao.valido ? 0 : subtotalCheio - subtotal
-  const frete = fretes[0]?.valor ?? 0
+  const freteEstimado = fretes[0]?.valor
+  const frete = freteEstimado ?? 0
+  const rotuloFrete = carregandoFretes ? 'Calculando…' : freteEstimado === undefined ? 'Calculado no pagamento' : emReais(freteEstimado)
 
   function removerItem(slug: string, nome: string) {
     if (conflito) { removerParaMesclar(slug); return }
@@ -45,10 +52,9 @@ export default function ItensSacola() {
     avisar.desfazivel(`${nome} saiu da sacola`, () => repor(item, posicao))
   }
 
-  if (!pronto || carregando || carregandoFretes) return <EstadoCarregando />
+  if (!pronto || carregando) return <EstadoCarregando />
   if (erroSacola && !conflito) return <EstadoErro mensagem={erroSacola} aoTentarNovamente={recarregar} />
-  if ((erro || erroFretes || !fretes.length) && !conflito)
-    return <EstadoErro mensagem={erro ?? erroFretes ?? 'Nenhuma opção de entrega disponível.'} />
+  if (erro && !conflito) return <EstadoErro mensagem={erro} />
 
   if (itens.length === 0) {
     return (
@@ -72,7 +78,7 @@ export default function ItensSacola() {
     <>
       {aviso && <p className="aviso abaixo-4" role="alert">{aviso}</p>}
       {conflito && <div className="aviso abaixo-4" role="alert">
-        <p>Não foi possível mesclar a sacola: {erroSacola} Retire o item indisponível ou tente novamente.</p>
+        <p>Não foi possível mesclar a sacola: {erroSacola} Retire uma peça e tente novamente.</p>
         <button type="button" className="botao-texto" onClick={recarregar}>Tentar novamente</button>
       </div>}
       {sessao && !conflito && <div className="aviso abaixo-4" role={cotacao.erro ? 'alert' : 'status'}>
@@ -87,6 +93,10 @@ export default function ItensSacola() {
       <p className="subtitulo-pagina">
         {itens.length} {itens.length === 1 ? 'peça na sacola' : 'peças na sacola'}.
       </p>
+      {variosAtelies && <div className="aviso abaixo-4" role="status">
+        <p><strong>Cada ateliê é pago separadamente.</strong> Sua sacola tem peças de {grupos.length} ateliês;
+          no pagamento você escolhe qual finalizar primeiro e as demais peças continuam aqui.</p>
+      </div>}
 
       <div className="duas-colunas">
         <section className="cartao">
@@ -109,74 +119,78 @@ export default function ItensSacola() {
               </div>
             </article>
           ))}
-          {detalhados.map(({ peca, item }) => {
-            const artesao = artesaos.find((a) => a.slug === peca.artesao)
-            const cotado = precos.get(item.slug)
-            const disponibilidade = cotado?.disponibilidade && cotado.disponibilidade !== 'indisponivel'
-              ? cotado.disponibilidade : peca.disponibilidade
-            return (
-              <article className="item-sacola" key={peca.slug}>
-                <div className="item-sacola-figura">
-                  <Foto nome={peca.nome} imagem={peca.imagem} decorativa />
-                </div>
-                <div className="encolhivel">
-                  <div className="linha-flex linha-entre" style={{ alignItems: 'flex-start' }}>
-                    <div className="encolhivel">
-                      <Link href={`/pieces/${peca.slug}`} className="texto-forte" style={{ color: 'var(--tinta)' }}>
-                        {peca.nome}
-                      </Link>
-                      <p className="autoria">
-                        por {artesao?.nome} · {peca.territorio}
-                      </p>
+          {grupos.map((grupo) => (
+            <section key={grupo.artesao} aria-label={variosAtelies ? `Peças de ${grupo.nome}` : undefined}>
+              {variosAtelies && <h2 className="secao-titulo acima-3">{grupo.nome}</h2>}
+              {grupo.entradas.map(({ peca, item }) => {
+                const cotado = precos.get(item.slug)
+                const disponibilidade = cotado?.disponibilidade && cotado.disponibilidade !== 'indisponivel'
+                  ? cotado.disponibilidade : peca.disponibilidade
+                return (
+                  <article className="item-sacola" key={peca.slug}>
+                    <div className="item-sacola-figura">
+                      <Foto nome={peca.nome} imagem={peca.imagem} decorativa />
                     </div>
-                    <span className="linha-preco">
-                      {peca.desconto && !cotacao.valido && (
-                        <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>
-                      )}
-                      <strong className="preco">{emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}</strong>
-                    </span>
-                  </div>
-
-                  {cotado?.situacao === 'indisponivel' &&
-                    <p className="aviso acima-3" role="status">Peça indisponível na revalidação.</p>}
-                  {cotado?.precoAtual !== null && cotado?.precoAtual !== undefined
-                    && cotado.precoAtual !== precoComDesconto(peca) &&
-                    <p className="campo-ajuda">Preço atualizado: {emReais(cotado.precoAtual)} por unidade.</p>}
-
-                  <div className="linha-flex acima-3">
-                    {cotado?.situacao !== 'indisponivel' &&
-                      <SeloDisponibilidade tipo={disponibilidade}
-                        prazoDias={peca.prazoProducaoDias} />}
-                    {peca.desconto && !cotacao.valido && (
-                      <span className="etiqueta-desconto">
-                        {peca.desconto}%<span className="so-leitor"> de desconto da plataforma</span>
-                      </span>
-                    )}
-                    {peca.disponibilidade !== 'unica' && !conflito && (
-                      <div className="linha-flex" style={{ gap: 8, fontSize: 14 }}>
-                        <span id={`quantidade-${peca.slug}`}>Quantidade</span>
-                        <Seletor
-                          compacto
-                          className="seletor-quantidade"
-                          aria-labelledby={`quantidade-${peca.slug}`}
-                          opcoes={QUANTIDADES}
-                          value={String(item.quantidade)}
-                          onChange={(valor) => alterarQuantidade(peca.slug, Number(valor))}
-                        />
+                    <div className="encolhivel">
+                      <div className="linha-flex linha-entre" style={{ alignItems: 'flex-start' }}>
+                        <div className="encolhivel">
+                          <Link href={`/pieces/${peca.slug}`} className="texto-forte" style={{ color: 'var(--tinta)' }}>
+                            {peca.nome}
+                          </Link>
+                          <p className="autoria">
+                            {!variosAtelies ? `por ${grupo.nome} · ` : ''}{peca.territorio}
+                          </p>
+                        </div>
+                        <span className="linha-preco">
+                          {(peca.desconto ?? 0) > 0 && !cotacao.valido && (
+                            <span className="preco-riscado">{emReais(peca.preco * item.quantidade)}</span>
+                          )}
+                          <strong className="preco">{emReais((cotado?.precoAtual ?? precoComDesconto(peca)) * item.quantidade)}</strong>
+                        </span>
                       </div>
-                    )}
-                    <button
-                      type="button"
-                      className="botao-texto botao-texto-perigo"
-                      onClick={() => removerItem(peca.slug, peca.nome)}
-                    >
-                      {conflito ? 'Retirar e tentar mesclar' : 'Remover'}
-                    </button>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
+
+                      {cotado?.situacao === 'indisponivel' &&
+                        <p className="aviso acima-3" role="status">Peça indisponível na revalidação.</p>}
+                      {cotado?.precoAtual !== null && cotado?.precoAtual !== undefined
+                        && cotado.precoAtual !== precoComDesconto(peca) &&
+                        <p className="campo-ajuda">Preço atualizado: {emReais(cotado.precoAtual)} por unidade.</p>}
+
+                      <div className="linha-flex acima-3">
+                        {cotado?.situacao !== 'indisponivel' &&
+                          <SeloDisponibilidade tipo={disponibilidade}
+                            prazoDias={peca.prazoProducaoDias} />}
+                        {(peca.desconto ?? 0) > 0 && !cotacao.valido && (
+                          <span className="etiqueta-desconto">
+                            {peca.desconto}%<span className="so-leitor"> de desconto da plataforma</span>
+                          </span>
+                        )}
+                        {peca.disponibilidade !== 'unica' && !conflito && (
+                          <div className="linha-flex" style={{ gap: 8, fontSize: 14 }}>
+                            <span id={`quantidade-${peca.slug}`}>Quantidade</span>
+                            <Seletor
+                              compacto
+                              className="seletor-quantidade"
+                              aria-labelledby={`quantidade-${peca.slug}`}
+                              opcoes={QUANTIDADES}
+                              value={String(item.quantidade)}
+                              onChange={(valor) => alterarQuantidade(peca.slug, Number(valor))}
+                            />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="botao-texto botao-texto-perigo"
+                          onClick={() => removerItem(peca.slug, peca.nome)}
+                        >
+                          {conflito ? 'Retirar e tentar mesclar' : 'Remover'}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </section>
+          ))}
 
           <p className="acima-4">
             <Link href="/" className="ver-peca">
@@ -202,7 +216,7 @@ export default function ItensSacola() {
           )}
           <p className="resumo">
             <span>Frete de origem</span>
-            <strong>{emReais(frete)}</strong>
+            <strong>{rotuloFrete}</strong>
           </p>
           <p className="resumo resumo-total">
             <span>Total</span>
@@ -214,11 +228,14 @@ export default function ItensSacola() {
               <span className="barra-fixa-rotulo">Total</span>
               <span className="barra-fixa-valor">{emReais(subtotal + frete)}</span>
             </p>
-            {!conflito && indisponiveis.length === 0 && (!sessao || (cotacao.valido && cotacao.dados?.podeProsseguir)) && <Link href="/checkout" className="botao botao-primario botao-largo">
+            {!conflito && indisponiveis.length === 0 && !semPapelDeComprador && (!sessao || (cotacao.valido && cotacao.dados?.podeProsseguir)) && <Link href="/checkout" className="botao botao-primario botao-largo">
               Ir para o pagamento
               <IconeSetaDireita />
             </Link>}
           </div>
+          {semPapelDeComprador && <p className="campo-ajuda acima-3" role="status">
+            Para finalizar a compra, entre com uma conta de comprador.
+          </p>}
 
           <p className="campo-ajuda acima-3" style={{ textAlign: 'center' }}>
             O pagamento de teste é processado pelo Mercado Pago; acompanhe o estado no pedido.
