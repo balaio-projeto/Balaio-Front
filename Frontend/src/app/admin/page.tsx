@@ -4,6 +4,7 @@ import { Migalhas } from '@/components/ui/Basicos'
 import FilaCuradoria from '@/components/admin/FilaCuradoria'
 import { montarFilaCuradoria } from '@/components/admin/montarFilaCuradoria'
 import EstadoErro from '@/components/feedback/EstadoErro'
+import { CODIGO_TROCA_SENHA_OBRIGATORIA } from '@/components/admin/AvisoTrocaSenhaAdmin'
 import { IconeSetaDireita } from '@/components/ui/Icones'
 import { listarFilaCuradoria } from '@/services/api/curadoria.servico'
 import { listarArtesaos } from '@/services/api/artesaos.servico'
@@ -49,7 +50,7 @@ export default async function Admin() {
         </p>
       )}
 
-      {falha ? (
+      {fila.erro?.codigo === CODIGO_TROCA_SENHA_OBRIGATORIA ? null : falha ? (
         <EstadoErro mensagem={falha.erro?.mensagem} />
       ) : (
         <FilaCuradoria

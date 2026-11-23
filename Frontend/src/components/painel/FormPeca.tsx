@@ -17,6 +17,14 @@ import EstadoErro from '@/components/feedback/EstadoErro'
 import ApoioPrecificacao from '@/components/painel/ApoioPrecificacao'
 import { useReferencias } from '@/hooks/useReferencias'
 import { emReais } from '@/utils/formato'
+import {
+  DESCONTO_MAXIMO,
+  numeroDoDesconto,
+  precoFinalComDesconto,
+  textoDoDesconto,
+  validarDesconto,
+  validarPrecoFinal,
+} from '@/components/painel/descontoPeca'
 
 const MAX_FOTOS = 5
 const MAX_TAMANHO_ARQUIVO_MB = 5
@@ -24,6 +32,10 @@ const LIMITE_NOME = 120
 const LIMITE_HISTORIA = 4000
 const PRAZO_PADRAO_DIAS = 15
 const SEPARADOR_PARAGRAFOS = /\n\s*\n/
+const LADO_MAXIMO_FOTO = 1600
+const QUALIDADE_WEBP = 0.82
+const QUALIDADE_JPEG = 0.85
+const EXTENSAO_POR_TIPO: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' }
 
 type Situacao = DadosPeca['situacao']
 
@@ -51,6 +63,59 @@ function lerImagem(arquivo: File): Promise<string> {
   })
 }
 
+function dimensoesReduzidas(largura: number, altura: number) {
+  const escala = Math.min(1, LADO_MAXIMO_FOTO / Math.max(largura, altura))
+  return {
+    largura: Math.max(1, Math.round(largura * escala)),
+    altura: Math.max(1, Math.round(altura * escala)),
+  }
+}
+
+function nomeComExtensao(nome: string, tipo: string): string {
+  const extensao = EXTENSAO_POR_TIPO[tipo]
+  if (!extensao) return nome
+  return `${nome.replace(/\.[^./\\]+$/, '') || 'foto'}.${extensao}`
+}
+
+function gerarBlob(tela: HTMLCanvasElement, tipo: string, qualidade: number): Promise<Blob | null> {
+  return new Promise((resolve) => tela.toBlob(resolve, tipo, qualidade))
+}
+
+async function codificarFoto(tela: HTMLCanvasElement, contexto: CanvasRenderingContext2D): Promise<Blob> {
+  const webp = await gerarBlob(tela, 'image/webp', QUALIDADE_WEBP)
+  if (webp?.type === 'image/webp') return webp
+  contexto.globalCompositeOperation = 'destination-over'
+  contexto.fillStyle = '#ffffff'
+  contexto.fillRect(0, 0, tela.width, tela.height)
+  const jpeg = await gerarBlob(tela, 'image/jpeg', QUALIDADE_JPEG)
+  if (!jpeg) throw new Error('Não foi possível comprimir a imagem.')
+  return jpeg
+}
+
+async function comprimirFoto(arquivo: File): Promise<File> {
+  const imagem = await createImageBitmap(arquivo)
+  try {
+    const { largura, altura } = dimensoesReduzidas(imagem.width, imagem.height)
+    const tela = document.createElement('canvas')
+    tela.width = largura
+    tela.height = altura
+    const contexto = tela.getContext('2d')
+    if (!contexto) throw new Error('Não foi possível comprimir a imagem.')
+    contexto.imageSmoothingEnabled = true
+    contexto.imageSmoothingQuality = 'high'
+    contexto.drawImage(imagem, 0, 0, largura, altura)
+    const comprimida = await codificarFoto(tela, contexto)
+    const manteveTamanhoEFormato = largura === imagem.width && altura === imagem.height && arquivo.type === comprimida.type
+    if (manteveTamanhoEFormato && comprimida.size >= arquivo.size) return arquivo
+    return new File([comprimida], nomeComExtensao(arquivo.name, comprimida.type), {
+      type: comprimida.type,
+      lastModified: Date.now(),
+    })
+  } finally {
+    imagem.close()
+  }
+}
+
 function fotosDaPeca(peca?: Peca): FotoSelecionada[] {
   if (!peca) return []
   if (peca.fotos?.length) return peca.fotos.map(({ id, nome, url }) => ({ id, nome, url }))
@@ -67,6 +132,24 @@ function prazoInformado(valor: FormDataEntryValue | null): number | null {
   return validarPrazoDias(String(valor ?? '')) ? null : Number(valor)
 }
 
+function PreviaDesconto({ preco, desconto }: { preco: number; desconto: number }) {
+  const temPreco = Number.isFinite(preco) && preco > 0
+  const temDesconto = Number.isFinite(desconto) && desconto > 0
+  return (
+    <p className="previa-desconto" aria-live="polite">
+      {temPreco && temDesconto ? (
+        <>
+          De <s>{emReais(preco)}</s> por <strong>{emReais(precoFinalComDesconto(preco, desconto))}</strong>
+        </>
+      ) : temPreco ? (
+        <>Sem desconto: o comprador paga {emReais(preco)}.</>
+      ) : (
+        <>Informe o preço para ver o valor final.</>
+      )}
+    </p>
+  )
+}
+
 export default function FormPeca({ peca, modelo }: Props) {
   const roteador = useRouter()
   const base = peca ?? modelo
@@ -76,6 +159,7 @@ export default function FormPeca({ peca, modelo }: Props) {
   const { tecnicas, territorios, categorias, tipos, carregando, erro, recarregar } = useReferencias()
   const [disponibilidade, definirDisponibilidade] = useState<Disponibilidade>(base?.disponibilidade ?? 'disponivel')
   const [preco, definirPreco] = useState(() => base?.preco ? emReais(base.preco) : '')
+  const [desconto, definirDesconto] = useState(() => textoDoDesconto(base?.desconto))
   const [erros, definirErros] = useState<Record<string, string>>({})
   const [fotosSelecionadas, definirFotosSelecionadas] = useState<FotoSelecionada[]>(() => fotosDaPeca(peca))
   const formulario = useRef<HTMLFormElement>(null)
@@ -86,8 +170,13 @@ export default function FormPeca({ peca, modelo }: Props) {
   const profundidadeArraste = useRef(0)
   const [arrastando, definirArrastando] = useState(false)
   const [erroFotos, definirErroFotos] = useState('')
+  const [preparandoFotos, definirPreparandoFotos] = useState(false)
+  const fotosEmPreparo = useRef(false)
+  const montado = useRef(true)
+  const ocupado = salvando || preparandoFotos
 
   useEffect(() => {
+    montado.current = true
     const urls = urlsLocais.current
     function impedirQueSoltarForaAbraAImagem(evento: globalThis.DragEvent) {
       if (Array.from(evento.dataTransfer?.types ?? []).includes('Files')) {
@@ -97,6 +186,7 @@ export default function FormPeca({ peca, modelo }: Props) {
     window.addEventListener('dragover', impedirQueSoltarForaAbraAImagem)
     window.addEventListener('drop', impedirQueSoltarForaAbraAImagem)
     return () => {
+      montado.current = false
       window.removeEventListener('dragover', impedirQueSoltarForaAbraAImagem)
       window.removeEventListener('drop', impedirQueSoltarForaAbraAImagem)
       urls.forEach((url) => URL.revokeObjectURL(url))
@@ -156,6 +246,10 @@ export default function FormPeca({ peca, modelo }: Props) {
       }
     }
 
+    const problemaDesconto = validarDesconto(desconto)
+      ?? (situacao === 'publicada' ? validarPrecoFinal(numeroDoPreco(preco), numeroDoDesconto(desconto)) : null)
+    if (problemaDesconto) proximosErros['peca-desconto'] = problemaDesconto
+
     definirErros(proximosErros)
     const primeiro = Object.keys(proximosErros)[0]
     if (primeiro) {
@@ -195,38 +289,72 @@ export default function FormPeca({ peca, modelo }: Props) {
     definirErroFotos('')
   }
 
-  function adicionarFotos(arquivos: File[]) {
-    if (envioEmAndamento.current || !arquivos.length) return
-    definirErroFotos('')
-    let erro = ''
-    if (fotosAtuais.current.length + arquivos.length > MAX_FOTOS) {
-      erro = `Você pode adicionar até ${MAX_FOTOS} fotos. Já selecionou ${fotosAtuais.current.length}.`
-    } else {
-      const invalido = arquivos.find((arquivo) => !FORMATOS_FOTO.includes(arquivo.type))
-      const grande = arquivos.find((arquivo) => arquivo.size > MAX_TAMANHO_ARQUIVO_MB * 1024 * 1024)
-      const vazio = arquivos.find((arquivo) => arquivo.size === 0)
-      if (invalido) erro = `O arquivo "${invalido.name}" não é JPG, PNG ou WebP.`
-      else if (grande) erro = `O arquivo "${grande.name}" excede o limite de ${MAX_TAMANHO_ARQUIVO_MB} MB.`
-      else if (vazio) erro = `O arquivo "${vazio.name}" está vazio.`
+  function mostrarErroFotos(erro: string) {
+    definirErroFotos(erro)
+    avisar.erro(erro)
+  }
+
+  function problemaNasFotosFinais(arquivos: File[]): string {
+    const invalido = arquivos.find((arquivo) => !FORMATOS_FOTO.includes(arquivo.type))
+    const grande = arquivos.find((arquivo) => arquivo.size > MAX_TAMANHO_ARQUIVO_MB * 1024 * 1024)
+    const vazio = arquivos.find((arquivo) => arquivo.size === 0)
+    if (invalido) return `O arquivo "${invalido.name}" não é JPG, PNG ou WebP.`
+    if (grande) return `O arquivo "${grande.name}" excede o limite de ${MAX_TAMANHO_ARQUIVO_MB} MB mesmo depois de comprimido.`
+    if (vazio) return `O arquivo "${vazio.name}" está vazio.`
+    return ''
+  }
+
+  async function comprimirTodas(arquivos: File[]): Promise<File[] | string> {
+    const comprimidas: File[] = []
+    for (const arquivo of arquivos) {
+      try {
+        comprimidas.push(await comprimirFoto(arquivo))
+      } catch {
+        return `Não foi possível ler a imagem "${arquivo.name}". Tente outra foto.`
+      }
     }
-    if (erro) {
-      definirErroFotos(erro)
-      avisar.erro(erro)
+    return comprimidas
+  }
+
+  async function adicionarFotos(arquivos: File[]) {
+    if (envioEmAndamento.current || fotosEmPreparo.current || !arquivos.length) return
+    definirErroFotos('')
+    if (fotosAtuais.current.length + arquivos.length > MAX_FOTOS) {
+      mostrarErroFotos(`Você pode adicionar até ${MAX_FOTOS} fotos. Já selecionou ${fotosAtuais.current.length}.`)
       return
     }
-    const novas = arquivos.map((arquivo) => {
-      const url = URL.createObjectURL(arquivo)
-      urlsLocais.current.add(url)
-      return { id: crypto.randomUUID(), nome: arquivo.name, url, arquivo }
-    })
-    atualizarFotos([...fotosAtuais.current, ...novas])
-    avisar.sucesso(`${novas.length} ${novas.length === 1 ? 'foto adicionada' : 'fotos adicionadas'}`)
+    const formatoInvalido = arquivos.find((arquivo) => !FORMATOS_FOTO.includes(arquivo.type))
+    if (formatoInvalido) {
+      mostrarErroFotos(`O arquivo "${formatoInvalido.name}" não é JPG, PNG ou WebP.`)
+      return
+    }
+    fotosEmPreparo.current = true
+    definirPreparandoFotos(true)
+    try {
+      const resultado = await comprimirTodas(arquivos)
+      if (!montado.current) return
+      const erro = typeof resultado === 'string' ? resultado : problemaNasFotosFinais(resultado)
+      if (erro || typeof resultado === 'string') {
+        mostrarErroFotos(erro)
+        return
+      }
+      const novas = resultado.map((arquivo) => {
+        const url = URL.createObjectURL(arquivo)
+        urlsLocais.current.add(url)
+        return { id: crypto.randomUUID(), nome: arquivo.name, url, arquivo }
+      })
+      atualizarFotos([...fotosAtuais.current, ...novas])
+      avisar.sucesso(`${novas.length} ${novas.length === 1 ? 'foto adicionada' : 'fotos adicionadas'}`)
+    } finally {
+      fotosEmPreparo.current = false
+      if (montado.current) definirPreparandoFotos(false)
+    }
   }
 
   function selecionarFotos(evento: ChangeEvent<HTMLInputElement>) {
     const arquivos = Array.from(evento.currentTarget.files ?? [])
     evento.currentTarget.value = ''
-    adicionarFotos(arquivos)
+    void adicionarFotos(arquivos)
   }
 
   function receberFotosArrastadas(evento: DragEvent<HTMLDivElement>) {
@@ -240,7 +368,7 @@ export default function FormPeca({ peca, modelo }: Props) {
       definirErroFotos('Arraste arquivos de imagem do seu computador. Links de imagens não são aceitos.')
       return
     }
-    adicionarFotos(arquivos)
+    void adicionarFotos(arquivos)
   }
 
   function mensagemDeSucesso(situacao: Situacao): string {
@@ -249,7 +377,7 @@ export default function FormPeca({ peca, modelo }: Props) {
   }
 
   async function salvar(situacao: Situacao) {
-    if (envioEmAndamento.current || !validar(situacao)) return
+    if (envioEmAndamento.current || fotosEmPreparo.current || !validar(situacao)) return
     const dados = new FormData(formulario.current!)
     envioEmAndamento.current = true
     definirSalvando(true)
@@ -268,6 +396,7 @@ export default function FormPeca({ peca, modelo }: Props) {
         tipo: String(dados.get('tipo')) as TipoPeca,
         historia: paragrafosDaHistoria(String(dados.get('historia') ?? '')),
         preco: Number.isFinite(precoInformado) && precoInformado > 0 ? precoInformado : 0,
+        desconto: numeroDoDesconto(desconto),
         disponibilidade,
         prazoProducaoDias: disponibilidade === 'encomenda' ? prazoInformado(dados.get('prazo')) : null,
         situacao,
@@ -275,7 +404,7 @@ export default function FormPeca({ peca, modelo }: Props) {
       }
       const resposta = peca ? await atualizarPeca(peca.slug, dadosPeca) : await criarPeca(dadosPeca)
       if (resposta.erro) {
-        const campo = ({ nome: 'peca-nome', preco: 'peca-preco', prazoProducaoDias: 'peca-prazo' } as Record<string, string>)[resposta.erro.campo ?? '']
+        const campo = ({ nome: 'peca-nome', preco: 'peca-preco', desconto: 'peca-desconto', prazoProducaoDias: 'peca-prazo' } as Record<string, string>)[resposta.erro.campo ?? '']
         if (campo) {
           definirErros({ [campo]: resposta.erro.mensagem })
           document.getElementById(campo)?.focus()
@@ -309,7 +438,7 @@ export default function FormPeca({ peca, modelo }: Props) {
       </p>
 
       <div className="duas-colunas">
-        <form ref={formulario} onSubmit={publicar} noValidate>
+        <form ref={formulario} onSubmit={publicar} noValidate className="form-peca">
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">O básico</h2>
 
@@ -369,7 +498,7 @@ export default function FormPeca({ peca, modelo }: Props) {
               }}
               onDragOver={(evento) => {
                 evento.preventDefault()
-                evento.dataTransfer.dropEffect = salvando ? 'none' : 'copy'
+                evento.dataTransfer.dropEffect = ocupado ? 'none' : 'copy'
               }}
               onDragLeave={(evento) => {
                 evento.preventDefault()
@@ -377,15 +506,19 @@ export default function FormPeca({ peca, modelo }: Props) {
                 if (profundidadeArraste.current === 0) definirArrastando(false)
               }}
               onDrop={receberFotosArrastadas}
-              aria-busy={salvando}
+              aria-busy={ocupado}
             >
               <IconePincel tamanho={26} />
               <p style={{ fontWeight: 600 }} aria-live="polite">
-                {arrastando ? 'Solte as imagens aqui' : `${fotosSelecionadas.length} de ${MAX_FOTOS} fotos selecionadas`}
+                {arrastando
+                  ? 'Solte as imagens aqui'
+                  : preparandoFotos
+                    ? 'Preparando as fotos…'
+                    : `${fotosSelecionadas.length} de ${MAX_FOTOS} fotos selecionadas`}
               </p>
               <p id="ajuda-fotos" className="campo-ajuda">
                 Arraste imagens do seu computador ou use o botão abaixo.
-                Até {MAX_FOTOS} fotos em JPG, PNG ou WebP, de {MAX_TAMANHO_ARQUIVO_MB} MB cada.
+                Até {MAX_FOTOS} fotos em JPG, PNG ou WebP. Elas são reduzidas e comprimidas antes do envio.
                 A primeira foto será a capa. Use as setas para ordenar.
               </p>
               <input
@@ -394,14 +527,14 @@ export default function FormPeca({ peca, modelo }: Props) {
                 accept={FORMATOS_FOTO.join(',')}
                 multiple
                 hidden
-                disabled={salvando}
+                disabled={ocupado}
                 onChange={selecionarFotos}
               />
               <button
                 type="button"
                 className="botao botao-fantasma"
                 onClick={() => entradaFotos.current?.click()}
-                disabled={salvando}
+                disabled={ocupado}
                 aria-describedby={erroFotos ? 'ajuda-fotos erro-fotos' : 'ajuda-fotos'}
               >
                 {fotosSelecionadas.length ? 'Adicionar mais fotos' : 'Escolher fotos'}
@@ -524,27 +657,48 @@ export default function FormPeca({ peca, modelo }: Props) {
               </Campo>
             )}
 
-            <Campo rotulo="Preço" ajuda="O valor é exibido em reais ao sair do campo." erro={erros['peca-preco']} id="peca-preco">
-              <input
-                id="peca-preco"
-                name="preco"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={preco}
-                onFocus={() => definirPreco((valor) => valor.replace(/^R\$\s*/, ''))}
-                onChange={(evento) => definirPreco(evento.target.value.replace(/[^\d,.]/g, ''))}
-                onBlur={() => {
-                  const valor = numeroDoPreco(preco)
-                  if (Number.isFinite(valor) && valor > 0) definirPreco(emReais(valor))
-                }}
-              />
-            </Campo>
+            <div className="grade-dois">
+              <Campo rotulo="Preço" ajuda="O valor é exibido em reais ao sair do campo." erro={erros['peca-preco']} id="peca-preco">
+                <input
+                  id="peca-preco"
+                  name="preco"
+                  inputMode="decimal"
+                  placeholder="R$ 0,00"
+                  value={preco}
+                  onFocus={() => definirPreco((valor) => valor.replace(/^R\$\s*/, ''))}
+                  onChange={(evento) => definirPreco(evento.target.value.replace(/[^\d,.]/g, ''))}
+                  onBlur={() => {
+                    const valor = numeroDoPreco(preco)
+                    if (Number.isFinite(valor) && valor > 0) definirPreco(emReais(valor))
+                  }}
+                />
+              </Campo>
+
+              <div>
+                <Campo
+                  rotulo="Desconto (%)"
+                  ajuda={`Opcional. Deixe vazio ou 0 para vender sem desconto; até ${DESCONTO_MAXIMO}%.`}
+                  erro={erros['peca-desconto']}
+                  id="peca-desconto"
+                >
+                  <input
+                    id="peca-desconto"
+                    name="desconto"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={desconto}
+                    onChange={(evento) => definirDesconto(evento.target.value.replace(/[^\d,.]/g, ''))}
+                  />
+                </Campo>
+                <PreviaDesconto preco={numeroDoPreco(preco)} desconto={numeroDoDesconto(desconto)} />
+              </div>
+            </div>
 
             <div className="acoes-linha acima-2">
-              <button disabled={salvando} type="submit" className="botao botao-primario">
+              <button disabled={ocupado} type="submit" className="botao botao-primario">
                 {publicada ? 'Salvar alterações' : 'Publicar peça'}
               </button>
-              <button type="button" className="botao botao-fantasma" disabled={salvando} onClick={() => void salvar('rascunho')}>
+              <button type="button" className="botao botao-fantasma" disabled={ocupado} onClick={() => void salvar('rascunho')}>
                 {publicada ? 'Tirar da loja e salvar como rascunho' : 'Salvar rascunho'}
               </button>
             </div>

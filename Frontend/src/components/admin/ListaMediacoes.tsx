@@ -10,6 +10,7 @@ import {
   type DecisaoMediacao,
 } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
+import { CLASSE_DO_SELO_DA_MEDIACAO } from '@/components/pedido/situacaoMediacao'
 
 export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
   const [lista, definirLista] = useState<Mediacao[]>(iniciais)
@@ -110,18 +111,18 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
         return (
           <li className="cartao-curadoria" key={m.id}>
             <header className="cartao-curadoria-topo">
-              <span className={`selo ${emAnalise ? 'selo-neutro' : 'selo-unica'}`}>
+              <span className={`selo ${CLASSE_DO_SELO_DA_MEDIACAO[decidida ? 'decidida' : falhou ? 'falha' : pendente ? 'aplicando' : emAnalise ? 'analise' : 'aguardando']} cartao-disputa-selo`}>
                 <span className="selo-ponto" />
                 {decidida ? 'Decidida' : pendente ? 'Decisão pendente' : falhou ? 'Falha na entrega' : emAnalise ? 'Em análise' : 'Aguardando abertura'}
               </span>
-              <span className="dado-rotulo">
+              <span className="dado-rotulo cartao-disputa-pedido">
                 {m.id} · aberta {m.aberta}
               </span>
             </header>
 
             <div className="cartao-curadoria-corpo">
               <p className="cartao-curadoria-peca">{m.assunto}</p>
-              <p className="autoria">
+              <p className="autoria cartao-disputa-pedido">
                 {m.partes} · pedido {m.pedido}
               </p>
               {m.relato && <p className="texto-suave acima-2" style={{ whiteSpace: 'pre-line' }}>{m.relato}</p>}

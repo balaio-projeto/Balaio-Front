@@ -8,10 +8,10 @@ import { IconePacote } from '@/components/ui/Icones'
 import { listarPedidos } from '@/services/api/pedidos.servico'
 import { obterPecaHistorico } from '@/services/api/pecas.servico'
 import { listarArtesaos } from '@/services/api/artesaos.servico'
-import { emReais } from '@/utils/formato'
 import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
 import { pedidoAceitaMediacao, pedidoEncerrado, situacaoNaLista, type SituacaoListaPedidos } from '@/components/pedido/acaoCancelamentoPedido'
+import Preco from '@/components/ui/Preco'
 
 type FiltroPedidos = 'todos' | SituacaoListaPedidos
 
@@ -131,7 +131,7 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
                           ? 'Entregue no seu endereço'
                           : (pedido.previsaoEntrega ? `Previsão de entrega: ${pedido.previsaoEntrega}` : 'Aguardando previsão de entrega')}
                     </p>
-                    <p className="preco-destaque">{emReais(pedido.total)}</p>
+                    <p className="preco-destaque"><Preco valor={pedido.total} /></p>
                   </div>
                 </Link>
 

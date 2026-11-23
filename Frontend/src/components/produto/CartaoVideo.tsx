@@ -16,6 +16,7 @@ import { useEstadoCliente } from '@/store/estadoCliente'
 import { useSessao } from '@/store/sessao'
 import { rotaDeLogin } from '@/services/sessao/cookie'
 import { useItemDaColecao } from '@/hooks/useItemDaColecao'
+import { LIMIARES_DE_VISIBILIDADE, esquecerVideo, informarProporcaoVisivel, proporcaoVisivel, useVideoEmFoco } from '@/components/produto/focoDosVideos'
 
 const TAMANHO_MAXIMO_COMENTARIO = 1000
 const AVISAR_TAMANHO_COMENTARIO_A_PARTIR_DE = 900
@@ -39,7 +40,8 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   const salvo = useItemDaColecao('videosSalvos', video.id, 'Não foi possível atualizar os vídeos salvos')
   const [salvando, definirSalvando] = useState(false)
   const [aberto, definirAberto] = useState(false)
-  const [visivel, definirVisivel] = useState(false)
+  const visivel = useVideoEmFoco(video.id)
+  const [naTela, definirNaTela] = useState(false)
   const [lista, definirLista] = useState<Comentario[]>([])
   const [totalLocal, definirTotalLocal] = useState<number | null>(null)
   const [leituraComentarios, definirLeituraComentarios] = useState<LeituraComentarios>('inicial')
@@ -47,6 +49,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   const [rascunho, definirRascunho] = useState('')
   const campoComentario = useRef<HTMLInputElement>(null)
   const refArtigo = useRef<HTMLElement>(null)
+  const refTela = useRef<HTMLDivElement>(null)
   const refComentarios = useRef<HTMLDialogElement>(null)
   const montado = useRef(true)
   const leituraAtual = useRef<LeituraComentarios>('inicial')
@@ -63,25 +66,32 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   }, [])
 
   useEffect(() => {
-    const artigo = refArtigo.current
-    if (!artigo) return
+    const tela = refTela.current
+    if (!tela) return
+    const id = video.id
     const observador = new IntersectionObserver(
       (entradas) => {
-        for (const entrada of entradas) definirVisivel(entrada.intersectionRatio >= 0.6)
+        const entrada = entradas[entradas.length - 1]
+        if (!entrada) return
+        definirNaTela(entrada.isIntersecting)
+        informarProporcaoVisivel(id, proporcaoVisivel(entrada))
       },
-      { threshold: [0.6] },
+      { threshold: LIMIARES_DE_VISIBILIDADE },
     )
-    observador.observe(artigo)
-    return () => observador.disconnect()
-  }, [])
+    observador.observe(tela)
+    return () => {
+      observador.disconnect()
+      esquecerVideo(id)
+    }
+  }, [video.id])
 
   useEffect(() => {
-    if (visivel) return
+    if (naTela) return
     const dialogo = refComentarios.current
     if (!dialogo?.open) return
     dialogo.close()
     definirAberto(false)
-  }, [visivel])
+  }, [naTela])
 
   useEffect(() => {
     const listaLarga = window.matchMedia('(min-width: 900px)')
@@ -179,9 +189,15 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
   return (
     <article className={`video${aberto ? ' video-aberto' : ''}`} id={video.id} ref={refArtigo} data-ativo={visivel}>
       <div className="video-principal">
-        <div className="video-tela">
+        <div className="video-tela" ref={refTela}>
           {video.url ? (
-            <PlayerVideo url={video.url} capa={capa} ativo={visivel} aoIniciar={() => void registrarVisualizacao(video.id)} />
+            <PlayerVideo
+              url={video.url}
+              capa={capa}
+              ativo={visivel}
+              carregar={visivel || naTela}
+              aoIniciar={() => void registrarVisualizacao(video.id)}
+            />
           ) : (
             <>
               <ImagemComFallback className="video-capa" src={capa} alt="" loading="lazy"

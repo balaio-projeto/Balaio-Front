@@ -28,7 +28,7 @@ export default function Rodape() {
         <div className="rodape-grade">
           <div className="rodape-marca">
             <Link href="/" className="rodape-logo" aria-label="Balaio, artesanato de Pernambuco">
-              <img className="marca-logo" src="/balaio-logo.svg" alt="" width={48} height={48} />
+              <img className="marca-logo" src="/balaio-logo.png" alt="" width={48} height={48} />
               <span className="marca-nome">Balaio</span>
             </Link>
             <p className="rodape-sobre">
