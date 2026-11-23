@@ -99,3 +99,4 @@ export default async function Vendas({ searchParams }: Props) {
     </>
   )
 }
+
