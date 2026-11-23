@@ -5,12 +5,12 @@ import { Foto, Migalhas, SeloDisponibilidade } from '@/components/ui/Basicos'
 import { IconePacote, IconeSetaDireita } from '@/components/ui/Icones'
 import InativarPeca from '@/components/painel/InativarPeca'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
-import { emReais } from '@/utils/formato'
 import { exigirArtesao } from '@/services/autenticacao'
 import { listarVendasArtesao } from '@/services/api/pedidos.servico'
 import DisponibilidadeRapida from '@/components/painel/DisponibilidadeRapida'
 import type { Peca } from '@/types/dominio'
 import { ESTADOS_ENCERRADOS } from '@/utils/vendas'
+import Preco from '@/components/ui/Preco'
 
 const situacoes: Record<string, { texto: string; classe: string }> = {
   publicada: { texto: 'Publicada', classe: 'selo-disponivel' },
@@ -94,7 +94,7 @@ export default async function MinhasPecas() {
                       <p className="autoria">{peca.tecnica}</p>
                     </div>
                     <div className="peca-painel-valores">
-                      <span className="peca-painel-preco">{emReais(peca.preco)}</span>
+                      <Preco valor={peca.preco} className="peca-painel-preco" />
                       {inativada ? (
                         <span className="selo selo-neutro">
                           <span className="selo-ponto" />

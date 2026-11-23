@@ -40,6 +40,22 @@
   background-image: var(--textura-trama);
 }
 
+.form-peca .campo > .campo-erro {
+  order: 1;
+}
+
+.form-peca .campo > .campo-ajuda {
+  order: 2;
+}
+
+.previa-desconto {
+  @apply -mt-2 mb-[18px] text-pequeno text-tinta-suave;
+}
+
+.previa-desconto strong {
+  @apply text-verde-tinta;
+}
+
 .rotulo-acao {
   @apply inline;
 }

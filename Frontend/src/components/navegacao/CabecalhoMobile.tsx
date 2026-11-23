@@ -8,7 +8,7 @@ export default function CabecalhoMobile() {
     <header className="cabecalho cabecalho-mobile">
       <div className="container cabecalho-mobile-linha">
         <Link href="/" className="marca marca-compacta" aria-label="Balaio, artesanato de Pernambuco">
-          <img className="marca-logo" src="/balaio-logo.svg" alt="" width={36} height={36} />
+          <img className="marca-logo" src="/balaio-logo.png" alt="" width={36} height={36} />
           <span className="marca-nome">Balaio</span>
         </Link>
 

@@ -21,7 +21,7 @@
     "test:community": "tsx --test src/services/api/community.test.ts src/components/produto/favoritosListados.test.ts src/components/pedido/situacaoMediacao.test.ts",
     "test:pi210": "tsx --test tests/pi210.test.ts",
     "test:filtros": "tsx --test src/utils/filtrosUrl.test.ts",
-    "test:vitrine": "tsx --test src/components/vitrine/montarVitrine.test.ts src/utils/validacao.test.ts",
+    "test:vitrine": "tsx --test src/components/vitrine/montarVitrine.test.ts src/utils/validacao.test.ts src/utils/formato.test.ts src/components/painel/descontoPeca.test.ts",
     "test:eventos": "tsx --test tests/eventos.test.ts",
     "test:cep": "tsx --test src/utils/cep.test.ts"
   },

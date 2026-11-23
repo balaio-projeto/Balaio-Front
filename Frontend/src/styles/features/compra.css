@@ -41,15 +41,51 @@
 }
 
 .disponibilidade-prazo {
-  @apply flex items-center gap-2 text-mini text-tinta-suave;
+  @apply flex items-stretch flex-wrap gap-2 min-w-0;
 }
 
-.disponibilidade-prazo input {
-  @apply w-[70px] min-h-9 py-1 px-2;
+.disponibilidade-prazo-campo {
+  @apply flex flex-[1_1_96px] items-center min-w-0 min-h-10 border border-linha rounded-caixa bg-superficie text-pequeno text-tinta cursor-text;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.disponibilidade-prazo-campo:hover {
+  border-color: color-mix(in srgb, var(--destaque) 45%, var(--linha));
+}
+
+.disponibilidade-prazo-campo:focus-within {
+  border-color: var(--destaque);
+  box-shadow: 0 0 0 3px var(--destaque-suave);
+}
+
+.disponibilidade-prazo-campo input {
+  @apply flex-1 w-full min-w-0 min-h-0 h-full py-2 pl-3 pr-1 border-0 bg-transparent text-tinta text-right tabular-nums;
+  font: inherit;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.disponibilidade-prazo-campo input::-webkit-outer-spin-button,
+.disponibilidade-prazo-campo input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.disponibilidade-prazo-campo input:focus,
+.disponibilidade-prazo-campo input:focus-visible {
+  outline: none;
+}
+
+.disponibilidade-prazo-campo input:disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
+
+.disponibilidade-prazo-sufixo {
+  @apply flex-none pr-3 text-tinta-suave select-none;
 }
 
 .disponibilidade-prazo .botao {
-  @apply min-h-9 py-1 px-3 text-mini;
+  @apply flex-[1_1_auto] min-h-10 py-2 px-4 text-pequeno;
 }
 
 .disponibilidade-aviso {

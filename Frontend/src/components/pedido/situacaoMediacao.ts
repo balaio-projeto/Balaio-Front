@@ -6,16 +6,31 @@ const DECISOES_PARA_AS_PARTES: Record<NonNullable<Mediacao['decisao']>, string> 
   manter_conversa: 'Seguir a conversa entre comprador e ateliê',
 }
 
-export type SituacaoMediacao = { rotulo: string; encerrada: boolean; decisao: string | null }
+export type TomMediacao = 'aguardando' | 'analise' | 'aplicando' | 'falha' | 'decidida'
+
+export type SituacaoMediacao = { rotulo: string; encerrada: boolean; decisao: string | null; tom: TomMediacao }
+
+export const CLASSE_DO_SELO_DA_MEDIACAO: Record<TomMediacao, string> = {
+  aguardando: 'selo-neutro',
+  analise: 'selo-neutro',
+  aplicando: 'selo-encomenda',
+  falha: 'selo-unica',
+  decidida: 'selo-disponivel',
+}
 
 export function situacaoDaMediacao(mediacao: Pick<Mediacao, 'estado' | 'emAnalise' | 'decisao'>): SituacaoMediacao {
   const decisao = mediacao.decisao ? DECISOES_PARA_AS_PARTES[mediacao.decisao] ?? null : null
-  if (mediacao.estado === 'decidida') return { rotulo: 'Decidida', encerrada: true, decisao }
-  if (mediacao.estado === 'decisao_pendente' || mediacao.estado === 'falha_entrega' || decisao) {
-    return { rotulo: 'Decisão registrada, aplicando ao pedido', encerrada: false, decisao }
+  if (mediacao.estado === 'decidida') return { rotulo: 'Decidida', encerrada: true, decisao, tom: 'decidida' }
+  if (mediacao.estado === 'falha_entrega') {
+    return { rotulo: 'Não foi possível aplicar a decisão ao pedido', encerrada: false, decisao, tom: 'falha' }
   }
-  if (mediacao.estado === 'emAnalise' || mediacao.emAnalise) return { rotulo: 'Em análise pela plataforma', encerrada: false, decisao: null }
-  return { rotulo: 'Aguardando análise da plataforma', encerrada: false, decisao: null }
+  if (mediacao.estado === 'decisao_pendente' || decisao) {
+    return { rotulo: 'Decisão registrada, aplicando ao pedido', encerrada: false, decisao, tom: 'aplicando' }
+  }
+  if (mediacao.estado === 'emAnalise' || mediacao.emAnalise) {
+    return { rotulo: 'Em análise pela plataforma', encerrada: false, decisao: null, tom: 'analise' }
+  }
+  return { rotulo: 'Aguardando análise da plataforma', encerrada: false, decisao: null, tom: 'aguardando' }
 }
 
 export function mediacaoDoPedido<T extends Pick<Mediacao, 'pedido'>>(mediacoes: T[], pedidoId: string): T | null {

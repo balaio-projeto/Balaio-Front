@@ -77,17 +77,26 @@ export default function DisponibilidadeRapida({ slug, inicial, prazoInicial, ven
       />
       {selecionada === 'encomenda' && (
         <div className="disponibilidade-prazo">
-          <input
-            aria-label="Prazo de produção em dias"
-            type="number"
-            min={1}
-            max={120}
-            value={prazo}
-            disabled={salvando}
-            onChange={(evento) => definirPrazo(evento.target.value)}
-          />
-          <span>dias</span>
-          <button type="button" className="botao botao-fantasma" disabled={salvando} onClick={() => void salvar('encomenda')}>
+          <label className="disponibilidade-prazo-campo">
+            <input
+              aria-label="Prazo de produção em dias"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={120}
+              value={prazo}
+              disabled={salvando}
+              onChange={(evento) => definirPrazo(evento.target.value)}
+              onKeyDown={(evento) => {
+                if (evento.key === 'Enter') {
+                  evento.preventDefault()
+                  void salvar('encomenda')
+                }
+              }}
+            />
+            <span className="disponibilidade-prazo-sufixo" aria-hidden>dias</span>
+          </label>
+          <button type="button" className="botao botao-secundario botao-compacto" disabled={salvando} onClick={() => void salvar('encomenda')}>
             {salvando ? 'Salvando…' : salva === 'encomenda' && String(prazoInicial ?? 15) === prazo ? 'Confirmar' : 'Salvar prazo'}
           </button>
         </div>

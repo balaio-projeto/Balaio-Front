@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Balaio: artesanato de Pernambuco',
   description:
     'Marketplace da economia criativa e do artesanato de Pernambuco. Conecta artesãos a compradores destacando origem, técnica e a história de cada peça.',
-  icons: { icon: '/balaio-logo.svg' },
+  icons: { icon: '/balaio-logo.png' },
 }
 
 const aplicarTemaSalvo = `try{var t=localStorage.getItem('tema');if(t==='claro'||t==='escuro'){document.documentElement.dataset.tema=t}}catch(erro){}`

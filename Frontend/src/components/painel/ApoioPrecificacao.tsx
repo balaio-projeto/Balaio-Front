@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Campo } from '@/components/ui/Basicos'
 import { emReais } from '@/utils/formato'
 import { numeroDoPreco } from '@/utils/validacao'
+import Preco from '@/components/ui/Preco'
 
 type Props = { aoUsarPreco: (valor: number) => void; desabilitado?: boolean }
 
@@ -71,7 +72,7 @@ export default function ApoioPrecificacao({ aoUsarPreco, desabilitado = false }:
       </p>
       <p className="resumo resumo-total" aria-live="polite">
         <span>Preço sugerido</span>
-        <span className="preco-destaque">{emReais(precoSugerido)}</span>
+        <Preco valor={precoSugerido} className="preco-destaque" />
       </p>
 
       <button

@@ -11,6 +11,7 @@ import { emReais } from '@/utils/formato'
 import { atualizarEstadoPedido, recusarPedido } from '@/services/api/pedidos.servico'
 import { avisarPainelAtualizado } from '@/hooks/useArtesaoLogado'
 import { textoDaMetrica } from '@/utils/painel'
+import Preco from '@/components/ui/Preco'
 
 export type PedidoPendente = {
   id: string
@@ -224,7 +225,7 @@ export default function PedidosPendentes({
 
             <div className="dado">
               <span className="dado-rotulo">Valor</span>
-              <span className="dado-valor preco-destaque">{emReais(pedido.valor)}</span>
+              <Preco valor={pedido.valor} className="dado-valor preco-destaque" />
             </div>
 
             <div className="acoes-linha">

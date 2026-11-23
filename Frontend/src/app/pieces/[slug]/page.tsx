@@ -8,6 +8,8 @@ import BotaoFavoritar from '@/components/produto/BotaoFavoritar'
 import GaleriaPeca from '@/components/produto/GaleriaPeca'
 import CalculoFrete from '@/components/produto/CalculoFrete'
 import DetalhesPeca from '@/components/produto/DetalhesPeca'
+import PrecoPeca from '@/components/produto/PrecoPeca'
+import Preco from '@/components/ui/Preco'
 import PerguntasPublicas from '@/components/produto/PerguntasPublicas'
 import Prateleira from '@/components/ui/Prateleira'
 import FaixaBeneficios from '@/components/vitrine/FaixaBeneficios'
@@ -17,7 +19,7 @@ import { obterPeca, pecasPorArtesao, pecasPorTipo, pecasRelacionadas } from '@/s
 import { listarPerguntas } from '@/services/api/perguntas.servico'
 import { obterReputacao } from '@/services/api/avaliacoes.servico'
 import type { Peca } from '@/types/dominio'
-import { emReais, precoComDesconto } from '@/utils/formato'
+import { precoComDesconto } from '@/utils/formato'
 import { hrefListagem } from '@/utils/filtrosUrl'
 
 export const dynamic = 'force-dynamic'
@@ -104,19 +106,13 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
           )}
 
           <div className="caixa-compra">
-            {peca.desconto ? (
-              <p className="preco-pagina">
-                <span className="preco-riscado">{emReais(peca.preco)}</span> {emReais(precoFinal)}
-              </p>
-            ) : (
-              <p className="preco-pagina">{emReais(peca.preco)}</p>
-            )}
+            <PrecoPeca peca={peca} tamanho="pagina" />
 
             {(peca.desconto ?? 0) > 0 && (
               <p className="aviso abaixo-4">
                 <IconeEtiqueta />
                 <span>
-                  <strong>{peca.desconto}% de desconto da plataforma.</strong> O valor já sai abatido na sacola, sem
+                  <strong>{peca.desconto}% de desconto dado pelo artesão.</strong> O valor já sai abatido na sacola, sem
                   cupom para digitar.
                 </span>
               </p>
@@ -135,7 +131,7 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
             <div className="caixa-compra-acoes">
               <div className="barra-fixa barra-fixa-compra">
                 <p className="barra-fixa-info">
-                  <span className="barra-fixa-valor">{emReais(precoFinal)}</span>
+                  <Preco valor={precoFinal} className="barra-fixa-valor" />
                 </p>
                 <BotaoAdicionarSacola slug={peca.slug} disponibilidade={peca.disponibilidade} />
               </div>

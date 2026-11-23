@@ -6,7 +6,7 @@ import { Campo, Foto } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import EstadoErro from '@/components/feedback/EstadoErro'
-import { mediacaoDoPedido, situacaoDaMediacao } from '@/components/pedido/situacaoMediacao'
+import { CLASSE_DO_SELO_DA_MEDIACAO, mediacaoDoPedido, situacaoDaMediacao } from '@/components/pedido/situacaoMediacao'
 import { criarMediacao, listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
 
@@ -120,7 +120,7 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
     const situacao = situacaoDaMediacao(aberta)
     return (
       <section className="cartao">
-        <span className={`selo ${situacao.encerrada ? 'selo-neutro' : 'selo-encomenda'} abaixo-3`}>
+        <span className={`selo ${CLASSE_DO_SELO_DA_MEDIACAO[situacao.tom]} cartao-disputa-selo abaixo-3`}>
           <span className="selo-ponto" />
           {situacao.rotulo}
         </span>

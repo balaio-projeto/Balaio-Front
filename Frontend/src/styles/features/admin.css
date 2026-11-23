@@ -42,6 +42,58 @@
   @apply basis-full text-pequeno font-semibold text-tinta;
 }
 
+.cartao-disputa-selo {
+  @apply whitespace-normal text-left leading-snug max-w-full;
+}
+
+.cartao-disputa-selo .selo-ponto {
+  @apply self-center;
+}
+
+.cartao-disputa-corpo {
+  @apply grid gap-4;
+}
+
+.cartao-disputa-dados {
+  @apply grid gap-4 m-0 sm:grid-cols-2;
+}
+
+.cartao-disputa-dado {
+  @apply grid gap-1 min-w-0 content-start;
+}
+
+.cartao-disputa-dado dd {
+  @apply m-0;
+}
+
+.cartao-disputa-pedido {
+  @apply min-w-0 [overflow-wrap:anywhere] [word-break:break-word] tabular-nums;
+}
+
+.cartao-disputa-relato {
+  @apply m-0 py-3 px-4 rounded-caixa bg-fundo border-l-[3px] border-l-linha text-pequeno text-tinta-suave leading-relaxed whitespace-pre-line [overflow-wrap:anywhere];
+}
+
+.cartao-disputa-decisao {
+  @apply py-3 px-4 rounded-caixa border border-linha bg-superficie;
+}
+
+.cartao-disputa-decisao[data-tom='decidida'] {
+  @apply border-verde;
+}
+
+.cartao-disputa-decisao[data-tom='aplicando'] {
+  @apply border-amarelo;
+}
+
+.cartao-disputa-decisao[data-tom='falha'] {
+  @apply border-vermelho;
+}
+
+.cartao-disputa .cartao-curadoria-acoes {
+  @apply pt-0;
+}
+
 .evidencias-selo {
   @apply grid gap-4 md:grid-cols-2;
 }

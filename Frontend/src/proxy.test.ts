@@ -411,3 +411,29 @@ test('sair da conta limpa a sessão mesmo com o servidor fora do ar', async () =
     process.env.API_GATEWAY_URL = anterior
   }
 })
+
+test('foto de peça sai com cache longo e sem repassar a sessão ao gateway', async () => {
+  const anterior = process.env.API_GATEWAY_URL
+  process.env.API_GATEWAY_URL = 'http://gateway.local/api/v1'
+  const credenciais: (string | null)[] = []
+  globalThis.fetch = async (_entrada, opcoes) => {
+    const cabecalhos = new Headers(opcoes?.headers)
+    credenciais.push(cabecalhos.get('cookie') ?? cabecalhos.get('authorization'))
+    return new Response('imagem', { status: 200, headers: { 'content-type': 'image/webp', 'cache-control': 'no-store' } })
+  }
+  try {
+    const foto = await encaminharApi(new Request(
+      'http://localhost:4321/api/v1/arquivos/pecas/2343a110-c0a0-4c00-93ff-41df8a02a6e7.webp',
+      { headers: { cookie: 'balaio_sessao=jwt' } }))
+    assert.equal(foto.status, 200)
+    assert.equal(foto.headers.get('cache-control'), 'public, max-age=31536000, immutable')
+    assert.equal(foto.headers.get('content-type'), 'image/webp')
+    assert.deepEqual(foto.headers.getSetCookie(), [])
+    assert.deepEqual(credenciais, [null])
+
+    const outra = await encaminharApi(new Request('http://localhost:4321/api/v1/pecas'))
+    assert.equal(outra.headers.get('cache-control'), 'no-store')
+  } finally {
+    process.env.API_GATEWAY_URL = anterior
+  }
+})

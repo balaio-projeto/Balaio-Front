@@ -23,7 +23,7 @@ export default function LayoutAuth({ trilha, titulo, apoio, frase, destaques, ch
       <div className="auth-dividida">
         <aside className="auth-marca">
           <div className="auth-marca-topo">
-            <img className="auth-marca-logo" src="/balaio-logo.svg" alt="" width={56} height={56} />
+            <img className="auth-marca-logo" src="/balaio-logo.png" alt="" width={56} height={56} />
             <p className="auth-marca-nome">Balaio</p>
           </div>
           <p className="auth-marca-frase">{frase}</p>
