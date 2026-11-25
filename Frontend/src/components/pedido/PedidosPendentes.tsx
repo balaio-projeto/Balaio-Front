@@ -12,10 +12,13 @@ import { atualizarEstadoPedido, recusarPedido } from '@/services/api/pedidos.ser
 import { avisarPainelAtualizado } from '@/hooks/useArtesaoLogado'
 import { textoDaMetrica } from '@/utils/painel'
 import Preco from '@/components/ui/Preco'
+import CompradorDoPedido from '@/components/pedido/CompradorDoPedido'
+import type { CompradorDoPedido as Comprador } from '@/types/dominio'
+import { codigoDoPedido, rotaPedidoDoArtesao } from '@/utils/pedido'
 
 export type PedidoPendente = {
   id: string
-  comprador: string
+  comprador: Comprador
   quando: string
   valor: number
   pecaNome?: string
@@ -195,7 +198,6 @@ export default function PedidosPendentes({
           <EstadoVazio
             icone={<IconePacote tamanho={34} />}
             titulo="Nenhum pedido aguardando"
-            descricao="Você aceitou todos os pedidos novos. Os próximos aparecem aqui assim que chegarem."
           />
         )}
 
@@ -210,12 +212,15 @@ export default function PedidosPendentes({
                 <p className="autoria">
                   {pedido.pecaTecnica ? `Técnica: ${pedido.pecaTecnica}` : 'Detalhes da peça indisponíveis no momento'}
                 </p>
+                <p className="autoria">
+                  <Link href={rotaPedidoDoArtesao(pedido.id)}>Pedido {codigoDoPedido(pedido.id)}</Link>
+                </p>
               </div>
             </div>
 
             <div className="dado">
               <span className="dado-rotulo">Comprador</span>
-              <span className="dado-valor">{pedido.comprador}</span>
+              <span className="dado-valor"><CompradorDoPedido comprador={pedido.comprador} /></span>
             </div>
 
             <div className="dado">
@@ -255,7 +260,7 @@ export default function PedidosPendentes({
           <p className="texto-suave abaixo-4">
             {pedidoRecusado && nomeDaPeca(pedidoRecusado)}. O comprador verá a justificativa e será avisado sobre o cancelamento.
           </p>
-          <Campo rotulo="Motivo da recusa" ajuda="Seja direto e cordial." erro={erroMotivo ?? undefined} id="motivo-recusa">
+          <Campo rotulo="Motivo da recusa" erro={erroMotivo ?? undefined} id="motivo-recusa">
             <textarea id="motivo-recusa" value={motivo} maxLength={500} disabled={salvando} onChange={(evento) => definirMotivo(evento.target.value)} />
           </Campo>
           <div className="modal-acoes">

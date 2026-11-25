@@ -135,3 +135,115 @@
 .lista-criterios .criterio-falta svg {
   @apply text-vermelho-tinta;
 }
+
+.moderacao-blocos {
+  @apply grid gap-3 mt-3 md:grid-cols-3;
+}
+
+.moderacao-bloco {
+  @apply m-0 p-3.5 rounded-caixa bg-fundo border border-linha min-w-0;
+}
+
+.moderacao-bloco dt {
+  @apply text-mini font-bold uppercase tracking-wide text-tinta-suave;
+}
+
+.moderacao-bloco dt:not(:first-child) {
+  @apply mt-2.5;
+}
+
+.moderacao-bloco dd {
+  @apply m-0 mt-0.5 text-pequeno text-tinta break-words;
+}
+
+.filtros-admin {
+  @apply flex flex-wrap items-center justify-between gap-3 mb-4;
+}
+
+.filtros-admin .chips-filtro {
+  @apply pb-0;
+}
+
+.busca-admin {
+  @apply flex items-center gap-2 w-full min-w-0 md:w-auto md:flex-1 md:max-w-md;
+}
+
+.busca-admin input[type='search'] {
+  @apply flex-1 min-w-0;
+}
+
+.busca-admin .botao {
+  @apply flex-none;
+}
+
+.lista-acordeao-admin {
+  @apply list-none m-0 p-0 grid gap-2;
+}
+
+.acordeao-admin {
+  @apply bg-superficie border border-linha rounded-media shadow-(--sombra) overflow-hidden;
+}
+
+.acordeao-admin-resumo {
+  @apply flex items-center gap-3 min-h-14 py-2.5 px-4 cursor-pointer list-none;
+}
+
+.acordeao-admin-resumo::-webkit-details-marker {
+  display: none;
+}
+
+.acordeao-admin-resumo:hover {
+  @apply bg-fundo;
+}
+
+.acordeao-admin[open] > .acordeao-admin-resumo {
+  @apply border-b border-linha;
+}
+
+.acordeao-admin[open] > .acordeao-admin-resumo .seta-grupo {
+  @apply rotate-180;
+}
+
+.acordeao-admin-resumo .selo {
+  @apply flex-none;
+}
+
+.acordeao-admin-identidade {
+  @apply flex flex-col flex-1 min-w-0;
+}
+
+.acordeao-admin-titulo {
+  @apply font-corpo font-bold text-tinta truncate;
+}
+
+.acordeao-admin-subtitulo {
+  @apply text-pequeno text-tinta-suave truncate;
+}
+
+.acordeao-admin-corpo {
+  @apply grid gap-4 p-4;
+}
+
+.acordeao-admin-dados {
+  @apply grid gap-3 m-0 sm:grid-cols-2;
+}
+
+.acordeao-admin-dados dd {
+  @apply m-0;
+}
+
+.acordeao-admin-dado-largo {
+  @apply sm:col-span-2;
+}
+
+.acordeao-admin-texto {
+  @apply whitespace-pre-line [overflow-wrap:anywhere];
+}
+
+.paginacao-admin {
+  @apply flex items-center justify-center gap-3 flex-wrap mt-6;
+}
+
+.paginacao-admin-posicao {
+  @apply text-pequeno font-semibold text-tinta-suave tabular-nums;
+}

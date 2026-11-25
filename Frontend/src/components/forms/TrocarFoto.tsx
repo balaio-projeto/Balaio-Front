@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
+import { IconeCamera, IconeLixeira } from '@/components/ui/Icones'
 import { FORMATOS_FOTO, lerComoDataUrl, TAMANHO_MAXIMO_FOTO_MB, validarFoto } from '@/utils/foto'
 import { imagemReal } from '@/utils/imagem'
 
@@ -63,26 +64,32 @@ export default function TrocarFoto({ imagemInicial, rotulo, nome, desabilitado, 
   }
 
   return (
-    <div className="bloco-artesao abaixo-4">
+    <div className="trocar-foto abaixo-4">
       <Retrato imagem={aoEnviar ? imagemInicial : previa} />
       <div className="encolhivel">
         <p style={{ fontWeight: 600 }}>{rotulo}</p>
         <p className="campo-ajuda">
           JPG, PNG ou WebP de até {TAMANHO_MAXIMO_FOTO_MB} MB.
         </p>
-        <button
-          type="button"
-          disabled={enviando || desabilitado}
-          className="botao botao-fantasma acima-2"
-          onClick={() => entrada.current?.click()}
-          aria-describedby={erro ? idErro : undefined}
-        >
-          {enviando ? 'Atualizando foto…' : 'Trocar foto'}
-        </button>
-        {aoRemover && imagemReal(imagemInicial) && (
-          <button type="button" className="botao botao-fantasma acima-2" disabled={enviando || desabilitado}
-            onClick={() => void executar(aoRemover)}>Remover foto</button>
-        )}
+        <div className="trocar-foto-acoes">
+          <button
+            type="button"
+            disabled={enviando || desabilitado}
+            className="botao botao-compacto botao-trocar-foto"
+            onClick={() => entrada.current?.click()}
+            aria-describedby={erro ? idErro : undefined}
+          >
+            <IconeCamera />
+            {enviando ? 'Atualizando foto…' : 'Trocar foto'}
+          </button>
+          {aoRemover && imagemReal(imagemInicial) && (
+            <button type="button" className="botao botao-compacto botao-remover-foto" disabled={enviando || desabilitado}
+              onClick={() => void executar(aoRemover)}>
+              <IconeLixeira />
+              Remover foto
+            </button>
+          )}
+        </div>
         {erro && (
           <p className="campo-erro acima-2" id={idErro} role="alert">
             {erro}

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { obterMeuAtelie } from '@/services/api/artesaos.servico'
-import { listarFilaCuradoria, obterMeuSelo } from '@/services/api/curadoria.servico'
+import { consultarPendentesCuradoria, obterMeuSelo, totalDaFila } from '@/services/api/curadoria.servico'
 import { listarConversasArtesao, listarPedidos, listarPedidosPendentes } from '@/services/api/pedidos.servico'
 import { contarMediacoesEmAberto, listarMediacoes } from '@/services/api/mediacoes.servico'
 import type { Sessao } from '@/services/sessao/cookie'
+import { podeComprar } from '@/services/sessao/papeis'
 import type { Artesao, EstadoPedido, EstadoSelo } from '@/types/dominio'
 
 const ESTADOS_ENCERRADOS: EstadoPedido[] = ['entregue', 'falha_reserva', 'falha_pagamento', 'recusado', 'cancelado', 'reembolsado']
@@ -22,13 +23,15 @@ export type ResumoPerfil = {
 
 async function carregarResumo(sessao: Sessao): Promise<ResumoPerfil> {
   if (sessao.papel === 'artesao') {
-    const [pendentes, conversas, artesao, selo] = await Promise.all([
+    const [pendentes, conversas, artesao, selo, compras] = await Promise.all([
       listarPedidosPendentes(),
       listarConversasArtesao(),
       obterMeuAtelie(),
       obterMeuSelo(),
+      listarPedidos(),
     ])
     return {
+      pedidosEmAndamento: comprasEmAndamento(compras.dados),
       pendentes: pendentes.dados?.length,
       naoLidas: conversas.dados?.filter((conversa) => conversa.naoLida).length,
       artesao: artesao.dados ?? undefined,
@@ -36,12 +39,16 @@ async function carregarResumo(sessao: Sessao): Promise<ResumoPerfil> {
     }
   }
   if (sessao.papel === 'admin') {
-    const [fila, mediacoes] = await Promise.all([listarFilaCuradoria(), listarMediacoes()])
-    return { filaCuradoria: fila.dados?.length, mediacoes: mediacoes.dados ? contarMediacoesEmAberto(mediacoes.dados) : undefined }
+    const [fila, mediacoes] = await Promise.all([consultarPendentesCuradoria(), listarMediacoes()])
+    return { filaCuradoria: totalDaFila(fila), mediacoes: mediacoes.dados ? contarMediacoesEmAberto(mediacoes.dados) : undefined }
   }
-  if (sessao.papel !== 'comprador') return {}
+  if (!podeComprar(sessao.papel)) return {}
   const pedidos = await listarPedidos()
-  return { pedidosEmAndamento: pedidos.dados?.filter((pedido) => !ESTADOS_ENCERRADOS.includes(pedido.estado)).length }
+  return { pedidosEmAndamento: comprasEmAndamento(pedidos.dados) }
+}
+
+function comprasEmAndamento(pedidos: { estado: EstadoPedido }[] | null | undefined): number | undefined {
+  return pedidos?.filter((pedido) => !ESTADOS_ENCERRADOS.includes(pedido.estado)).length
 }
 
 export function useResumoPerfil(sessao: Sessao | null, aberto: boolean): ResumoPerfil {

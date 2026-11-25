@@ -101,7 +101,6 @@ export default async function Home() {
       <div className="faixa-secao">
         <Prateleira
           titulo="Mais bem avaliadas"
-          subtitulo="As notas mais altas de quem já recebeu em casa"
           verTodos={{ href: hrefListagem({ ordenar: 'avaliacao' }) }}
         >
           {vitrine.maisAvaliadas.map((peca) => (
@@ -114,7 +113,6 @@ export default async function Home() {
         <div className="faixa-secao">
           <Prateleira
             titulo="Artesãos em destaque"
-            subtitulo="Conheça quem está por trás de cada peça"
             variante="cartoes"
           >
             {artesaos.map((artesao) => (

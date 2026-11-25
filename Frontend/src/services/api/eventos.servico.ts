@@ -27,7 +27,13 @@ export type DatasEstruturadasEvento = {
   horarioFim?: string | null
 }
 
-export type SubmissaoEvento = Evento & DatasEstruturadasEvento
+export type ContatoEvento = {
+  contatoNome: string
+  contatoTelefone: string
+  contatoEmail?: string | null
+}
+
+export type SubmissaoEvento = Evento & DatasEstruturadasEvento & ContatoEvento
 
 /** Confirmação de recebimento: o evento fica pendente e não é público até aprovação. */
 export type EventoPendente = { slug: string; status: 'PENDENTE' }
@@ -47,6 +53,8 @@ export type EventoEmModeracao = {
   status: EstadoModeracaoEvento
   publicado: boolean
   organizadorId: string | null
+  solicitante?: { id: string | null; nome: string | null; email: string | null } | null
+  contato?: { nome: string | null; telefone: string | null; email: string | null } | null
   submetidoEm: string
   decididoPor: string | null
   decididoEm: string | null

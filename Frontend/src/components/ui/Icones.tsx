@@ -1,6 +1,8 @@
 import {
   Amphora,
   BadgePercent,
+  Bell,
+  Camera,
   ChevronLeft,
   ChevronRight,
   Coffee,
@@ -85,6 +87,14 @@ export function IconeEditar({ tamanho = 16 }: Props) {
 
 export function IconeLixeira({ tamanho = 16 }: Props) {
   return <Trash2 size={tamanho} {...padrao} />
+}
+
+export function IconeCamera({ tamanho = 16 }: Props) {
+  return <Camera size={tamanho} {...padrao} />
+}
+
+export function IconeSino({ tamanho = 18 }: Props) {
+  return <Bell size={tamanho} {...padrao} />
 }
 
 export function IconeMenu({ tamanho = 20 }: Props) {

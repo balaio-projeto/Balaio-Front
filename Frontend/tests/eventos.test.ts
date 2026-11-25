@@ -34,7 +34,7 @@ beforeEach(() => {
 const submissao: SubmissaoEvento = {
   slug: 'feira-teste', nome: 'Feira Teste', tipo: 'feira', organizador: 'Associação', descricao: 'Descrição',
   periodo: '12 de setembro', horario: '', entrada: 'Gratuita', cidade: 'Recife', local: 'Pátio', endereco: 'Recife, Pernambuco',
-  lat: -8, lng: -35, artesaos: [], coletivos: [],
+  lat: -8, lng: -35, artesaos: [], coletivos: [], contatoNome: 'Responsável', contatoTelefone: '(81) 99999-0000',
 }
 
 test('coordenadas finitas e dentro do intervalo são aceitas; o resto cai no ponto padrão', () => {
@@ -142,4 +142,12 @@ test('resumo da fila descreve a quantidade por estado', () => {
   assert.equal(resumoDaFilaDeEventos(1, 'PENDENTE'), '1 evento aguardando análise')
   assert.equal(resumoDaFilaDeEventos(3, 'APROVADO'), '3 eventos aprovados')
   assert.equal(resumoDaFilaDeEventos(1, 'REJEITADO'), '1 evento rejeitado')
+})
+
+test('monta o endereço estruturado e cai no texto antigo quando não há rua', async () => {
+  const { enderecoDoEvento } = await import('../src/utils/eventos')
+  assert.deepEqual(enderecoDoEvento({ endereco: 'x', cidade: 'Recife', rua: 'Rua da Aurora', numero: '240', complemento: 'Galpão 2', bairro: 'Boa Vista', cep: '50050-000', referencia: 'Em frente ao rio' }),
+    { logradouro: 'Rua da Aurora, 240 - Galpão 2', regiao: 'Boa Vista · Recife - PE · CEP 50050-000', referencia: 'Em frente ao rio' })
+  assert.deepEqual(enderecoDoEvento({ endereco: 'Pátio, Olinda', cidade: 'Olinda' }),
+    { logradouro: 'Pátio, Olinda', regiao: 'Olinda - PE', referencia: null })
 })

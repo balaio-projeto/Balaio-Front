@@ -38,8 +38,10 @@ test.describe('admin', () => {
       fotos: [{ id: 'f0', nome: 'foto-peca.png', url: `data:image/png;base64,${FOTO_PECA_PNG_BASE64}` }],
     }), [201], 'peça do artesão da curadoria')
     await exigir(artesao.requisitar('POST', '/artesao/selo', { mensagem: 'Trabalho com barro há 15 anos na Mata Norte; peças no catálogo.' }), [200, 201], 'pedido de selo')
-    await page.goto('/admin')
-    const cartao = page.locator('li.cartao-curadoria').filter({ hasText: nomeArtesao, visible: true })
+    await page.goto(`/admin?busca=${encodeURIComponent(nomeArtesao)}`)
+    const cartao = page.locator('li.item-curadoria').filter({ hasText: nomeArtesao, visible: true })
+    await cartao.locator('summary').click()
+    await expect(cartao.locator('details')).toHaveAttribute('open', '')
     await cartao.getByRole('button', { name: 'Conceder selo' }).click()
     await cartao.getByRole('button', { name: 'Confirmar selo' }).click()
     await expect(page.getByText('Selo de verificado concedido').first()).toBeVisible()

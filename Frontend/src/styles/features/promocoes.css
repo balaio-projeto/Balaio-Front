@@ -1,0 +1,59 @@
+.aviso-custeio-desconto {
+  @apply flex items-start gap-3 p-4 rounded-media border border-linha bg-fundo text-pequeno text-tinta-suave;
+}
+
+.aviso-custeio-desconto svg {
+  @apply flex-none mt-0.5 text-tinta;
+}
+
+.form-cupom-grade {
+  @apply grid grid-cols-1 gap-x-4 items-start md:grid-cols-6;
+}
+
+.cupom-inteiro {
+  @apply md:col-span-6 min-w-0;
+}
+
+.cupom-largo {
+  @apply md:col-span-3 min-w-0;
+}
+
+.cupom-metade {
+  @apply md:col-span-3 min-w-0;
+}
+
+.cupom-terco {
+  @apply md:col-span-2 min-w-0;
+}
+
+.cupom-usos-resumo {
+  @apply flex-none text-pequeno text-tinta-suave tabular-nums;
+}
+
+.cupom-checkout {
+  @apply grid gap-x-3 items-start grid-cols-[minmax(0,1fr)_auto];
+}
+
+.cupom-checkout .botao {
+  @apply mt-7;
+}
+
+.cupom-aplicado {
+  @apply flex items-start gap-2 text-pequeno text-tinta-suave;
+}
+
+.cupom-aplicado svg {
+  @apply flex-none mt-0.5;
+}
+
+.opcao-frete-detalhe {
+  @apply block mt-1;
+}
+
+.opcao-frete-local {
+  @apply border-t border-linha pt-2 mt-2;
+}
+
+.fieldset-entrega-local {
+  @apply border-0 p-0 mt-0 mx-0 mb-[18px];
+}

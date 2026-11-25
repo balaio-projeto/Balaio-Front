@@ -5,6 +5,7 @@ import { obterSacola, revalidarSacola, salvarSacola, type RevalidacaoSacola } fr
 import { obterPeca } from '@/services/api/pecas.servico'
 import { useSessao } from '@/store/sessao'
 import { useEstadoPersistido } from '@/hooks/useEstadoPersistido'
+import { podeComprar } from '@/services/sessao/papeis'
 
 export type ItemSacola = { slug: string; quantidade: number }
 export type ResultadoAdicionar = 'adicionada' | 'ja-esta' | 'limite'
@@ -92,7 +93,7 @@ export function SacolaProvider({ children, memoriaVisitanteRef }: {
   children: ReactNode; memoriaVisitanteRef: RefObject<ItemSacola[] | null>
 }) {
   const { sessao: sessaoAtual } = useSessao()
-  const sessao = sessaoAtual?.papel === 'comprador' ? sessaoAtual : null
+  const sessao = podeComprar(sessaoAtual?.papel) ? sessaoAtual : null
   const [base, definirBase] = useState<ItemSacola[]>(SACOLA_VAZIA)
   const [pronto, definirPronto] = useState(false)
   const [erro, definirErro] = useState<string | null>(null)

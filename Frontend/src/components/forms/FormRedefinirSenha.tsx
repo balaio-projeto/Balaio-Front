@@ -44,7 +44,7 @@ export default function FormRedefinirSenha() {
   if (!token || linkRecusado) return <div className="cartao" role="alert"><p>{linkRecusado ?? 'Link inválido. Solicite outro link de recuperação.'}</p><Link href="/login/recover">Solicitar novo link</Link></div>
 
   return <form className="cartao" onSubmit={enviar} noValidate>
-    <Campo id="nova-senha" rotulo="Nova senha" ajuda="No mínimo 12 caracteres e no máximo 72 bytes em UTF-8.">
+    <Campo id="nova-senha" rotulo="Nova senha" ajuda="No mínimo 12 caracteres.">
       <input id="nova-senha" name="senha" type="password" autoComplete="new-password" minLength={12} required />
     </Campo>
     <Campo id="confirmar-senha" rotulo="Confirme a nova senha">

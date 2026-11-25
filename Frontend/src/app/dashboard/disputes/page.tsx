@@ -8,16 +8,18 @@ import { listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
 import { listarVendasArtesao } from '@/services/api/pedidos.servico'
 import { pecasPainelArtesao } from '@/services/api/pecas.servico'
 import { exigirArtesao } from '@/services/autenticacao'
+import { codigoDoPedido, rotaPedidoDoArtesao } from '@/utils/pedido'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Disputas() {
-  const { artesao, token } = await exigirArtesao()
-  const [{ dados: mediacoes, erro }, { dados: vendas }, { dados: pecas }] = await Promise.all([
+  const { usuario, artesao, token } = await exigirArtesao()
+  const [{ dados: todasAsMediacoes, erro }, { dados: vendas }, { dados: pecas }] = await Promise.all([
     listarMediacoesDasPartes(token),
     listarVendasArtesao(token),
     pecasPainelArtesao(artesao.slug, token),
   ])
+  const mediacoes = todasAsMediacoes?.filter((mediacao) => mediacao.compradorId !== usuario.id)
   const nomesDasPecas = new Map((pecas ?? []).map((peca) => [peca.slug, peca.nome]))
   const pecaDoPedido = new Map((vendas ?? []).map((venda) => [venda.id, nomesDasPecas.get(venda.pecaSlug)]))
 
@@ -26,8 +28,7 @@ export default async function Disputas() {
       <Migalhas trilha={[{ texto: 'Painel do artesão', href: '/dashboard' }, { texto: 'Disputas' }]} />
       <h1 className="titulo-pagina">Disputas dos seus pedidos</h1>
       <p className="subtitulo-pagina">
-        Mediações abertas por compradores sobre pedidos do seu ateliê. A plataforma analisa e decide; aqui você acompanha
-        o andamento e responde pela conversa do pedido.
+        Responda às mediações pela conversa do pedido.
       </p>
 
       {erro || !mediacoes ? (
@@ -36,7 +37,6 @@ export default async function Disputas() {
         <EstadoVazio
           icone={<IconeAviso tamanho={34} />}
           titulo="Nenhuma disputa nos seus pedidos"
-          descricao="Quando um comprador pedir mediação da plataforma para um pedido seu, ela aparece aqui com o andamento e a decisão."
         />
       ) : (
         <ul className="lista-curadoria" aria-label="Disputas dos seus pedidos">
@@ -56,7 +56,9 @@ export default async function Disputas() {
                   <dl className="cartao-disputa-dados">
                     <div className="cartao-disputa-dado">
                       <dt className="dado-rotulo">Pedido</dt>
-                      <dd className="dado-valor cartao-disputa-pedido">#{mediacao.pedido}</dd>
+                      <dd className="dado-valor cartao-disputa-pedido">
+                        <Link href={rotaPedidoDoArtesao(mediacao.pedido)}>{codigoDoPedido(mediacao.pedido)}</Link>
+                      </dd>
                       {nomeDaPeca && <dd className="autoria">{nomeDaPeca}</dd>}
                     </div>
                     <div className="cartao-disputa-dado">
@@ -71,7 +73,7 @@ export default async function Disputas() {
                   </div>
                 </div>
                 <footer className="cartao-curadoria-acoes">
-                  <Link href={`/dashboard/messages?pedido=${encodeURIComponent(mediacao.pedido)}`} className="botao-texto">Responder pela conversa do pedido</Link>
+                  <Link href={rotaPedidoDoArtesao(mediacao.pedido, true)} className="botao-texto">Responder pela conversa do pedido</Link>
                 </footer>
               </li>
             )

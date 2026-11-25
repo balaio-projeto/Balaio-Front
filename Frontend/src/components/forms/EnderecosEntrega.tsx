@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeEditar, IconeEstrela, IconeLixeira } from '@/components/ui/Icones'
 import type { EnderecoUsuario } from '@/types/dominio'
+import { formatarLogradouro } from '@/utils/cep'
 import { atualizarEndereco, criarEndereco, excluirEndereco, listarEnderecos } from '@/services/api/conta.servico'
 import FormularioEndereco, { type DadosEndereco } from './FormularioEndereco'
 
@@ -99,7 +100,7 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
 
   return (
     <section className="cartao" aria-busy={processando}>
-      <h2 className="secao-titulo">Endereços de entrega</h2>
+      <h2 className="secao-titulo">{emEdicao === NOVO && enderecos.length === 0 ? 'Novo endereço' : 'Endereços salvos'}</h2>
       {enderecos.map((e) => (
         <div className="endereco" key={e.id}>
           <div className="encolhivel">
@@ -110,7 +111,7 @@ export default function EnderecosEntrega({ iniciais }: { iniciais: EnderecoUsuar
             {emEdicao === e.id ? (
               formulario(e)
             ) : (
-              [e.rua, e.bairro, `CEP ${e.cep}`].filter(Boolean).map((linha) => (
+              [formatarLogradouro(e), e.bairro, `CEP ${e.cep}`].filter(Boolean).map((linha) => (
                 <p className="autoria" key={linha}>
                   {linha}
                 </p>

@@ -7,6 +7,7 @@ import { IconeSacola } from '@/components/ui/Icones'
 import AlternadorTema from '@/components/layout/AlternadorTema'
 import ContadorSacola from '@/components/carrinho/ContadorSacola'
 import MenuPerfil from '@/components/perfil/MenuPerfil'
+import SinoNotificacoes from '@/components/notificacoes/SinoNotificacoes'
 
 export default function Cabecalho({ semSugestoesDeBusca = false }: { semSugestoesDeBusca?: boolean }) {
   const sugestoes = semSugestoesDeBusca ? undefined : carregarSugestoesDeBusca()
@@ -26,6 +27,8 @@ export default function Cabecalho({ semSugestoesDeBusca = false }: { semSugestoe
 
         <div className="cabecalho-acoes">
           <AlternadorTema />
+
+          <SinoNotificacoes />
 
           <MenuPerfil />
 

@@ -3,7 +3,7 @@ import { after, before, test } from 'node:test'
 import { createServer, type IncomingMessage } from 'node:http'
 import { encaminharApi } from '../src/services/api/proxy'
 import { destinoInicial, destinoSeguro, lerSessaoDoCookie, sessaoDoUsuario } from '../src/services/sessao/cookie'
-import { papelDaRota, rotaProtegida } from '../src/services/sessao/rotas'
+import { papeisDaRota, rotaPermitida, rotaProtegida } from '../src/services/sessao/rotas'
 import { validarSenha } from '../src/utils/validacao'
 
 const chamadas: { caminho: string; metodo: string; headers: IncomingMessage['headers']; corpo: string }[] = []
@@ -122,12 +122,15 @@ test('JSON legado não autentica e redirects externos são rejeitados', () => {
 test('rotas por limites de segmento e política de senha alinhada ao domínio', () => {
   assert.equal(rotaProtegida('/account/details'), true)
   assert.equal(rotaProtegida('/accounting'), false)
-  assert.equal(papelDaRota('/admin/criteria'), 'admin')
-  assert.equal(papelDaRota('/dashboard/pieces'), 'artesao')
-  assert.equal(papelDaRota('/checkout'), 'comprador')
-  assert.equal(papelDaRota('/account/addresses'), 'comprador')
-  assert.equal(papelDaRota('/account/details'), undefined)
-  assert.equal(papelDaRota('/account/addressesx'), undefined)
+  assert.deepEqual(papeisDaRota('/admin/criteria'), ['admin'])
+  assert.deepEqual(papeisDaRota('/dashboard/pieces'), ['artesao'])
+  assert.deepEqual(papeisDaRota('/checkout'), ['comprador', 'artesao'])
+  assert.deepEqual(papeisDaRota('/account/addresses'), ['comprador', 'artesao'])
+  assert.equal(papeisDaRota('/account/details'), undefined)
+  assert.equal(papeisDaRota('/account/addressesx'), undefined)
+  assert.equal(rotaPermitida('/orders/123', 'artesao'), true)
+  assert.equal(rotaPermitida('/orders/123', 'organizador'), false)
+  assert.equal(rotaPermitida('/account/details', 'admin'), true)
   assert.ok(validarSenha('curta123'))
   assert.equal(validarSenha('SenhaSomenteTeste123'), null)
   assert.ok(validarSenha('á'.repeat(37)))

@@ -22,16 +22,14 @@ export function montarFilaCuradoria(
   coletivos: Coletivo[],
 ): SolicitacaoComEvidencias[] {
   const agora = Date.now()
-  return fila
-    .map((item, indice) => {
-      const pecasDoArtesao = pecasDaFila[indice] ?? null
-      return {
-        ...item,
-        pecas: (pecasDoArtesao ?? []).filter(estaPublicada).map(({ slug, nome, imagem }) => ({ slug, nome, imagem })),
-        pecasIndisponiveis: pecasDoArtesao === null,
-        coletivo: coletivos.find((coletivo) => coletivo.membros.includes(item.artesaoSlug))?.nome ?? null,
-        diasEsperando: diasDesde(item.solicitadoEm, agora),
-      }
-    })
-    .sort((a, b) => a.solicitadoEm.localeCompare(b.solicitadoEm))
+  return fila.map((item, indice) => {
+    const pecasDoArtesao = pecasDaFila[indice] ?? null
+    return {
+      ...item,
+      pecas: (pecasDoArtesao ?? []).filter(estaPublicada).map(({ slug, nome, imagem }) => ({ slug, nome, imagem })),
+      pecasIndisponiveis: pecasDoArtesao === null,
+      coletivo: coletivos.find((coletivo) => coletivo.membros.includes(item.artesaoSlug))?.nome ?? null,
+      diasEsperando: diasDesde(item.solicitadoEm, agora),
+    }
+  })
 }

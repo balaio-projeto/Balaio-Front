@@ -11,6 +11,7 @@ import { obterArtesao } from '@/services/api/artesaos.servico'
 import { consultarAvaliado } from '@/services/api/avaliacoes.servico'
 import { exigirSessao } from '@/services/autenticacao'
 import { pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
+import { codigoDoPedido } from '@/utils/pedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,15 +52,12 @@ export default async function Avaliar({ params }: { params: Promise<{ id: string
         trilha={[
           { texto: 'Início', href: '/' },
           { texto: 'Meus pedidos', href: '/orders' },
-          { texto: `Pedido #${pedido.id}`, href: `/orders/${pedido.id}` },
+          { texto: `Pedido ${codigoDoPedido(pedido.id)}`, href: `/orders/${pedido.id}` },
           { texto: 'Avaliar' },
         ]}
       />
 
       <h1 className="titulo-pagina">Como foi sua compra?</h1>
-      <p className="subtitulo-pagina">
-        Conte como foi receber a peça. Sua nota, os critérios e o comentário ficam registrados neste pedido.
-      </p>
 
       <div className="duas-colunas">
         <FormAvaliacao
@@ -70,13 +68,9 @@ export default async function Avaliar({ params }: { params: Promise<{ id: string
         />
 
         <aside className="cartao">
-          <h2 className="secao-titulo">Por que isso importa</h2>
-          <p className="texto-suave abaixo-3">
-            Boa parte dos artesãos daqui vendia só em feira, onde a reputação passava de boca em boca. Na internet, a
-            avaliação é o que ocupa esse lugar.
-          </p>
+          <h2 className="secao-titulo">Se algo deu errado</h2>
           <p className="texto-suave">
-            Se algo deu errado, avaliar não é o único caminho: você pode{' '}
+            Avaliar não é o único caminho: você pode{' '}
             <Link href={`/orders/${pedido.id}`}>abrir uma conversa</Link> com o artesão ou{' '}
             <Link href={`/orders/${pedido.id}/mediation`}>pedir mediação da plataforma</Link>.
           </p>

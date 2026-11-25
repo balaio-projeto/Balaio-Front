@@ -33,11 +33,13 @@ test.describe('comprador', () => {
     await page.locator('#end-cep').fill('01310100')
     await expect(page.locator('#end-cidade')).toHaveValue('São Paulo')
     await expect(page.locator('#end-rua')).toHaveValue(/Avenida Paulista/)
-    await page.locator('#end-rua').fill('Avenida Paulista, 1578')
+    await expect(page.locator('#end-numero')).toBeFocused()
+    await page.locator('#end-numero').fill('1578')
+    await page.locator('#end-complemento').fill('Conjunto 4')
     await page.getByRole('button', { name: 'Salvar endereço' }).click()
     await expect(page.getByText('Trabalho').first()).toBeVisible()
     await page.reload()
-    await expect(page.getByText('Avenida Paulista, 1578').first()).toBeVisible()
+    await expect(page.getByText('Avenida Paulista, 1578 - Conjunto 4').first()).toBeVisible()
   })
 
   test('sacola e checkout com endereço salvo chegam ao pagamento ou ao 503 documentado', async ({ page }) => {
@@ -59,7 +61,7 @@ test.describe('comprador', () => {
     if (resposta.status() === 503) {
       const corpo = await resposta.json()
       expect(corpo.erro.codigo).toBe('PAGAMENTO_INDISPONIVEL')
-      await expect(page.getByText('Pagamento sandbox não configurado.').first()).toBeVisible()
+      await expect(page.getByText('Pagamento não configurado.').first()).toBeVisible()
     } else {
       expect(resposta.status()).toBe(201)
       await expect(page).toHaveURL(/sandbox\.mercadopago\.com/)

@@ -9,7 +9,12 @@ h4 {
 }
 
 .titulo-pagina {
-  @apply text-titulo mb-1.5;
+  @apply text-titulo mb-6;
+}
+
+.titulo-pagina:has(~ .subtitulo-pagina),
+.titulo-pagina:has(+ .linha-classificacao) {
+  @apply mb-1.5;
 }
 
 .subtitulo-pagina {

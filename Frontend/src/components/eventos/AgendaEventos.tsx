@@ -26,9 +26,6 @@ export default function AgendaEventos() {
       <div className="agenda-cabeca">
         <Migalhas trilha={[{ texto: 'Início', href: '/' }, { texto: 'Eventos' }]} />
         <h1 className="titulo-pagina">Agenda de eventos</h1>
-        <p className="subtitulo-pagina">
-          Feiras, festivais e oficinas onde os artesãos da plataforma vão estar.
-        </p>
         <p className="mapa-nota">{notaDeLocalizacao(origem)}</p>
       </div>
 

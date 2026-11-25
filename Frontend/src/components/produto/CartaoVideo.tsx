@@ -335,9 +335,7 @@ export default function CartaoVideo({ video, artesao, peca }: Props) {
           <ul className="lista-comentarios" aria-busy={leituraComentarios === 'carregando'}>
             {lista.map((c) => (
               <li className="comentario" key={c.id ?? c.autor + c.quando + c.texto}>
-                <span className="comentario-inicial" aria-hidden>
-                  {c.autor.charAt(0)}
-                </span>
+                <Retrato imagem={imagemReal(c.autorImagem)} tamanho={36} />
                 <div className="encolhivel">
                   <p className="comentario-cabeca">
                     <span className="comentario-autor">{c.autor}</span>

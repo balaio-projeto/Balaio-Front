@@ -21,7 +21,6 @@ export default async function Cadastrar() {
     <LayoutAuth
       trilha={[{ texto: 'Início', href: '/' }, { texto: 'Entrar', href: '/login' }, { texto: 'Criar conta' }]}
       titulo="Criar sua conta"
-      apoio="Leva menos de dois minutos. O que pedimos muda conforme você vem comprar ou vender."
       frase="Quem faz e quem compra, no mesmo balaio."
       destaques={vantagens}
       rodape={

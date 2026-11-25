@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { carimbo, entrarPelaTela, escolherOpcao, estadoDataset, semFakeApi } from './apoio/navegador'
+import { carimbo, entrarPelaTela, estadoDataset, semFakeApi } from './apoio/navegador'
 import { exigir, sessaoAdmin } from './apoio/pilha'
 import { CONTAS } from './dados/dataset'
 
@@ -12,11 +12,17 @@ test.describe('organizador', () => {
     await page.goto('/events/new')
     await page.locator('#evento-nome').fill(nome)
     await page.locator('#evento-organizador').fill('Organização QA Feiras')
-    await page.locator('#evento-periodo').fill('10 e 11 de janeiro, 2027')
-    await page.locator('#evento-horario').fill('9h às 18h')
-    await escolherOpcao(page, '#evento-cidade', 'Recife')
-    await page.locator('#evento-local').fill('Cais da Alfândega')
     await page.locator('#evento-descricao').fill('Feira submetida pelo roteiro E2E real do organizador.')
+    await page.locator('#evento-data-inicio').fill('2027-01-10')
+    await page.locator('#evento-data-fim').fill('2027-01-11')
+    await page.locator('#evento-local').fill('Cais da Alfândega')
+    await page.locator('#evento-cidade').fill('Recife')
+    await page.locator('#evento-rua').fill('Rua da Alfândega')
+    await page.locator('#evento-numero').fill('35')
+    await page.locator('#evento-bairro').fill('Recife Antigo')
+    await page.locator('.mapa-eventos-escolha').click()
+    await page.locator('#evento-contato-nome').fill('Pessoa Responsável QA')
+    await page.locator('#evento-contato-telefone').fill('81999990000')
     await page.locator(`#participante-${artesao.slug}`).check()
     const envio = page.waitForResponse((resposta) => resposta.url().endsWith('/api/v1/eventos') && resposta.request().method() === 'POST')
     await page.getByRole('button', { name: 'Enviar para análise' }).click()

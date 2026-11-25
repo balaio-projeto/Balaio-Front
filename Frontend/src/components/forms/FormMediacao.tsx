@@ -6,9 +6,13 @@ import { Campo, Foto } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
 import EstadoCarregando from '@/components/feedback/EstadoCarregando'
 import EstadoErro from '@/components/feedback/EstadoErro'
-import { CLASSE_DO_SELO_DA_MEDIACAO, mediacaoDoPedido, situacaoDaMediacao } from '@/components/pedido/situacaoMediacao'
-import { criarMediacao, listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
+import {
+  CLASSE_DO_SELO_DA_MEDIACAO, mediacaoAceitaCancelamento, mediacaoDoPedido, situacaoDaMediacao,
+} from '@/components/pedido/situacaoMediacao'
+import { IconeAviso } from '@/components/ui/Icones'
+import { cancelarMediacao, criarMediacao, listarMediacoesDasPartes } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
+import { codigoDoPedido } from '@/utils/pedido'
 
 const motivos = [
   { chave: 'prazo', rotulo: 'O prazo combinado passou e a peça não chegou', assunto: 'Prazo de entrega ultrapassado' },
@@ -41,6 +45,9 @@ export default function FormMediacao({ pedidoId, pecaNome, pecaImagem }: Props) 
   const [consulta, definirConsulta] = useState<'carregando' | 'pronta' | 'erro'>('carregando')
   const [erroConsulta, definirErroConsulta] = useState<string | null>(null)
   const [tentativa, definirTentativa] = useState(0)
+  const [confirmandoDesistencia, definirConfirmandoDesistencia] = useState(false)
+  const [desistindo, definirDesistindo] = useState(false)
+  const [erroDesistencia, definirErroDesistencia] = useState<string | null>(null)
   const envioEmAndamento = useRef(false)
 
   useEffect(() => {
@@ -66,6 +73,40 @@ export default function FormMediacao({ pedidoId, pecaNome, pecaImagem }: Props) 
   function consultarNovamente() {
     definirConsulta('carregando')
     definirTentativa((atual) => atual + 1)
+  }
+
+  async function desistir(mediacao: Mediacao) {
+    if (envioEmAndamento.current) return
+    envioEmAndamento.current = true
+    definirErroDesistencia(null)
+    definirDesistindo(true)
+    try {
+      const resposta = await cancelarMediacao(mediacao.id)
+      if (resposta.erro || !resposta.dados) {
+        if (resposta.erro?.codigo === 'MEDIACAO_CONFLITANTE') {
+          avisar.erro('A mediação já não pode ser cancelada', resposta.erro.mensagem)
+          definirConfirmandoDesistencia(false)
+          definirAberta(null)
+          consultarNovamente()
+          return
+        }
+        definirErroDesistencia(resposta.erro?.mensagem ?? 'Não foi possível desistir da mediação. Tente novamente.')
+        return
+      }
+      definirConfirmandoDesistencia(false)
+      definirAberta(resposta.dados)
+      avisar.sucesso('Você desistiu da mediação', 'Se precisar, é possível abrir uma nova para este pedido.')
+    } catch {
+      definirErroDesistencia('Não foi possível desistir da mediação. Tente novamente.')
+    } finally {
+      envioEmAndamento.current = false
+      definirDesistindo(false)
+    }
+  }
+
+  function abrirNovaMediacao() {
+    definirErroDesistencia(null)
+    definirAberta(null)
   }
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -116,8 +157,35 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
   if (consulta === 'carregando' && !aberta) return <EstadoCarregando rotulo="Consultando mediações do pedido…" cartoes={1} />
   if (consulta === 'erro' && !aberta) return <EstadoErro mensagem={erroConsulta ?? undefined} aoTentarNovamente={consultarNovamente} />
 
+  if (aberta?.estado === 'cancelada') {
+    const situacao = situacaoDaMediacao(aberta)
+    return (
+      <section className="cartao">
+        <span className={`selo ${CLASSE_DO_SELO_DA_MEDIACAO[situacao.tom]} cartao-disputa-selo abaixo-3`}>
+          <span className="selo-ponto" />
+          {situacao.rotulo}
+        </span>
+        <h2 className="secao-titulo">Você desistiu desta mediação</h2>
+        <p className="texto-suave abaixo-4">
+          A mediação <strong>{aberta.id}</strong>, sobre o pedido {codigoDoPedido(aberta.pedido)}, foi encerrada sem decisão
+          {aberta.canceladaEm ? ` em ${aberta.canceladaEm}` : ''}. Se o problema continuar, você pode abrir uma nova
+          mediação para este pedido.
+        </p>
+        <div className="acoes-linha acoes-empilhaveis">
+          <button type="button" className="botao botao-primario" onClick={abrirNovaMediacao}>
+            Abrir nova mediação
+          </button>
+          <Link href={`/orders/${aberta.pedido}`} className="botao botao-fantasma">
+            Voltar ao pedido
+          </Link>
+        </div>
+      </section>
+    )
+  }
+
   if (aberta) {
     const situacao = situacaoDaMediacao(aberta)
+    const podeDesistir = mediacaoAceitaCancelamento(aberta)
     return (
       <section className="cartao">
         <span className={`selo ${CLASSE_DO_SELO_DA_MEDIACAO[situacao.tom]} cartao-disputa-selo abaixo-3`}>
@@ -126,7 +194,7 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
         </span>
         <h2 className="secao-titulo">{situacao.encerrada ? 'Sua mediação foi decidida' : 'Recebemos seu pedido de ajuda'}</h2>
         <p className="texto-suave abaixo-4">
-          Sua mediação ficou registrada com o protocolo <strong>{aberta.id}</strong>, sobre o pedido #{aberta.pedido}
+          Sua mediação ficou registrada com o protocolo <strong>{aberta.id}</strong>, sobre o pedido {codigoDoPedido(aberta.pedido)}
           {aberta.aberta ? `, aberta em ${aberta.aberta}` : ''}.
         </p>
         <dl className="abaixo-4">
@@ -152,7 +220,50 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
           <Link href="/orders" className="botao botao-fantasma">
             Meus pedidos
           </Link>
+          {podeDesistir && !confirmandoDesistencia && (
+            <button
+              type="button"
+              className="botao botao-fantasma"
+              onClick={() => {
+                definirErroDesistencia(null)
+                definirConfirmandoDesistencia(true)
+              }}
+            >
+              Desistir da mediação
+            </button>
+          )}
         </div>
+        {podeDesistir && confirmandoDesistencia && (
+          <div className="cancelamento-confirmacao acima-4" role="region" aria-labelledby="titulo-desistir-mediacao">
+            <span className="cancelamento-confirmacao-icone" aria-hidden="true">
+              <IconeAviso tamanho={20} />
+            </span>
+            <div>
+              <h3 id="titulo-desistir-mediacao">Desistir desta mediação?</h3>
+              <p>
+                A plataforma encerra o caso sem decisão e o pedido continua como está. Se precisar, você poderá abrir uma
+                nova mediação depois.
+              </p>
+              {erroDesistencia && <p className="cancelamento-erro" role="alert">{erroDesistencia}</p>}
+              <div className="cancelamento-acoes">
+                <button
+                  type="button"
+                  className="botao botao-fantasma"
+                  disabled={desistindo}
+                  onClick={() => {
+                    definirErroDesistencia(null)
+                    definirConfirmandoDesistencia(false)
+                  }}
+                >
+                  Manter mediação
+                </button>
+                <button type="button" className="botao botao-perigo" disabled={desistindo} onClick={() => void desistir(aberta)}>
+                  {desistindo ? 'Desistindo…' : 'Sim, desistir'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     )
   }
@@ -166,7 +277,7 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
           </div>
           <div className="encolhivel">
             <p className="texto-forte">{pecaNome}</p>
-            <p className="autoria">Pedido #{pedidoId}</p>
+            <p className="autoria">Pedido {codigoDoPedido(pedidoId)}</p>
           </div>
         </div>
       )}
@@ -200,7 +311,7 @@ Solução desejada: ${solucaoDesejada}` : relato.trim(),
 
       <Campo
         rotulo="Conte o que aconteceu"
-        ajuda="Descreva datas, o que foi combinado e o que você já tentou. Fotos podem ser enviadas depois, pela conversa."
+        ajuda="Fotos podem ser enviadas depois, pela conversa do pedido."
         id="mediacao-relato"
         erro={erroRelato ?? undefined}
       >

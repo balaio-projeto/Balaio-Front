@@ -2,12 +2,12 @@
   @apply flex fixed inset-x-0 bottom-0 z-[45] min-h-(--nav-inferior-altura) pb-[env(safe-area-inset-bottom,0px)] bg-nav-fundo border-t border-nav-linha shadow-[0_-1px_8px_var(--sombra-cor)];
 }
 
-:root:has(.barra-fixa) {
+:root:has(.barra-fixa:not([hidden] *)) {
   --barra-fixa-espaco: 72px;
 }
 
 @media (min-width: 700px) {
-  :root:has(.barra-fixa) {
+  :root:has(.barra-fixa:not([hidden] *)) {
     --nav-inferior-espaco: 0px;
     --barra-fixa-espaco: 0px;
   }

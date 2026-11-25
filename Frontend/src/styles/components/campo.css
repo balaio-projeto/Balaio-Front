@@ -101,3 +101,31 @@
 .seletor-estado-check {
   @apply flex text-verde-tinta;
 }
+
+.formulario-endereco {
+  @apply grid grid-cols-1 gap-x-4 items-start md:grid-cols-6;
+}
+
+.endereco-metade {
+  @apply md:col-span-3;
+}
+
+.endereco-largo {
+  @apply md:col-span-4;
+}
+
+.endereco-curto {
+  @apply md:col-span-2;
+}
+
+.endereco-acoes {
+  @apply md:col-span-6 mt-1;
+}
+
+.endereco-cep > .campo {
+  @apply mb-1.5;
+}
+
+.endereco-cep > p {
+  @apply mb-[18px];
+}

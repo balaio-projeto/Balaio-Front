@@ -11,15 +11,21 @@ import { atualizarEstadoPedido } from '@/services/api/pedidos.servico'
 import { avisarPainelAtualizado } from '@/hooks/useArtesaoLogado'
 import { validarRastreio } from '@/utils/painel'
 import Preco from '@/components/ui/Preco'
+import CompradorDoPedido from '@/components/pedido/CompradorDoPedido'
+import type { CompradorDoPedido as Comprador } from '@/types/dominio'
+import { codigoDoPedido, rotaPedidoDoArtesao } from '@/utils/pedido'
+import { entregaCombinada } from '@/utils/frete'
 
 export type PedidoEmAndamento = {
   id: string
   estado: 'producao' | 'enviado'
   pecaNome?: string
+  comprador?: Comprador
   quando: string
   valor: number
   rastreio?: string | null
   emDisputa?: boolean
+  freteProvedor?: string | null
 }
 
 export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedidos: PedidoEmAndamento[]; erroCarregamento?: string }) {
@@ -27,6 +33,7 @@ export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedi
   const dialogo = useRef<HTMLDialogElement>(null)
   const [processando, definirProcessando] = useState<string | null>(null)
   const [pedidoEnvio, definirPedidoEnvio] = useState<PedidoEmAndamento | null>(null)
+  const combinada = entregaCombinada({ provedor: pedidoEnvio?.freteProvedor ?? '' })
   const [rastreio, definirRastreio] = useState('')
   const [transportadora, definirTransportadora] = useState('')
   const [erroRastreio, definirErroRastreio] = useState<string | null>(null)
@@ -61,7 +68,8 @@ export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedi
   async function confirmarEnvio(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     if (!pedidoEnvio) return
-    const problema = validarRastreio(rastreio)
+    const semRastreio = combinada && !rastreio.trim()
+    const problema = semRastreio ? null : validarRastreio(rastreio)
     definirErroRastreio(problema)
     if (problema) return
     const ok = await avancar(pedidoEnvio, 'enviado', {
@@ -81,10 +89,14 @@ export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedi
           <div className="dado">
             <span className="dado-rotulo">Peça</span>
             <span className="dado-valor">{pedido.pecaNome ?? 'Peça do pedido'}</span>
+            <span className="autoria">
+              <Link href={rotaPedidoDoArtesao(pedido.id)}>Pedido {codigoDoPedido(pedido.id)}</Link>
+              {' · '}{pedido.quando}
+            </span>
           </div>
           <div className="dado">
-            <span className="dado-rotulo">Pedido</span>
-            <span className="dado-valor">{pedido.quando}</span>
+            <span className="dado-rotulo">Comprador</span>
+            <span className="dado-valor"><CompradorDoPedido comprador={pedido.comprador} /></span>
           </div>
           <div className="dado">
             <span className="dado-rotulo">Valor</span>
@@ -120,9 +132,11 @@ export default function PedidosEmAndamento({ pedidos, erroCarregamento }: { pedi
         </div>
         <form onSubmit={confirmarEnvio} noValidate>
           <p className="texto-suave abaixo-4">
-            {pedidoEnvio?.pecaNome}. O comprador recebe o código de rastreio e acompanha a entrega pelo pedido.
+            {combinada
+              ? `${pedidoEnvio?.pecaNome ?? 'Pedido'}. Retirada ou entrega local: combine o encontro pela conversa do pedido.`
+              : `${pedidoEnvio?.pecaNome ?? 'Pedido'}. O comprador recebe o código de rastreio e acompanha a entrega pelo pedido.`}
           </p>
-          <Campo rotulo="Código de rastreio" erro={erroRastreio ?? undefined} id="rastreio-envio">
+          <Campo rotulo={combinada ? 'Código de rastreio (opcional)' : 'Código de rastreio'} erro={erroRastreio ?? undefined} id="rastreio-envio">
             <input id="rastreio-envio" value={rastreio} maxLength={40} autoComplete="off" disabled={processando !== null}
               onChange={(evento) => definirRastreio(evento.target.value)} />
           </Campo>

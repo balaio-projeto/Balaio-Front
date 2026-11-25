@@ -29,8 +29,9 @@ export default function MenuAdminLateral({ ativo, contagens }: { ativo: ChaveAdm
               {item.icone}
               {item.texto}
               {item.marcador && (
-                <span className={`menu-marcador${item.marcador.alerta ? ' menu-marcador-alerta' : ''}`}>
-                  {item.marcador.texto}
+                <span className={`menu-marcador${item.marcador.alerta ? ' menu-marcador-alerta' : ''}`} title={item.marcador.texto}>
+                  <span aria-hidden>{item.marcador.contagem > 99 ? '99+' : item.marcador.contagem}</span>
+                  <span className="so-leitor">{item.marcador.texto}</span>
                 </span>
               )}
             </Link>

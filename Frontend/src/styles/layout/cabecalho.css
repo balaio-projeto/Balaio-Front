@@ -331,3 +331,7 @@
     animation: none;
   }
 }
+
+.cabecalho-busca-detalhe {
+  @apply font-normal text-tinta-suave;
+}

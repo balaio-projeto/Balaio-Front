@@ -35,6 +35,9 @@ const ROTAS_COMMUNITY: Regra[] = [
   [['PATCH'], rota('/admin/mediacoes/:id')],
   [['POST'], rota('/admin/mediacoes/:id/decisao')],
   [['POST'], rota('/admin/mediacoes/:id/reprocessar-entrega')],
+  [['POST'], rota('/admin/mediacoes/:id/cancelamento')],
+  [['GET'], /^\/admin\/videos$/],
+  [['POST'], rota('/admin/videos/:id/(suspensao|reativacao)')],
 ]
 
 function atende(regras: Regra[], metodo: string, caminho: string): boolean {

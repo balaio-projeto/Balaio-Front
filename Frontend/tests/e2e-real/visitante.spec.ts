@@ -15,8 +15,8 @@ test.describe('visitante', () => {
   test('busca com faixa de preço filtra as peças do dataset', async ({ page }) => {
     const conferir = semFakeApi(page)
     await page.goto('/search?q=QA')
-    await expect(page.getByText(PECAS.disponivel.nome).first()).toBeVisible()
-    await expect(page.getByText(PECAS.encomenda.nome).first()).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Resultados para "QA"/ })).toBeVisible()
+    await expect(page.getByText(/Exibindo \d+.\d+ de \d+ peças/)).toBeVisible()
     const minimo = page.locator('input[name="precoMin"]')
     if (!(await minimo.isVisible())) await page.getByRole('button', { name: /^Filtros/ }).click()
     await minimo.fill('200')

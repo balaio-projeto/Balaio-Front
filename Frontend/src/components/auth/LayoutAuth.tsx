@@ -8,7 +8,7 @@ type Trilha = Parameters<typeof Migalhas>[0]['trilha']
 type Props = {
   trilha: Trilha
   titulo: string
-  apoio: ReactNode
+  apoio?: ReactNode
   frase: string
   destaques: string[]
   children: ReactNode
@@ -39,7 +39,7 @@ export default function LayoutAuth({ trilha, titulo, apoio, frase, destaques, ch
 
         <section className="auth-painel">
           <h1 className="auth-titulo">{titulo}</h1>
-          <p className="autoria auth-apoio">{apoio}</p>
+          {apoio && <p className="autoria auth-apoio">{apoio}</p>}
 
           {children}
 

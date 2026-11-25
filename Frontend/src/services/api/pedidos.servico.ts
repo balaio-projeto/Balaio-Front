@@ -8,6 +8,7 @@ export type Checkout = {
   endereco: { cep: string; endereco: string; cidade: string; estado: string }
     enderecoId?: string
   meio: 'checkout_pro'
+  cupom?: string
 }
 
 export async function finalizarCompra(compra: Checkout): Promise<RespostaApi<Pedido>> {
@@ -63,6 +64,10 @@ export async function listarPedidosPendentes(token?: string): Promise<RespostaAp
 
 export async function listarVendasArtesao(token?: string): Promise<RespostaApi<Pedido[]>> {
   return buscar<Pedido[]>('/artesao/vendas', comToken(token))
+}
+
+export async function obterPedidoDoArtesao(id: string, token?: string): Promise<RespostaApi<Pedido>> {
+  return buscar<Pedido>(`/artesao/pedidos/${encodeURIComponent(id)}`, comToken(token))
 }
 
 export type DadosEnvio = { rastreio: string; transportadora?: string }

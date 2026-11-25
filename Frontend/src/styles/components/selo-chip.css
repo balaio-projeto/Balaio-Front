@@ -15,27 +15,47 @@
 }
 
 .selo {
-  @apply inline-flex items-center gap-1.5 rounded-pilula py-[5px] px-3 text-mini font-bold tracking-[0.04em] uppercase whitespace-nowrap;
+  --selo-cor: var(--destaque);
+  @apply inline-flex items-center gap-1.5 rounded-pilula py-1 pl-2 pr-2.5 text-[12px] leading-4 font-semibold whitespace-nowrap;
+  color: var(--selo-cor);
+  background: color-mix(in srgb, var(--selo-cor) 11%, var(--superficie));
+  border: 1px solid color-mix(in srgb, var(--selo-cor) 32%, transparent);
 }
 
-.selo-sobre-foto {
-  @apply absolute top-3 left-3 z-[2] pointer-events-none border border-[rgba(255,255,255,0.45)] shadow-[0_2px_10px_rgba(17,22,37,0.35)];
+.selo-icone {
+  @apply inline-flex items-center justify-center w-4 h-4 rounded-full flex-none;
+  background: var(--selo-cor);
+  color: var(--superficie);
+}
+
+.selo-icone svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.75;
 }
 
 .selo-disponivel {
-  @apply bg-verde text-branco;
+  --selo-cor: var(--verde-tinta);
 }
 
 .selo-encomenda {
-  @apply bg-amarelo text-tinta-fixa;
+  --selo-cor: var(--barro-tinta);
 }
 
 .selo-unica {
-  @apply bg-vermelho text-branco;
+  --selo-cor: var(--vermelho-tinta);
 }
 
 .selo-neutro {
-  @apply bg-destaque-suave text-destaque;
+  --selo-cor: var(--destaque);
+}
+
+.selo-sobre-foto {
+  @apply absolute top-3 left-3 z-[2] pointer-events-none;
+  background: color-mix(in srgb, var(--superficie) 90%, transparent);
+  border-color: color-mix(in srgb, var(--selo-cor) 24%, transparent);
+  box-shadow: 0 2px 10px rgba(17, 22, 37, 0.22);
+  backdrop-filter: blur(6px);
 }
 
 .etiqueta-desconto {
@@ -53,5 +73,6 @@
 }
 
 .selo-ponto {
-  @apply w-[7px] h-[7px] rounded-full bg-current flex-none;
+  @apply w-1.5 h-1.5 rounded-full flex-none;
+  background: var(--selo-cor, currentColor);
 }

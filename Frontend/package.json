@@ -15,15 +15,17 @@
     "test:e2e:auth": "playwright test",
     "test:e2e:real": "playwright test -c playwright.real.config.ts",
     "dados:e2e:real": "tsx tests/e2e-real/dados/preparar-dados.ts",
-    "test:session": "tsx --test src/proxy.test.ts",
+    "test:session": "tsx --test src/proxy.test.ts src/services/sessao/papeis.test.ts",
     "test:sacola": "tsx --test src/store/sacola.test.ts src/components/carrinho/abrirPagamento.test.ts",
-    "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts src/utils/frete.test.ts src/utils/painel.test.ts",
+    "test:orders": "tsx --test src/components/pedido/acaoCancelamentoPedido.test.ts src/utils/frete.test.ts src/utils/painel.test.ts src/utils/pedido.test.ts",
     "test:community": "tsx --test src/services/api/community.test.ts src/components/produto/favoritosListados.test.ts src/components/pedido/situacaoMediacao.test.ts",
     "test:pi210": "tsx --test tests/pi210.test.ts",
     "test:filtros": "tsx --test src/utils/filtrosUrl.test.ts",
+    "test:busca": "tsx --test src/utils/busca.test.ts src/components/layout/sugestoesBusca.test.ts",
     "test:vitrine": "tsx --test src/components/vitrine/montarVitrine.test.ts src/utils/validacao.test.ts src/utils/formato.test.ts src/components/painel/descontoPeca.test.ts",
     "test:eventos": "tsx --test tests/eventos.test.ts",
-    "test:cep": "tsx --test src/utils/cep.test.ts"
+    "test:cep": "tsx --test src/utils/cep.test.ts",
+    "test:cupons": "tsx --test src/utils/cupom.test.ts src/utils/frete.test.ts"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",

@@ -5,17 +5,19 @@ import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeAviso } from '@/components/ui/Icones'
 import {
-  DECISOES_DE_MEDIACAO, decidirMediacao as registrarDecisao, ehDecisaoDeMediacao, iniciarAnaliseDaMediacao,
-  reprocessarEntregaDaMediacao,
+  DECISOES_DE_MEDIACAO, cancelarMediacao, decidirMediacao as registrarDecisao, ehDecisaoDeMediacao,
+  iniciarAnaliseDaMediacao, reprocessarEntregaDaMediacao,
   type DecisaoMediacao,
 } from '@/services/api/mediacoes.servico'
 import { type Mediacao } from '@/types/dominio'
-import { CLASSE_DO_SELO_DA_MEDIACAO } from '@/components/pedido/situacaoMediacao'
+import { CLASSE_DO_SELO_DA_MEDIACAO, mediacaoAceitaCancelamento } from '@/components/pedido/situacaoMediacao'
+import { codigoDoPedido } from '@/utils/pedido'
 
 export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
   const [lista, definirLista] = useState<Mediacao[]>(iniciais)
   const [abertas, definirAbertas] = useState<string[]>([])
   const [processando, definirProcessando] = useState<string[]>([])
+  const [confirmandoEncerramento, definirConfirmandoEncerramento] = useState<string | null>(null)
   const emAndamento = useRef(new Set<string>())
 
   function comecar(id: string): boolean {
@@ -91,12 +93,62 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
     }
   }
 
+  async function encerrarSemDecisao(m: Mediacao) {
+    if (!comecar(m.id)) return
+    try {
+      const resposta = await cancelarMediacao(m.id)
+      if (resposta.erro || !resposta.dados) {
+        avisar.erro('Não foi possível encerrar a mediação', resposta.erro?.mensagem)
+        return
+      }
+      definirLista((atual) => atual.filter((item) => item.id !== m.id))
+      definirConfirmandoEncerramento(null)
+      avisar.info('Mediação encerrada sem decisão', 'O comprador pode abrir uma nova mediação para este pedido.')
+    } catch {
+      avisar.erro('Não foi possível encerrar a mediação', 'Tente novamente.')
+    } finally {
+      terminar(m.id)
+    }
+  }
+
+  function encerramento(m: Mediacao) {
+    if (!mediacaoAceitaCancelamento(m)) return null
+    if (confirmandoEncerramento !== m.id) {
+      return (
+        <button type="button" className="botao botao-fantasma botao-compacto" disabled={processando.includes(m.id)}
+          onClick={() => definirConfirmandoEncerramento(m.id)}>
+          Encerrar sem decisão
+        </button>
+      )
+    }
+    return (
+      <div className="cancelamento-confirmacao" role="region" aria-labelledby={`encerrar-${m.id}`}>
+        <span className="cancelamento-confirmacao-icone" aria-hidden="true">
+          <IconeAviso tamanho={20} />
+        </span>
+        <div>
+          <h3 id={`encerrar-${m.id}`}>Encerrar sem decisão?</h3>
+          <p>A mediação sai da lista e o pedido não é alterado. O comprador poderá abrir uma nova mediação depois.</p>
+          <div className="cancelamento-acoes">
+            <button type="button" className="botao botao-fantasma botao-compacto" disabled={processando.includes(m.id)}
+              onClick={() => definirConfirmandoEncerramento(null)}>
+              Voltar
+            </button>
+            <button type="button" className="botao botao-perigo botao-compacto" disabled={processando.includes(m.id)}
+              onClick={() => void encerrarSemDecisao(m)}>
+              {processando.includes(m.id) ? 'Encerrando…' : 'Confirmar encerramento'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (lista.length === 0) {
     return (
       <EstadoVazio
         icone={<IconeAviso tamanho={34} />}
         titulo="Nenhuma mediação aberta"
-        descricao="Quando um comprador ou artesão pedir ajuda para resolver um pedido, ele aparece aqui."
       />
     )
   }
@@ -123,7 +175,7 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
             <div className="cartao-curadoria-corpo">
               <p className="cartao-curadoria-peca">{m.assunto}</p>
               <p className="autoria cartao-disputa-pedido">
-                {m.partes} · pedido {m.pedido}
+                {m.partes} · pedido {codigoDoPedido(m.pedido)}
               </p>
               {m.relato && <p className="texto-suave acima-2" style={{ whiteSpace: 'pre-line' }}>{m.relato}</p>}
             </div>
@@ -159,6 +211,7 @@ export default function ListaMediacoes({ iniciais }: { iniciais: Mediacao[] }) {
                   Abrir mediação
                 </button>
               )}
+              {encerramento(m)}
             </footer>
           </li>
         )

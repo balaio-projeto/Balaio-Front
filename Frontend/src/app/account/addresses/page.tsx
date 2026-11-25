@@ -10,11 +10,12 @@ import MenuConta from '@/components/conta/MenuConta'
 import { exigirSessao } from '@/services/autenticacao'
 import { listarPedidos } from '@/services/api/pedidos.servico'
 import { listarEnderecos } from '@/services/api/conta.servico'
+import { podeComprar } from '@/services/sessao/papeis'
 
 export default async function EnderecosDaConta() {
   const { usuario, token } = await exigirSessao()
-  const comprador = (usuario.papel ?? usuario.perfil) === 'comprador'
-  const [{ dados: pedidos }, { dados: enderecos, erro: erroEnderecos }] = comprador
+  const compra = podeComprar(usuario.papel ?? usuario.perfil)
+  const [{ dados: pedidos }, { dados: enderecos, erro: erroEnderecos }] = compra
     ? await Promise.all([listarPedidos(token), listarEnderecos(token)])
     : [{ dados: [] }, { dados: null, erro: null }]
   return (
@@ -28,14 +29,13 @@ export default async function EnderecosDaConta() {
       </MenuDrawer>
 
       <h1 className="titulo-pagina">Endereços de entrega</h1>
-      <p className="subtitulo-pagina">Onde você costuma receber as suas peças.</p>
 
       <div className="conta-hub">
-        {!comprador ? (
+        {!compra ? (
           <EstadoVazio
             icone={<IconeMapa tamanho={34} />}
-            titulo="Endereços de entrega são da conta de comprador"
-            descricao="Esta conta não faz compras no Balaio, então não guarda endereços de entrega. Para comprar peças, entre com uma conta de comprador."
+            titulo="Endereços de entrega são de quem compra"
+            descricao="Esta conta não faz compras no Balaio, então não guarda endereços de entrega. Para comprar peças, entre com uma conta de comprador ou de artesão."
             acao={<Link href="/account" className="botao botao-primario">Voltar para minha conta</Link>}
           />
         ) : erroEnderecos || !enderecos ? (

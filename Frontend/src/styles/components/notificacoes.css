@@ -1,0 +1,78 @@
+.notificacoes {
+  @apply relative;
+}
+
+.notificacoes-gatilho {
+  @apply relative border-0 bg-transparent cursor-pointer font-[inherit];
+}
+
+.notificacoes-gatilho[aria-expanded='true'] {
+  @apply bg-[rgba(255,255,255,0.14)];
+}
+
+.notificacoes-contador {
+  @apply absolute top-1 right-0.5 min-w-[18px] h-[18px] px-1 rounded-pilula bg-amarelo text-tinta-fixa text-[11px] font-bold leading-[18px] text-center;
+}
+
+.notificacoes-painel {
+  @apply absolute right-0 top-[calc(100%+8px)] z-50 w-[360px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-grande border border-linha bg-superficie text-tinta shadow-(--sombra-alta);
+  max-height: min(560px, calc(100dvh - 120px));
+  animation: departamentos-abre 140ms ease;
+}
+
+.notificacoes-topo {
+  @apply sticky top-0 z-10 flex items-center justify-between gap-3 px-4 pt-3 pb-2 bg-superficie border-b border-linha;
+}
+
+.notificacoes-titulo {
+  @apply m-0 text-base font-bold;
+}
+
+.notificacoes-topo .botao-texto {
+  @apply mx-0 min-h-9;
+}
+
+.notificacoes-vazio {
+  @apply m-0 px-4 py-8 text-center text-pequeno text-tinta-suave;
+}
+
+.notificacoes-lista {
+  @apply list-none m-0 p-1.5;
+}
+
+.notificacao {
+  @apply w-full flex items-start gap-3 rounded-caixa border-0 bg-transparent px-2.5 py-3 text-left text-tinta cursor-pointer font-[inherit];
+}
+
+.notificacao:hover,
+.notificacao:focus-visible {
+  @apply bg-fundo;
+}
+
+.notificacao-marca {
+  @apply mt-1.5 h-2 w-2 flex-none rounded-full bg-transparent;
+}
+
+.notificacao-nova .notificacao-marca {
+  @apply bg-acao;
+}
+
+.notificacao-titulo {
+  @apply block text-pequeno font-semibold;
+}
+
+.notificacao-nova .notificacao-titulo {
+  @apply font-bold;
+}
+
+.notificacao-mensagem {
+  @apply block mt-0.5 text-[13px] leading-[1.45] text-tinta-suave;
+}
+
+.notificacao-quando {
+  @apply block mt-1 text-mini text-tinta-suave;
+}
+
+.cabecalho-mobile .notificacoes-painel {
+  @apply fixed left-3 right-3 top-[64px] w-auto max-w-none;
+}
