@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CLASSE_DO_SELO_DA_MEDIACAO, mediacaoDoPedido, situacaoDaMediacao } from './situacaoMediacao'
+import {
+  CLASSE_DO_SELO_DA_MEDIACAO, mediacaoAceitaCancelamento, mediacaoDoPedido, situacaoDaMediacao,
+} from './situacaoMediacao'
 
 test('mediação aberta e em análise ainda não têm decisão para as partes', () => {
   assert.deepEqual(situacaoDaMediacao({ estado: 'aberta' }), {
@@ -38,4 +40,31 @@ test('encontra a mediação do pedido sem confundir com outros pedidos', () => {
   const mediacoes = [{ pedido: 'p1', id: 'm1' }, { pedido: 'p2', id: 'm2' }]
   assert.equal(mediacaoDoPedido(mediacoes, 'p2')?.id, 'm2')
   assert.equal(mediacaoDoPedido(mediacoes, 'p3'), null)
+})
+
+test('mediação cancelada aparece encerrada, sem decisão e com selo neutro', () => {
+  const situacao = situacaoDaMediacao({ estado: 'cancelada', emAnalise: false, decisao: null })
+  assert.deepEqual(situacao, { rotulo: 'Mediação cancelada', encerrada: true, decisao: null, tom: 'cancelada' })
+  assert.equal(CLASSE_DO_SELO_DA_MEDIACAO[situacao.tom], 'selo-neutro')
+})
+
+test('mediação do pedido ignora as canceladas e escolhe a ativa', () => {
+  const mediacoes = [
+    { pedido: 'p1', id: 'antiga', estado: 'cancelada' as const },
+    { pedido: 'p1', id: 'atual', estado: 'aberta' as const },
+    { pedido: 'p2', id: 'so-cancelada', estado: 'cancelada' as const },
+  ]
+  assert.equal(mediacaoDoPedido(mediacoes, 'p1')?.id, 'atual')
+  assert.equal(mediacaoDoPedido(mediacoes, 'p2'), null)
+})
+
+test('só mediação aberta ou em análise aceita desistência ou encerramento sem decisão', () => {
+  assert.equal(mediacaoAceitaCancelamento({ estado: 'aberta' }), true)
+  assert.equal(mediacaoAceitaCancelamento({ estado: 'emAnalise' }), true)
+  assert.equal(mediacaoAceitaCancelamento({ emAnalise: true }), true)
+  assert.equal(mediacaoAceitaCancelamento({}), true)
+  for (const estado of ['decisao_pendente', 'decidida', 'falha_entrega', 'cancelada'] as const) {
+    assert.equal(mediacaoAceitaCancelamento({ estado }), false, estado)
+  }
+  assert.equal(mediacaoAceitaCancelamento({ estado: 'emAnalise', decisao: 'negar' }), false)
 })

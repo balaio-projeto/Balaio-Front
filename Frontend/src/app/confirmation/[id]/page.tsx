@@ -9,6 +9,7 @@ import { exigirSessao } from '@/services/autenticacao'
 import EstadoPagamento from '@/components/pedido/EstadoPagamento'
 import { pagamentoConfirmado, pedidoEncerrado, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
 import type { Pedido } from '@/types/dominio'
+import { codigoDoPedido } from '@/utils/pedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,7 @@ export default async function Confirmacao({ params }: { params: Promise<{ id: st
         </span>
         <h1 className="titulo-pagina">{cabecalho.titulo}</h1>
         <p className="subtitulo-pagina" style={{ margin: '0 auto 24px' }}>
-          Seu pedido <strong>#{pedido.id}</strong> está registrado e pode ser acompanhado pela plataforma.
+          Seu pedido <strong>{codigoDoPedido(pedido.id)}</strong> está registrado e pode ser acompanhado pela plataforma.
         </p>
         <EstadoPagamento inicial={pedido} />
       </div>

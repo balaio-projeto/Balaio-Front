@@ -26,9 +26,6 @@ export default function ApoioPrecificacao({ aoUsarPreco, desabilitado = false }:
   return (
     <div className="cartao abaixo-4">
       <h2 className="secao-titulo">Apoio à precificação</h2>
-      <p className="campo-ajuda abaixo-3">
-        Uma conta simples para você não vender abaixo do que o trabalho vale.
-      </p>
 
       <Campo rotulo="Materiais (R$)" id="preco-materiais">
         <input

@@ -185,6 +185,10 @@
   }
 }
 
+.agenda-cabeca .titulo-pagina {
+  @apply mb-1.5;
+}
+
 .agenda-cabeca .mapa-nota {
   @apply mb-4;
 }
@@ -305,4 +309,88 @@
 .opcao-radio input {
   @apply flex-none w-[18px] h-[18px] m-0;
   accent-color: var(--acao);
+}
+
+.form-evento {
+  @apply grid gap-2;
+}
+
+.form-evento-secao {
+  @apply m-0 p-0 border-0 border-b border-linha pb-5 mb-3 min-w-0;
+}
+
+.form-evento-legenda {
+  @apply flex items-center gap-2.5 p-0 mb-4 text-grande font-semibold text-tinta;
+}
+
+.form-evento-numero {
+  @apply inline-flex items-center justify-center w-7 h-7 rounded-full bg-destaque-suave text-destaque text-pequeno font-bold flex-none;
+}
+
+.form-evento-descricao {
+  @apply -mt-2 mb-4 text-pequeno text-tinta-suave;
+}
+
+.form-evento-grade {
+  @apply grid grid-cols-1 gap-x-4 items-start md:grid-cols-6;
+}
+
+.form-evento .campo > .campo-erro {
+  order: 1;
+}
+
+.form-evento .campo > .campo-ajuda {
+  order: 2;
+}
+
+.evento-inteiro {
+  @apply md:col-span-6 min-w-0;
+}
+
+.evento-largo {
+  @apply md:col-span-4 min-w-0;
+}
+
+.evento-metade {
+  @apply md:col-span-3 min-w-0;
+}
+
+.evento-curto {
+  @apply md:col-span-2 min-w-0;
+}
+
+.form-evento-previa {
+  @apply -mt-2 mb-2 text-pequeno text-tinta-suave;
+}
+
+.form-evento-mapa-topo {
+  @apply flex flex-wrap items-center justify-between gap-2;
+}
+
+.form-evento-participantes {
+  @apply m-0 p-0 border-0 min-w-0;
+}
+
+.form-evento-acoes {
+  @apply pt-2;
+}
+
+.detalhes-evento {
+  @apply m-0 grid gap-x-6 gap-y-4 sm:grid-cols-2;
+}
+
+.detalhes-evento-local {
+  @apply sm:grid-cols-1;
+}
+
+.detalhes-evento dt {
+  @apply text-mini font-bold uppercase tracking-wide text-tinta-suave;
+}
+
+.detalhes-evento dd {
+  @apply m-0 mt-1 text-tinta font-semibold break-words;
+}
+
+.detalhes-evento-regiao {
+  @apply block mt-0.5 text-pequeno font-normal text-tinta-suave;
 }

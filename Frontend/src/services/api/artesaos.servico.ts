@@ -33,6 +33,10 @@ export type ConfiguracoesAtelie = {
   aceitaEncomendas: boolean
   encomendasPausadas: boolean
   chavePix: string
+  aceitaRetirada: boolean
+  aceitaEntregaLocal: boolean
+  retiradaBairro: string
+  retiradaCidade: string
 }
 
 export function obterConfiguracoes(slug: string, token?: string): Promise<RespostaApi<ConfiguracoesAtelie>> {

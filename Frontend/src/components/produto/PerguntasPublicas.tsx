@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Retrato } from '@/components/ui/Basicos'
+import { imagemReal } from '@/utils/imagem'
 import { IconeEnviar } from '@/components/ui/Icones'
 import { avisar } from '@/components/feedback/Avisos'
 import {
@@ -153,7 +154,7 @@ export default function PerguntasPublicas({ iniciais, erroCarregamento, slug, ar
         {todas.map((p) => (
           <li className="fio-pergunta" key={p.id}>
             <div className="pergunta-bloco">
-              <span className="pergunta-inicial" aria-hidden>{(p.autor ?? '?').charAt(0)}</span>
+              <Retrato imagem={imagemReal(p.autorImagem)} tamanho={28} />
               <div className="encolhivel">
                 <p className="pergunta-autor">
                   {p.autor ?? 'Visitante'}

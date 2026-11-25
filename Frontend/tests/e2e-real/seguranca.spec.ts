@@ -40,7 +40,7 @@ test.describe('regressão de segurança e consistência pelo gateway', () => {
       ['comprador', comprador, { metodo: 'POST', caminho: '/eventos', corpo: {} }],
       ['artesão', artesao, { metodo: 'GET', caminho: '/admin/curadoria' }],
       ['artesão', artesao, { metodo: 'POST', caminho: '/eventos', corpo: {} }],
-      ['artesão', artesao, { metodo: 'GET', caminho: '/usuario/enderecos' }],
+      ['organizador', organizador, { metodo: 'GET', caminho: '/usuario/enderecos' }],
       ['organizador', organizador, { metodo: 'GET', caminho: '/admin/eventos' }],
       ['organizador', organizador, { metodo: 'POST', caminho: '/pecas', corpo: {} }],
       ['admin', admin, { metodo: 'POST', caminho: '/eventos', corpo: {} }],
@@ -51,6 +51,7 @@ test.describe('regressão de segurança e consistência pelo gateway', () => {
     }
     expect((await admin.requisitar('GET', '/admin/eventos?estado=PENDENTE')).status).toBe(200)
     expect((await organizador.requisitar('GET', '/usuario')).status).toBe(200)
+    expect((await artesao.requisitar('GET', '/usuario/enderecos')).status).toBe(200)
   })
 
   test('JWT adulterado e identidade forjada não passam', async () => {

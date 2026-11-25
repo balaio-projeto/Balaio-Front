@@ -61,12 +61,7 @@ export default function FormRecuperar() {
 
   return (
     <form className="cartao" onSubmit={enviar} noValidate>
-      <Campo
-        rotulo="Seu e-mail"
-        ajuda="O mesmo que você usou no cadastro."
-        erro={erro ?? undefined}
-        id="recuperar-email"
-      >
+      <Campo rotulo="Seu e-mail" erro={erro ?? undefined} id="recuperar-email">
         <input
           id="recuperar-email"
           name="email"

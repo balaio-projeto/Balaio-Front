@@ -14,10 +14,6 @@ export default async function Mediacoes() {
       <Migalhas trilha={[{ texto: 'Administração', href: '/admin' }, { texto: 'Mediações' }]} />
 
       <h1 className="titulo-pagina">Mediações</h1>
-      <p className="subtitulo-pagina">
-        Quando comprador e artesão não chegam a um acordo, a plataforma ouve os dois lados antes de decidir sobre o
-        repasse.
-      </p>
 
       {erro || !mediacoes ? <EstadoErro mensagem={erro?.mensagem} /> : <ListaMediacoes iniciais={mediacoes} />}
     </LayoutAdmin>

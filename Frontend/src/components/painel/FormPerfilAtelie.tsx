@@ -197,18 +197,13 @@ export default function FormPerfilAtelie({ artesao, tecnicas, territorios }: Pro
         <input id="cfg-atelie" name="atelie" maxLength={LIMITES_PERFIL.atelie} defaultValue={artesao.atelie} />
       </Campo>
 
-      <Campo
-        rotulo="Seu nome de artesão"
-        ajuda="É como sua assinatura aparece nas peças."
-        erro={erros['cfg-nome']}
-        id="cfg-nome"
-      >
+      <Campo rotulo="Seu nome de artesão" erro={erros['cfg-nome']} id="cfg-nome">
         <input id="cfg-nome" name="nome" maxLength={LIMITES_PERFIL.nome} defaultValue={artesao.nome} />
       </Campo>
 
       <Campo
         rotulo="Sua história"
-        ajuda={`É o texto que aparece no topo do seu perfil. Conte de onde vem o ofício. ${tamanhoHistoria} de ${LIMITES_PERFIL.historia} caracteres.`}
+        ajuda={`${tamanhoHistoria} de ${LIMITES_PERFIL.historia} caracteres`}
         erro={erros['cfg-historia']}
         id="cfg-historia"
       >

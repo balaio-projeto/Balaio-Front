@@ -47,6 +47,10 @@
   @apply text-grande font-semibold mb-2;
 }
 
+.estado-vazio h3:has(+ :not(p)) {
+  @apply mb-[22px];
+}
+
 .estado-vazio p {
   @apply text-tinta-suave max-w-[46ch] mx-auto mb-[22px];
 }

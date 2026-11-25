@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
-import { IconeEstrela, IconeUsuario } from '@/components/ui/Icones'
+import { IconeCheck, IconeEstrela, IconeJoia, IconeRelogio, IconeUsuario } from '@/components/ui/Icones'
 import ImagemComFallback from '@/components/ui/ImagemComFallback'
 import { type Disponibilidade } from '@/types/dominio'
 import { rotuloDisponibilidade } from '@/constants/rotulos'
@@ -30,9 +30,11 @@ export function SeloDisponibilidade({
   const texto =
     tipo === 'encomenda' && prazoDias ? `${rotuloDisponibilidade[tipo]} · ${prazoDias} dias` : rotuloDisponibilidade[tipo]
 
+  const icone = tipo === 'disponivel' ? <IconeCheck tamanho={13} /> : tipo === 'encomenda' ? <IconeRelogio tamanho={13} /> : <IconeJoia tamanho={13} />
+
   return (
     <span className={`selo ${classe}${sobreFoto ? ' selo-sobre-foto' : ''}`}>
-      <span className="selo-ponto" />
+      <span className="selo-icone">{icone}</span>
       {texto}
     </span>
   )

@@ -4,8 +4,7 @@ import FormRecuperar from '@/components/forms/FormRecuperar'
 
 const ajudas = [
   'O link chega no e-mail que você usou no cadastro',
-  'Se você se cadastrou pela associação do seu território, ela pode pedir a recuperação por você',
-  'O suporte responde em até um dia útil',
+  'O link vale por 1 hora e pode ser usado uma vez',
 ]
 
 export default function Recuperar() {

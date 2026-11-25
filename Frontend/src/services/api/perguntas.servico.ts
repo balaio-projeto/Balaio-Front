@@ -6,6 +6,7 @@ export type PerguntaPublica = {
   pecaSlug: string
   pergunta: string
   autor: string
+  autorImagem?: string | null
   usuarioId?: string
   criadaEm?: string | null
   resposta?: string | null

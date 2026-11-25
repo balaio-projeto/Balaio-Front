@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { Campo } from '@/components/ui/Basicos'
 import { avisar } from '@/components/feedback/Avisos'
-import { IconeAviso, IconeCadeado } from '@/components/ui/Icones'
+import { IconeAviso } from '@/components/ui/Icones'
 import type { PapelCadastro } from '@/services/api/auth.servico'
 import { destinoInicial, sessaoDoUsuario } from '@/services/sessao/cookie'
 import { useSessao } from '@/store/sessao'
@@ -148,7 +148,7 @@ export default function FormCadastro({ tecnicas, territorios }: Props) {
 
       <Campo
         rotulo="Crie uma senha"
-        ajuda="No mínimo 12 caracteres e no máximo 72 bytes em UTF-8."
+        ajuda="No mínimo 12 caracteres."
         erro={erros['cadastro-senha']}
         id="cadastro-senha"
       >
@@ -160,7 +160,7 @@ export default function FormCadastro({ tecnicas, territorios }: Props) {
           <div className="grade-dois">
             <Campo
               rotulo="Seu território"
-              ajuda="Aparece na peça e na busca por região."
+             
               id="cadastro-territorio"
             >
               <SeletorComOutro
@@ -174,7 +174,7 @@ export default function FormCadastro({ tecnicas, territorios }: Props) {
               />
             </Campo>
 
-            <Campo rotulo="Sua técnica principal" ajuda="Dá para acrescentar outras depois." id="cadastro-tecnica">
+            <Campo rotulo="Sua técnica principal" id="cadastro-tecnica">
               <SeletorComOutro
                 id="cadastro-tecnica"
                 name="tecnica"
@@ -186,14 +186,6 @@ export default function FormCadastro({ tecnicas, territorios }: Props) {
               />
             </Campo>
           </div>
-
-          <p className="aviso auth-aviso">
-            <IconeCadeado />
-            <span>
-              <strong>Não exigimos formalização.</strong> Artesãos informais vendem normalmente. A plataforma ajuda com
-              a nota quando ela for necessária.
-            </span>
-          </p>
         </>
       )}
 

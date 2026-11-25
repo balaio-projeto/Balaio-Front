@@ -8,7 +8,7 @@ import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { avisar } from '@/components/feedback/Avisos'
 import { IconeCalendario, IconeCheck, IconeNovaAba } from '@/components/ui/Icones'
 import { rotuloTipoEvento } from '@/constants/eventos'
-import { resumoParticipantes } from '@/utils/eventos'
+import { enderecoDoEvento, linkDoMapa, resumoParticipantes } from '@/utils/eventos'
 import {
   decidirEvento, type DecisaoEvento, type EstadoModeracaoEvento, type EventoEmModeracao,
 } from '@/services/api/eventos.servico'
@@ -154,17 +154,56 @@ export default function FilaEventos({ iniciais, estado }: { iniciais: EventoEmMo
               </header>
 
               <div className="cartao-curadoria-corpo">
-                <p className="texto-suave">
-                  <strong>Quando:</strong> {[evento.periodo, evento.horario].filter(Boolean).join(' · ')}
-                </p>
-                <p className="texto-suave">
-                  <strong>Onde:</strong> {evento.endereco}
-                </p>
-                <p className="texto-suave">
-                  <strong>Organização:</strong> {evento.organizador} · <strong>Entrada:</strong> {evento.entrada}
-                </p>
-                <p className="texto-suave">{resumoParticipantes(evento)}</p>
-                <p className="texto-suave acima-2" style={{ whiteSpace: 'pre-line' }}>{evento.descricao}</p>
+                <p className="texto-suave" style={{ whiteSpace: 'pre-line' }}>{evento.descricao}</p>
+                <div className="moderacao-blocos">
+                  <dl className="moderacao-bloco">
+                    <dt>Quando</dt>
+                    <dd>{[evento.periodo, evento.horario].filter(Boolean).join(' · ')}</dd>
+                    <dt>Entrada</dt>
+                    <dd>{evento.entrada}</dd>
+                    <dt>Organização</dt>
+                    <dd>{evento.organizador}</dd>
+                    <dt>Participantes</dt>
+                    <dd>{resumoParticipantes(evento)}</dd>
+                    {evento.site && (<>
+                      <dt>Site</dt>
+                      <dd><a href={evento.site} target="_blank" rel="noopener noreferrer">{evento.site}</a></dd>
+                    </>)}
+                  </dl>
+                  <dl className="moderacao-bloco">
+                    <dt>Local</dt>
+                    <dd>{evento.local}</dd>
+                    <dt>Endereço</dt>
+                    <dd>
+                      {enderecoDoEvento(evento).logradouro}
+                      <br />
+                      <span className="texto-suave">{enderecoDoEvento(evento).regiao}</span>
+                    </dd>
+                    {evento.referencia && (<>
+                      <dt>Referência</dt>
+                      <dd>{evento.referencia}</dd>
+                    </>)}
+                    <dt>Ponto no mapa</dt>
+                    <dd>
+                      <a href={linkDoMapa(evento)} target="_blank" rel="noopener noreferrer" className="linha-flex" style={{ gap: 6 }}>
+                        Conferir no mapa <IconeNovaAba tamanho={14} />
+                      </a>
+                    </dd>
+                  </dl>
+                  <dl className="moderacao-bloco">
+                    <dt>Solicitante</dt>
+                    <dd>
+                      {item.solicitante?.nome ?? 'Conta não identificada'}
+                      {item.solicitante?.email && (<><br /><a href={`mailto:${item.solicitante.email}`}>{item.solicitante.email}</a></>)}
+                    </dd>
+                    <dt>Responsável</dt>
+                    <dd>
+                      {item.contato?.nome ?? 'Não informado'}
+                      {item.contato?.telefone && (<><br /><a href={`tel:${item.contato.telefone.replace(/D/g, '')}`}>{item.contato.telefone}</a></>)}
+                      {item.contato?.email && (<><br /><a href={`mailto:${item.contato.email}`}>{item.contato.email}</a></>)}
+                    </dd>
+                  </dl>
+                </div>
                 <p className="dado-rotulo acima-2">
                   Enviado em {quando(item.submetidoEm)}
                   {item.decididoEm && ` · decidido em ${quando(item.decididoEm)}`}
@@ -179,7 +218,7 @@ export default function FilaEventos({ iniciais, estado }: { iniciais: EventoEmMo
                   <div className="acima-3">
                     <Campo
                       rotulo="Por que o evento não será publicado?"
-                      ajuda="O motivo fica registrado junto da decisão."
+                     
                       erro={erroMotivo}
                       id={`motivo-evento-${evento.slug}`}
                     >

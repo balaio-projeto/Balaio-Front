@@ -1,4 +1,5 @@
 import type { OpcaoFrete } from '@/types/dominio'
+import { emReais } from './formato'
 
 export const PROVEDOR_FRETE_FIXO = 'fixo_demonstrativo'
 export const PROVEDOR_MELHOR_ENVIO_SANDBOX = 'melhor_envio_sandbox'
@@ -27,8 +28,18 @@ export function opcaoEscolhida(opcoes: OpcaoFrete[], idAtual: string | null): Op
   return opcoes.find((opcao) => opcao.id === idAtual) ?? opcoes[0]
 }
 
+export const PROVEDOR_FRETE_LOCAL = 'balaio_local'
+
+export function entregaCombinada(opcao: Pick<OpcaoFrete, 'provedor'>): boolean {
+  return opcao.provedor === PROVEDOR_FRETE_LOCAL
+}
+
+export function valorDoFreteEmTexto(valor: number): string {
+  return valor === 0 ? 'Grátis' : emReais(valor)
+}
+
 export function origemDaCotacao(opcoes: OpcaoFrete[]): string | null {
-  const provedor = opcoes[0]?.provedor
+  const provedor = opcoes.find((opcao) => !entregaCombinada(opcao))?.provedor
   if (provedor === PROVEDOR_MELHOR_ENVIO_SANDBOX) return 'Valores cotados no Melhor Envio Sandbox (ambiente de teste) para o CEP informado.'
   if (provedor === PROVEDOR_MELHOR_ENVIO) return 'Valores cotados no Melhor Envio para o CEP informado.'
   if (provedor === PROVEDOR_FRETE_FIXO) return 'Valor demonstrativo fixo: a cotação real não está configurada neste ambiente.'

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, Foto, Migalhas } from '@/components/ui/Basicos'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
-import { IconeCadeado, IconeCaminhao, IconeCheck, IconeSacola, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeCadeado, IconeCaminhao, IconeCasa, IconeCheck, IconeOferta, IconeSacola, IconeSetaDireita } from '@/components/ui/Icones'
 import { avisar } from '@/components/feedback/Avisos'
 import { concluirCheckoutPendente, finalizarCompra } from '@/services/api/pedidos.servico'
 import EstadoErro from '@/components/feedback/EstadoErro'
@@ -14,12 +14,14 @@ import { usePecas } from '@/hooks/usePecas'
 import { validarCEP, validarComprimento, validarEstado, validarObrigatorio } from '@/utils/validacao'
 import { useCotacaoFrete } from '@/hooks/useCotacaoFrete'
 import { useDados } from '@/store/dados'
-import { opcaoEscolhida, origemDaCotacao } from '@/utils/frete'
+import { entregaCombinada, opcaoEscolhida, origemDaCotacao, valorDoFreteEmTexto } from '@/utils/frete'
+import { normalizarCodigoCupom, resumoDaPrevia, totaisDoCheckout, validarCodigoCupom, type PreviaCupom } from '@/utils/cupom'
+import { simularCupom } from '@/services/api/cupons.servico'
 import { emReais, precoComDesconto } from '@/utils/formato'
 import { listarEnderecos } from '@/services/api/conta.servico'
 import type { EnderecoUsuario } from '@/types/dominio'
 import { useBuscaCep } from '@/hooks/useBuscaCep'
-import { entregaDoEnderecoSalvo, entregaPeloCep, formatarCep, type EnderecoPorCep, type EntregaDoCheckout } from '@/utils/cep'
+import { enderecoComNumero, entregaDoEnderecoSalvo, entregaPeloCep, formatarCep, type EnderecoPorCep, type EntregaDoCheckout } from '@/utils/cep'
 import SeletorEnderecoSalvo, { OUTRO_ENDERECO } from './SeletorEnderecoSalvo'
 import SeletorEstado from '@/components/forms/SeletorEstado'
 import { abrirPagamentoAposLimpeza, linkDePagamentoConfiavel } from './abrirPagamento'
@@ -39,6 +41,9 @@ function problemaDaEntrega(campo: keyof EntregaDoCheckout, valor: string): strin
   return validarObrigatorio(valor, 'Informe a cidade')
     ?? validarComprimento(valor, LIMITE_CIDADE, `Use até ${LIMITE_CIDADE} caracteres na cidade`)
 }
+
+const LIMITE_NUMERO = 20
+const LIMITE_COMPLEMENTO = 100
 
 const ID_DO_CAMPO: Record<keyof EntregaDoCheckout, string> = {
   cep: 'cep-checkout', endereco: 'endereco', cidade: 'cidade', estado: 'estado',
@@ -68,6 +73,8 @@ export default function CheckoutFormulario() {
   const [pagamentoPendente, definirPagamentoPendente] = useState<PagamentoPendente | null>(null)
   const [erroConfirmacao, definirErroConfirmacao] = useState<string | null>(null)
   const [entrega, definirEntrega] = useState({ cep: '', endereco: '', cidade: '', estado: '' })
+  const [numeroEntrega, definirNumeroEntrega] = useState('')
+  const [complementoEntrega, definirComplementoEntrega] = useState('')
   const entregaEditada = useRef(false)
   const enderecoSalvoId = useRef<string | null>(null)
   const [enderecosSalvos, definirEnderecosSalvos] = useState<EnderecoUsuario[]>([])
@@ -76,6 +83,15 @@ export default function CheckoutFormulario() {
   const cotacaoFrete = useCotacaoFrete(entrega.cep, itensDoGrupo, pronto && !erroSacola && !conflito)
   const opcoesFrete = cotacaoFrete.opcoes
   const frete = opcaoEscolhida(opcoesFrete, freteId)
+  const [codigoCupom, definirCodigoCupom] = useState('')
+  const [cupomAplicado, definirCupomAplicado] = useState<string | null>(null)
+  const [previaCupom, definirPreviaCupom] = useState<{ chave: string; previa: PreviaCupom | null } | null>(null)
+  const [erroCupom, definirErroCupom] = useState<string | null>(null)
+  const [aplicandoCupom, definirAplicandoCupom] = useState(false)
+  const [rodadaCupom, definirRodadaCupom] = useState(0)
+  const itensDaSimulacao = itensDoGrupo.map((item) => ({ slug: item.slug, quantidade: item.quantidade }))
+  const chaveSimulacao = JSON.stringify([itensDaSimulacao, cupomAplicado, frete?.valor ?? null, rodadaCupom])
+  const simulacaoAtiva = pronto && !erroSacola && !conflito && itensDaSimulacao.length > 0
 
   function limparErrosDaEntrega(carregada: EntregaDoCheckout) {
     definirErros((atuais) => {
@@ -130,6 +146,53 @@ export default function CheckoutFormulario() {
   }
 
   useEffect(() => {
+    if (!simulacaoAtiva) return
+    const controle = new AbortController()
+    const [itensSimulados, cupomSimulado, freteSimulado] = JSON.parse(chaveSimulacao) as
+      [{ slug: string; quantidade: number }[], string | null, number | null, number]
+    const espera = setTimeout(() => {
+      void simularCupom({
+        itens: itensSimulados,
+        ...(cupomSimulado ? { cupom: cupomSimulado } : {}),
+        ...(freteSimulado !== null ? { frete: freteSimulado } : {}),
+      }, controle.signal).then((resposta) => {
+        if (controle.signal.aborted) return
+        if (resposta.erro && cupomSimulado) {
+          definirErroCupom(resposta.erro.mensagem)
+          definirCupomAplicado(null)
+          return
+        }
+        definirPreviaCupom({ chave: chaveSimulacao, previa: resposta.erro ? null : resposta.dados })
+      })
+    }, 300)
+    return () => { clearTimeout(espera); controle.abort() }
+  }, [chaveSimulacao, simulacaoAtiva])
+
+  async function aplicarCupom() {
+    const problema = validarCodigoCupom(codigoCupom)
+    if (problema) { definirErroCupom(problema); return }
+    if (!itensDaSimulacao.length || aplicandoCupom) return
+    const codigo = normalizarCodigoCupom(codigoCupom)
+    definirAplicandoCupom(true)
+    definirErroCupom(null)
+    const resposta = await simularCupom({ itens: itensDaSimulacao, cupom: codigo, ...(frete ? { frete: frete.valor } : {}) })
+    definirAplicandoCupom(false)
+    if (resposta.erro || !resposta.dados) {
+      definirErroCupom(resposta.erro?.mensagem ?? 'Não foi possível validar o cupom agora.')
+      return
+    }
+    definirCupomAplicado(codigo)
+    definirCodigoCupom(codigo)
+    avisar.sucesso('Cupom aplicado', resumoDaPrevia(resposta.dados))
+  }
+
+  function removerCupom() {
+    definirCupomAplicado(null)
+    definirCodigoCupom('')
+    definirErroCupom(null)
+  }
+
+  useEffect(() => {
     let vivo = true
     listarEnderecos().then(({ dados: enderecos }) => {
       if (!vivo) return
@@ -150,16 +213,21 @@ export default function CheckoutFormulario() {
   const subtotal = doGrupo.reduce((total, d) => total
     + (precos.get(d.item.slug)?.precoAtual ?? precoComDesconto(d.peca)) * d.item.quantidade, 0)
   const economia = cotacao.valido ? 0 : subtotalCheio - subtotal
-  const total = subtotal + (frete?.valor ?? 0)
+  const previa = previaCupom?.chave === chaveSimulacao ? previaCupom.previa : null
+  const totais = totaisDoCheckout(subtotal, frete?.valor ?? 0, previa)
+  const total = totais.total
 
   async function confirmar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     if (pagamentoPendente) { await abrirPagamento(pagamentoPendente); return }
     if (salvando || !itensDoGrupo.length || !frete || !cotacao.valido || !cotacao.dados?.podeProsseguir) return
     const dados = new FormData(evento.currentTarget)
+    const enderecoManual = enderecoSalvoId.current === null
+    const ruaEBairro = String(dados.get('endereco') ?? '').trim()
     const preenchida: EntregaDoCheckout = {
       cep: String(dados.get('cep') ?? '').trim(),
-      endereco: String(dados.get('endereco') ?? '').trim(),
+      endereco: enderecoManual && ruaEBairro && numeroEntrega.trim()
+        ? enderecoComNumero(ruaEBairro, numeroEntrega, complementoEntrega) : ruaEBairro,
       cidade: String(dados.get('cidade') ?? '').trim(),
       estado: String(dados.get('estado') ?? '').trim(),
     }
@@ -167,6 +235,13 @@ export default function CheckoutFormulario() {
     for (const campo of Object.keys(ID_DO_CAMPO) as (keyof EntregaDoCheckout)[]) {
       const problema = problemaDaEntrega(campo, preenchida[campo])
       if (problema) proximosErros[ID_DO_CAMPO[campo]] = problema
+    }
+    if (enderecoManual) {
+      const problemaNumero = validarObrigatorio(numeroEntrega, 'Informe o número ou S/N')
+        ?? validarComprimento(numeroEntrega, LIMITE_NUMERO, `Use até ${LIMITE_NUMERO} caracteres no número`)
+      if (problemaNumero) proximosErros['numero-checkout'] = problemaNumero
+      const problemaComplemento = validarComprimento(complementoEntrega, LIMITE_COMPLEMENTO, `Use até ${LIMITE_COMPLEMENTO} caracteres no complemento`)
+      if (problemaComplemento) proximosErros['complemento-checkout'] = problemaComplemento
     }
 
     definirErros(proximosErros)
@@ -196,6 +271,7 @@ export default function CheckoutFormulario() {
       itens: itensDoGrupo, freteId: frete.id, meio: 'checkout_pro',
       endereco: preenchida,
       ...(enderecoSalvoId.current ? { enderecoId: enderecoSalvoId.current } : {}),
+      ...(cupomAplicado ? { cupom: cupomAplicado } : {}),
     })
     definirSalvando(false)
     if (resposta.erro || !resposta.dados) {
@@ -203,6 +279,10 @@ export default function CheckoutFormulario() {
         ? 'Cada ateliê é pago separadamente e alguma peça deste pagamento pertence a outro ateliê. Volte à sacola, confira as peças e tente novamente.'
         : resposta.erro?.mensagem ?? 'Tente novamente em instantes.'
       if (resposta.erro?.codigo === 'FRETE_INDISPONIVEL') cotacaoFrete.tentarNovamente()
+      if (resposta.erro?.codigo?.startsWith('CUPOM_') || resposta.erro?.codigo === 'PROMOCAO_ENCERRADA') {
+        if (resposta.erro.codigo.startsWith('CUPOM_')) { definirCupomAplicado(null); definirErroCupom(mensagem) }
+        definirRodadaCupom((rodada) => rodada + 1)
+      }
       definirErroConfirmacao(mensagem)
       avisar.erro('Não foi possível registrar o pedido', mensagem)
       return
@@ -368,9 +448,21 @@ export default function CheckoutFormulario() {
                 {buscaCep.mensagem}
               </p>
             )}
-            <Campo rotulo="Endereço" erro={erros['endereco']} id="endereco">
+            <Campo rotulo={enderecoEscolhido === OUTRO_ENDERECO ? 'Rua e bairro' : 'Endereço'} erro={erros['endereco']} id="endereco">
               <input id="endereco" name="endereco" maxLength={LIMITE_ENDERECO} value={entrega.endereco} onChange={(e) => atualizarEntrega('endereco', e.target.value)} />
             </Campo>
+            {enderecoEscolhido === OUTRO_ENDERECO && (
+              <div className="grade-dois">
+                <Campo rotulo="Número" erro={erros['numero-checkout']} id="numero-checkout">
+                  <input id="numero-checkout" maxLength={LIMITE_NUMERO} placeholder="240 ou S/N" value={numeroEntrega}
+                    onChange={(e) => { definirNumeroEntrega(e.target.value); definirErros((atuais) => { const resto = { ...atuais }; delete resto['numero-checkout']; return resto }) }} />
+                </Campo>
+                <Campo rotulo="Complemento (opcional)" erro={erros['complemento-checkout']} id="complemento-checkout">
+                  <input id="complemento-checkout" maxLength={LIMITE_COMPLEMENTO} placeholder="Apto 302" value={complementoEntrega}
+                    onChange={(e) => definirComplementoEntrega(e.target.value)} />
+                </Campo>
+              </div>
+            )}
             <div className="grade-dois">
               <Campo rotulo="Cidade" erro={erros['cidade']} id="cidade">
                 <input id="cidade" name="cidade" maxLength={LIMITE_CIDADE} value={entrega.cidade} onChange={(e) => atualizarEntrega('cidade', e.target.value)} />
@@ -406,21 +498,17 @@ export default function CheckoutFormulario() {
                   <input type="radio" name="frete" checked={frete?.id === opcao.id} onChange={() => definirFrete(opcao.id)} />
                   <span className="encolhivel">
                     <span className="linha-flex" style={{ gap: 8, fontWeight: 600 }}>
-                      <IconeCaminhao />
+                      {entregaCombinada(opcao) ? <IconeCasa /> : <IconeCaminhao />}
                       {opcao.nome}
                     </span>
                     <span className="campo-ajuda">
-                      {opcao.prazo} · {emReais(opcao.valor)}
+                      {opcao.prazo} · {valorDoFreteEmTexto(opcao.valor)}
                     </span>
+                    {opcao.detalhe && <span className="campo-ajuda opcao-frete-detalhe">{opcao.detalhe}</span>}
                   </span>
                 </label>
               ))}
             </div>
-          </section>
-
-          <section className="cartao">
-            <h2 className="secao-titulo">Pagamento</h2>
-            <p className="texto-suave">Você escolherá o meio de pagamento no Checkout Pro de teste do Mercado Pago.</p>
           </section>
         </div>
 
@@ -461,6 +549,32 @@ export default function CheckoutFormulario() {
             </div>
           )})}
 
+          <div className="cupom-checkout acima-3">
+            <Campo rotulo="Cupom de desconto" erro={erroCupom ?? undefined} id="cupom-checkout">
+              <input id="cupom-checkout" value={codigoCupom} maxLength={40} autoComplete="off" spellCheck={false}
+                readOnly={Boolean(cupomAplicado)} placeholder="Ex.: BALAIO10"
+                onChange={(evento) => { definirCodigoCupom(evento.target.value.toUpperCase()); definirErroCupom(null) }}
+                onKeyDown={(evento) => { if (evento.key === 'Enter') { evento.preventDefault(); void aplicarCupom() } }} />
+            </Campo>
+            {cupomAplicado ? (
+              <button type="button" className="botao botao-fantasma" onClick={removerCupom} disabled={salvando}>Remover</button>
+            ) : (
+              <button type="button" className="botao botao-secundario" onClick={() => void aplicarCupom()}
+                disabled={aplicandoCupom || salvando || !codigoCupom.trim()}>
+                {aplicandoCupom ? 'Validando…' : 'Aplicar'}
+              </button>
+            )}
+          </div>
+          {previa && (
+            <p className="cupom-aplicado" role="status">
+              <IconeOferta tamanho={16} />
+              <span>
+                {previa.automatico ? 'Promoção aplicada automaticamente: ' : `Cupom ${previa.codigo} aplicado: `}
+                {previa.descricao}. O desconto é por conta do Balaio.
+              </span>
+            </p>
+          )}
+
           <p className="resumo acima-3">
             <span>Subtotal</span>
             <strong>{emReais(cotacao.valido ? subtotal : subtotalCheio)}</strong>
@@ -471,10 +585,29 @@ export default function CheckoutFormulario() {
               <strong>{emReais(economia)}</strong>
             </p>
           )}
+          {totais.descontoProdutos > 0 && (
+            <p className="resumo resumo-desconto">
+              <span>Desconto do cupom</span>
+              <strong>− {emReais(totais.descontoProdutos)}</strong>
+            </p>
+          )}
           <p className="resumo">
             <span>Frete</span>
-            <strong>{frete ? emReais(frete.valor) : 'A cotar'}</strong>
+            <strong>
+              {!frete ? 'A cotar' : totais.descontoFrete > 0 ? (
+                <>
+                  <span className="preco-riscado">{emReais(frete.valor)}</span>{' '}
+                  {totais.freteCobrado === 0 ? 'Grátis' : emReais(totais.freteCobrado)}
+                </>
+              ) : valorDoFreteEmTexto(frete.valor)}
+            </strong>
           </p>
+          {totais.descontoFrete > 0 && (
+            <p className="resumo resumo-desconto">
+              <span>Frete grátis do cupom</span>
+              <strong>− {emReais(totais.descontoFrete)}</strong>
+            </p>
+          )}
           <p className="resumo resumo-total">
             <span>Total</span>
             <Preco valor={total} className="preco-destaque" />

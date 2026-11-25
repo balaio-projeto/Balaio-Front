@@ -6,6 +6,7 @@ import BotaoSair from '@/components/conta/BotaoSair'
 import { IconeCadeado, IconeCoracao, IconeMapa, IconePacote, IconePincel, IconeUsuario } from '@/components/ui/Icones'
 import type { Usuario } from '@/types/dominio'
 import { useImagemConta } from '@/hooks/useArtesaoLogado'
+import { podeComprar, rotuloDasCompras } from '@/services/sessao/papeis'
 
 export type ChaveConta = 'pedidos' | 'favoritos' | 'enderecos' | 'dados'
 
@@ -23,13 +24,13 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
       </div>
 
       <div className="menu-grupo">
-        {papel === 'comprador' && <Link
+        {podeComprar(papel) && <Link
           href="/orders"
           className={`menu-item${ativo === 'pedidos' ? ' menu-item-ativo' : ''}`}
           aria-current={ativo === 'pedidos' ? 'page' : undefined}
         >
           <IconePacote />
-          Meus pedidos
+          {rotuloDasCompras(papel)}
           <span className="menu-marcador">{totalPedidos}</span>
         </Link>}
         <Link
@@ -40,7 +41,7 @@ export default function MenuConta({ ativo, usuario, totalPedidos = 0 }: { ativo?
           <IconeCoracao />
           Peças salvas
         </Link>
-        {papel === 'comprador' && <Link
+        {podeComprar(papel) && <Link
           href="/account/addresses"
           className={`menu-item${ativo === 'enderecos' ? ' menu-item-ativo' : ''}`}
           aria-current={ativo === 'enderecos' ? 'page' : undefined}

@@ -9,6 +9,7 @@ import { exigirSessao } from '@/services/autenticacao'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import { IconeAviso } from '@/components/ui/Icones'
 import { pedidoAceitaMediacao, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
+import { codigoDoPedido } from '@/utils/pedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,15 +29,12 @@ export default async function Mediacao({ params }: { params: Promise<{ id: strin
         trilha={[
           { texto: 'Início', href: '/' },
           { texto: 'Meus pedidos', href: '/orders' },
-          { texto: `Pedido #${pedido.id}`, href: `/orders/${pedido.id}` },
+          { texto: `Pedido ${codigoDoPedido(pedido.id)}`, href: `/orders/${pedido.id}` },
           { texto: 'Mediação' },
         ]}
       />
 
       <h1 className="titulo-pagina">Pedir mediação da plataforma</h1>
-      <p className="subtitulo-pagina">
-        Quando a conversa direta não resolve, a plataforma entra para ouvir os dois lados e garantir uma saída justa.
-      </p>
 
       {!pedidoAceitaMediacao(pedido.estado) ? (
         <EstadoVazio

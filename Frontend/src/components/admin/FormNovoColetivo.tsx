@@ -198,10 +198,11 @@ export default function FormNovoColetivo({ artesaos }: { artesaos: ArtesaoParaCo
               onChange={(evento) => { definirTerritorio(evento.target.value); limparErro('territorio') }}
             />
           </Campo>
-          <Campo rotulo="Fundado em" ajuda="Ex.: 1998" erro={erros.fundado} id="coletivo-fundado">
+          <Campo rotulo="Fundado em" erro={erros.fundado} id="coletivo-fundado">
             <input
               id="coletivo-fundado"
               name="fundado"
+              placeholder="1998"
               maxLength={LIMITES.fundado}
               value={fundado}
               onChange={(evento) => { definirFundado(evento.target.value); limparErro('fundado') }}

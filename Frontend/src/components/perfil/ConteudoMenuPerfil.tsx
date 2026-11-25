@@ -12,6 +12,7 @@ import type { Sessao } from '@/services/sessao/cookie'
 import { useFavoritos } from '@/store/favoritos'
 import type { EstadoSelo } from '@/types/dominio'
 import { useImagemConta } from '@/hooks/useArtesaoLogado'
+import { rotuloDasCompras } from '@/services/sessao/papeis'
 
 const ITENS_DO_PAINEL_NO_MENU: ChavePainel[] = ['pedidos', 'conversas', 'pecas', 'config']
 
@@ -33,10 +34,26 @@ function seloDoArtesao(selo?: EstadoSelo): { texto: string; classe: string } | n
   return { texto: 'Sem selo', classe: 'selo-neutro' }
 }
 
+function itensDeCompra(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu): ItemMenu[] {
+  const emAndamento = resumo.pedidosEmAndamento ?? 0
+  return [
+    {
+      chave: 'pedidos',
+      texto: rotuloDasCompras(sessao.papel),
+      href: '/orders',
+      icone: <IconePacote />,
+      marcador: emAndamento > 0 ? { texto: `${emAndamento} em andamento` } : undefined,
+    },
+    salvas,
+    { chave: 'enderecos', texto: 'Endereços de entrega', href: '/account/addresses', icone: <IconeMapa /> },
+  ]
+}
+
 function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu): GrupoMenu[] {
   if (sessao.papel === 'artesao') {
     const doPainel = itensPainel({ pendentes: resumo.pendentes ?? 0, naoLidas: resumo.naoLidas ?? 0 })
       .filter((item) => ITENS_DO_PAINEL_NO_MENU.includes(item.chave))
+      .map((item) => item.chave === 'pedidos' ? { ...item, chave: 'vendas', texto: 'Pedidos recebidos' } : item)
     return [
       {
         rotulo: 'Meu ateliê',
@@ -46,7 +63,7 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
           ...(resumo.artesao?.slug ? [{ chave: 'loja', texto: 'Ver minha loja', href: `/artisans/${resumo.artesao.slug}`, icone: <IconeSelo /> }] : []),
         ],
       },
-      { rotulo: 'Compras', itens: [salvas] },
+      { rotulo: 'Minhas compras', itens: itensDeCompra(sessao, resumo, salvas) },
       {
         rotulo: 'Minha conta',
         itens: [{ chave: 'dados', texto: 'Meus dados', href: '/account/details', icone: <IconeUsuario /> }],
@@ -81,19 +98,10 @@ function gruposDoPerfil(sessao: Sessao, resumo: ResumoPerfil, salvas: ItemMenu):
       },
     ]
   }
-  const emAndamento = resumo.pedidosEmAndamento ?? 0
   return [
     {
       itens: [
-        {
-          chave: 'pedidos',
-          texto: 'Meus pedidos',
-          href: '/orders',
-          icone: <IconePacote />,
-          marcador: emAndamento > 0 ? { texto: `${emAndamento} em andamento` } : undefined,
-        },
-        salvas,
-        { chave: 'enderecos', texto: 'Endereços de entrega', href: '/account/addresses', icone: <IconeMapa /> },
+        ...itensDeCompra(sessao, resumo, salvas),
         { chave: 'dados', texto: 'Meus dados', href: '/account/details', icone: <IconeUsuario /> },
       ],
     },

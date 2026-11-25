@@ -432,17 +432,13 @@ export default function FormPeca({ peca, modelo }: Props) {
     <>
       {migalhas}
       <h1 className="titulo-pagina">{titulo}</h1>
-      <p className="subtitulo-pagina">
-        Preencha com calma. Quanto mais você contar sobre a origem e a técnica, mais fácil o comprador reconhecer o
-        valor do seu trabalho.
-      </p>
 
       <div className="duas-colunas">
         <form ref={formulario} onSubmit={publicar} noValidate className="form-peca">
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">O básico</h2>
 
-            <Campo rotulo="Nome da peça" ajuda="Como você chamaria essa peça na feira." erro={erros['peca-nome']} id="peca-nome">
+            <Campo rotulo="Nome da peça" erro={erros['peca-nome']} id="peca-nome">
               <input id="peca-nome" name="nome" maxLength={LIMITE_NOME} placeholder="Ex.: Leão Imperial de Tracunhaém" defaultValue={peca?.nome} />
             </Campo>
 
@@ -451,7 +447,7 @@ export default function FormPeca({ peca, modelo }: Props) {
                 <Seletor id="peca-tecnica" name="tecnica" opcoes={tecnicas} defaultValue={base?.tecnica} />
               </Campo>
 
-              <Campo rotulo="Tipo de peça" ajuda="É por aqui que o comprador filtra na loja." id="peca-tipo">
+              <Campo rotulo="Tipo de peça" id="peca-tipo">
                 <Seletor id="peca-tipo" name="tipo" opcoes={tipos} defaultValue={base?.tipo} />
               </Campo>
             </div>
@@ -468,7 +464,7 @@ export default function FormPeca({ peca, modelo }: Props) {
 
             <Campo
               rotulo="História da peça"
-              ajuda="Conte de onde vem, como é feita, quanto tempo leva. Deixe uma linha em branco entre parágrafos."
+             
               id="peca-historia"
             >
               <textarea
@@ -517,9 +513,7 @@ export default function FormPeca({ peca, modelo }: Props) {
                     : `${fotosSelecionadas.length} de ${MAX_FOTOS} fotos selecionadas`}
               </p>
               <p id="ajuda-fotos" className="campo-ajuda">
-                Arraste imagens do seu computador ou use o botão abaixo.
-                Até {MAX_FOTOS} fotos em JPG, PNG ou WebP. Elas são reduzidas e comprimidas antes do envio.
-                A primeira foto será a capa. Use as setas para ordenar.
+                Até {MAX_FOTOS} fotos em JPG, PNG ou WebP. A primeira foto será a capa.
               </p>
               <input
                 ref={entradaFotos}
@@ -627,8 +621,8 @@ export default function FormPeca({ peca, modelo }: Props) {
                   [
                     ['disponivel', 'Tenho pronta para enviar', 'Sai do estoque assim que alguém comprar.'],
                     ['unica', 'É peça única', 'Some do catálogo depois de vendida.'],
-                    ['encomenda', 'Faço sob encomenda', 'Você define o prazo de produção.'],
-                  ] as [Disponibilidade, string, string][]
+                    ['encomenda', 'Faço sob encomenda'],
+                  ] as [Disponibilidade, string, string?][]
                 ).map(([id, texto, ajuda]) => (
                   <label className="opcao opcao-topo" key={id}>
                     <input
@@ -639,7 +633,7 @@ export default function FormPeca({ peca, modelo }: Props) {
                     />
                     <span className="encolhivel">
                       <span style={{ fontWeight: 600, display: 'block' }}>{texto}</span>
-                      <span className="campo-ajuda">{ajuda}</span>
+                      {ajuda && <span className="campo-ajuda">{ajuda}</span>}
                     </span>
                   </label>
                 ))}
@@ -649,7 +643,7 @@ export default function FormPeca({ peca, modelo }: Props) {
             {disponibilidade === 'encomenda' && (
               <Campo
                 rotulo="Prazo de produção (em dias)"
-                ajuda="Seja realista: o prazo aparece para o comprador antes da compra."
+                ajuda="O prazo aparece para o comprador antes da compra."
                 erro={erros['peca-prazo']}
                 id="peca-prazo"
               >
@@ -658,7 +652,7 @@ export default function FormPeca({ peca, modelo }: Props) {
             )}
 
             <div className="grade-dois">
-              <Campo rotulo="Preço" ajuda="O valor é exibido em reais ao sair do campo." erro={erros['peca-preco']} id="peca-preco">
+              <Campo rotulo="Preço" erro={erros['peca-preco']} id="peca-preco">
                 <input
                   id="peca-preco"
                   name="preco"
@@ -676,8 +670,8 @@ export default function FormPeca({ peca, modelo }: Props) {
 
               <div>
                 <Campo
-                  rotulo="Desconto (%)"
-                  ajuda={`Opcional. Deixe vazio ou 0 para vender sem desconto; até ${DESCONTO_MAXIMO}%.`}
+                  rotulo="Desconto (%) (opcional)"
+                  ajuda={`Até ${DESCONTO_MAXIMO}%.`}
                   erro={erros['peca-desconto']}
                   id="peca-desconto"
                 >

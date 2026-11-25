@@ -47,7 +47,8 @@ export default function FormEditarVideo({ video, pecas }: { video: Video; pecas:
       avisar.erro('Não foi possível salvar', resposta.erro.mensagem)
       return
     }
-    avisar.sucesso(situacao === situacaoAtual && !rascunho ? 'Alterações salvas' : AVISO_POR_SITUACAO[situacao])
+    if (video.suspensao) avisar.sucesso('Alterações salvas', 'O vídeo continua suspenso até a reativação pela administração.')
+    else avisar.sucesso(situacao === situacaoAtual && !rascunho ? 'Alterações salvas' : AVISO_POR_SITUACAO[situacao])
     roteador.push('/dashboard/videos')
     roteador.refresh()
   }

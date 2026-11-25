@@ -41,8 +41,7 @@ export default function NaoEncontrada() {
           </p>
           <h1 className="titulo-pagina">Esta peça não está mais aqui</h1>
           <p className="subtitulo-pagina">
-            O endereço pode estar errado, ou a peça era única e alguém levou primeiro. Acontece: no artesanato, cada
-            uma existe uma vez só.
+            O endereço pode estar errado, ou a peça era única e alguém levou primeiro.
           </p>
 
           <div className="acoes-linha bloco-404-acoes">

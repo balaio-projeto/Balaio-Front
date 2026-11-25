@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Campo } from '@/components/ui/Basicos'
 import Seletor from '@/components/ui/Seletor'
 import type { Video } from '@/types/dominio'
-import {
-  QUANTIDADE_MAXIMA_ETIQUETAS, TAMANHO_MAXIMO_ETIQUETA, TAMANHO_MAXIMO_LEGENDA, etiquetasComoTexto, normalizarEtiquetas,
-} from '@/utils/etiquetas'
+import CampoEtiquetas from '@/components/forms/CampoEtiquetas'
+import { TAMANHO_MAXIMO_LEGENDA } from '@/utils/etiquetas'
 
 export type PecaVinculavel = { slug: string; nome: string }
 
@@ -25,7 +24,7 @@ export default function CamposVideo({
     <>
       <Campo
         rotulo="Legenda"
-        ajuda={`Conte o que está acontecendo na cena. Fale como falaria na feira. ${tamanhoLegenda} de ${TAMANHO_MAXIMO_LEGENDA} caracteres.`}
+        ajuda={`${tamanhoLegenda} de ${TAMANHO_MAXIMO_LEGENDA} caracteres.`}
         erro={erroLegenda ?? undefined}
         id="video-legenda"
       >
@@ -39,24 +38,15 @@ export default function CamposVideo({
         />
       </Campo>
 
-      <Campo
-        rotulo="Etiquetas"
-        ajuda={`Separe por espaço ou vírgula, até ${QUANTIDADE_MAXIMA_ETIQUETAS} etiquetas de ${TAMANHO_MAXIMO_ETIQUETA} caracteres, só com letras, números e hífen. Ajudam quem procura pela técnica.`}
-        erro={erroEtiquetas ?? undefined}
+      <CampoEtiquetas
         id="video-etiquetas"
-      >
-        <input
-          id="video-etiquetas"
-          name="etiquetas"
-          defaultValue={video ? etiquetasComoTexto(video.etiquetas) : undefined}
-          onBlur={(evento) => {
-            evento.currentTarget.value = etiquetasComoTexto(normalizarEtiquetas(evento.currentTarget.value))
-          }}
-          placeholder="ceramica tracunhaem passo-a-passo"
-        />
-      </Campo>
+        nome="etiquetas"
+        rotulo="Etiquetas"
+        iniciais={video?.etiquetas}
+        erro={erroEtiquetas ?? undefined}
+      />
 
-      <Campo rotulo="Vincular a uma peça" ajuda="Quem assistir pode ir direto para a peça e comprar." id="video-peca">
+      <Campo rotulo="Vincular a uma peça" id="video-peca">
         <Seletor
           id="video-peca"
           name="peca"

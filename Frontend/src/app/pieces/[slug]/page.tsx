@@ -13,7 +13,7 @@ import Preco from '@/components/ui/Preco'
 import PerguntasPublicas from '@/components/produto/PerguntasPublicas'
 import Prateleira from '@/components/ui/Prateleira'
 import FaixaBeneficios from '@/components/vitrine/FaixaBeneficios'
-import { IconeEtiqueta, IconeMapa, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeConversa, IconeEtiqueta, IconeMapa, IconeSelo, IconeSetaDireita } from '@/components/ui/Icones'
 import { obterArtesao } from '@/services/api/artesaos.servico'
 import { obterPeca, pecasPorArtesao, pecasPorTipo, pecasRelacionadas } from '@/services/api/pecas.servico'
 import { listarPerguntas } from '@/services/api/perguntas.servico'
@@ -133,10 +133,17 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
                 <p className="barra-fixa-info">
                   <Preco valor={precoFinal} className="barra-fixa-valor" />
                 </p>
-                <BotaoAdicionarSacola slug={peca.slug} disponibilidade={peca.disponibilidade} />
+                <BotaoAdicionarSacola slug={peca.slug} disponibilidade={peca.disponibilidade} artesao={peca.artesao} />
               </div>
               <BotaoFavoritar slug={peca.slug} nome={peca.nome} variante="rotulado" />
             </div>
+
+            <a href="#perguntas" className="atalho-perguntas">
+              <IconeConversa tamanho={16} />
+              {perguntas.length > 0
+                ? `Perguntas e respostas (${perguntas.length})`
+                : 'Tem alguma dúvida? Pergunte ao artesão'}
+            </a>
 
             <FaixaBeneficios compacta />
           </div>
@@ -159,6 +166,17 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
 
         <DetalhesPeca peca={peca} />
       </div>
+
+      <section className="secao cartao secao-perguntas" id="perguntas">
+        <PerguntasPublicas
+          iniciais={perguntas}
+          erroCarregamento={perguntasResposta.erro ? 'Não foi possível carregar as perguntas desta peça agora.' : undefined}
+          slug={peca.slug}
+          artesaoSlug={peca.artesao}
+          artesaoNome={artesao?.nome}
+          artesaoImagem={artesao?.imagem}
+        />
+      </section>
 
       {artesao && (
         <section className="secao sobre-artesao" aria-labelledby="sobre-artesao-titulo">
@@ -229,16 +247,6 @@ export default async function DetalhePeca({ params }: { params: Promise<{ slug: 
         </Prateleira>
       )}
 
-      <section className="secao">
-        <PerguntasPublicas
-          iniciais={perguntas}
-          erroCarregamento={perguntasResposta.erro ? 'Não foi possível carregar as perguntas desta peça agora.' : undefined}
-          slug={peca.slug}
-          artesaoSlug={peca.artesao}
-          artesaoNome={artesao?.nome}
-          artesaoImagem={artesao?.imagem}
-        />
-      </section>
     </Pagina>
   )
 }

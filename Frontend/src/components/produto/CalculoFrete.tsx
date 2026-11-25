@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
 import { validarCEP } from '@/utils/validacao'
-import { emReais } from '@/utils/formato'
 import { cotarFretes } from '@/services/api/pedidos.servico'
-import { origemDaCotacao } from '@/utils/frete'
+import { entregaCombinada, origemDaCotacao, valorDoFreteEmTexto } from '@/utils/frete'
 import type { OpcaoFrete } from '@/types/dominio'
 
 export default function CalculoFrete({ territorio, slug }: { territorio: string; slug: string }) {
@@ -66,12 +65,15 @@ export default function CalculoFrete({ territorio, slug }: { territorio: string;
       {opcoesFrete && opcoesFrete.length > 0 && (
         <div className="acima-3" role="status">
           {opcoesFrete.map((opcao) => (
-            <p className="resumo" key={opcao.id}>
-              <span>
-                {opcao.nome} · {opcao.prazo}
-              </span>
-              <strong>{emReais(opcao.valor)}</strong>
-            </p>
+            <div key={opcao.id} className={entregaCombinada(opcao) ? 'opcao-frete-local' : undefined}>
+              <p className="resumo">
+                <span>
+                  {opcao.nome} · {opcao.prazo}
+                </span>
+                <strong>{valorDoFreteEmTexto(opcao.valor)}</strong>
+              </p>
+              {opcao.detalhe && <p className="campo-ajuda">{opcao.detalhe}</p>}
+            </div>
           ))}
           <p className="campo-ajuda">{origemDaCotacao(opcoesFrete)}</p>
         </div>

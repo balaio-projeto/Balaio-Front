@@ -18,7 +18,6 @@ export default async function Entrar({ searchParams }: Props) {
     <LayoutAuth
       trilha={[{ texto: 'Início', href: '/' }, { texto: 'Entrar' }]}
       titulo="Entrar"
-      apoio="Uma conta só para comprar, vender e acompanhar seus pedidos."
       frase="Do barro, da linha e da madeira de Pernambuco, direto de quem faz."
       destaques={promessas}
       rodape={

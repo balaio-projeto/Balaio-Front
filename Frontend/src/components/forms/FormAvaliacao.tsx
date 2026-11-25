@@ -155,7 +155,7 @@ export default function FormAvaliacao({ pedidoId, pecaNome, pecaImagem, artesaoN
 
       <Campo
         rotulo="Quer contar mais alguma coisa?"
-        ajuda={`Seu comentário ficará registrado na avaliação deste pedido. ${comentario.length} de ${TAMANHO_MAXIMO_COMENTARIO} caracteres.`}
+        ajuda={`${comentario.length} de ${TAMANHO_MAXIMO_COMENTARIO} caracteres.`}
         id="comentario"
       >
         <textarea

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { COOKIE_AUTENTICACAO, destinoInicial, destinoSeguro, rotaDeLogin } from '@/services/sessao/cookie'
-import { CABECALHO_CAMINHO_ATUAL, papelDaRota, rotaProtegida } from '@/services/sessao/rotas'
+import { CABECALHO_CAMINHO_ATUAL, rotaPermitida, rotaProtegida } from '@/services/sessao/rotas'
 import { validarSessaoBackend } from '@/services/sessao/validacao'
 
 const ROTAS_SO_DE_VISITANTE = ['/login', '/login/register']
@@ -44,8 +44,7 @@ export async function proxy(requisicao: NextRequest) {
   }
 
   if (!sessao) return irPara(rotaDeLogin(pathname + search))
-  const papel = papelDaRota(pathname)
-  if (papel && sessao.papel !== papel) return irPara(destinoInicial(sessao))
+  if (!rotaPermitida(pathname, sessao.papel)) return irPara(destinoInicial(sessao))
   const headers = new Headers(requisicao.headers)
   headers.set(CABECALHO_CAMINHO_ATUAL, pathname + search)
   return NextResponse.next({ request: { headers } })
