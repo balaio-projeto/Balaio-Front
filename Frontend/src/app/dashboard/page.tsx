@@ -48,7 +48,8 @@ export default async function Painel() {
   const pedidosEmDisputa = new Set((mediacoes ?? []).map((mediacao) => mediacao.pedido))
   const emAndamento = pedidosDoArtesao.flatMap((pedido) => pedido.estado === 'producao' || pedido.estado === 'enviado'
     ? [{ id: pedido.id, estado: pedido.estado, pecaNome: mapaPecas.get(pedido.pecaSlug)?.nome, quando: pedido.data,
-        valor: pedido.total, rastreio: pedido.rastreio, emDisputa: pedidosEmDisputa.has(pedido.id) }]
+        valor: pedido.total, rastreio: pedido.rastreio, emDisputa: pedidosEmDisputa.has(pedido.id),
+        comprador: pedido.comprador, freteProvedor: pedido.freteProvedor }]
     : [])
 
   return (
@@ -56,7 +57,7 @@ export default async function Painel() {
       <Migalhas trilha={[{ texto: 'Painel do artesão', href: '/dashboard' }, { texto: 'Pedidos pendentes' }]} />
       <h1 className="titulo-pagina">Gerenciamento de pedidos</h1>
       <p className="subtitulo-pagina">
-        Aceite os pedidos novos para começar a produzir. Quem comprou é avisado a cada etapa que você marcar.
+        Quem comprou é avisado a cada etapa que você marcar.
       </p>
 
       <PedidosPendentes

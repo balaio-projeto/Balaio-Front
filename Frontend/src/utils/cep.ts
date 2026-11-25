@@ -58,13 +58,39 @@ export function separarBairro(valor: string): PartesDoBairro {
   return { bairro: partes.join(', '), cidade: '', uf: '' }
 }
 
+export type Logradouro = { rua: string; numero?: string | null; complemento?: string | null }
+
+const NUMERO_NO_FIM_DA_RUA = /^(.*\S)\s*,\s*(\d+[A-Za-z]?|s\/?n)\s*$/i
+const SEM_NUMERO = /^s\/?n$/i
+
+export function enderecoComNumero(ruaEBairro: string, numero: string, complemento: string): string {
+  const [rua, ...resto] = ruaEBairro.split(',').map((parte) => parte.trim()).filter(Boolean)
+  if (!rua) return ruaEBairro.trim()
+  const numeroLimpo = SEM_NUMERO.test(numero.trim()) ? 'S/N' : numero.trim()
+  const logradouro = `${rua}, ${numeroLimpo}${complemento.trim() ? ` - ${complemento.trim()}` : ''}`
+  return resto.length ? `${logradouro}, ${resto.join(', ')}` : logradouro
+}
+
+export function separarNumero({ rua, numero }: Logradouro): { rua: string; numero: string } {
+  if (numero?.trim()) return { rua: rua.trim(), numero: numero.trim() }
+  const encontrado = rua.match(NUMERO_NO_FIM_DA_RUA)
+  if (!encontrado) return { rua: rua.trim(), numero: '' }
+  const [, semNumero, numeroDaRua] = encontrado
+  return { rua: semNumero.trim(), numero: /^s\/?n$/i.test(numeroDaRua) ? 'S/N' : numeroDaRua }
+}
+
+export function formatarLogradouro({ rua, numero, complemento }: Logradouro): string {
+  const comNumero = numero?.trim() ? `${rua.trim()}, ${numero.trim()}` : rua.trim()
+  return complemento?.trim() ? `${comNumero} - ${complemento.trim()}` : comNumero
+}
+
 export type EntregaDoCheckout = { cep: string; endereco: string; cidade: string; estado: string }
 
-export function entregaDoEnderecoSalvo(endereco: { rua: string; bairro: string; cep: string }): EntregaDoCheckout {
+export function entregaDoEnderecoSalvo(endereco: Logradouro & { bairro: string; cep: string }): EntregaDoCheckout {
   const partes = separarBairro(endereco.bairro)
   return {
     cep: endereco.cep,
-    endereco: [endereco.rua.trim(), partes.bairro].filter(Boolean).join(', '),
+    endereco: [formatarLogradouro(endereco), partes.bairro].filter(Boolean).join(', '),
     cidade: partes.cidade,
     estado: partes.uf,
   }

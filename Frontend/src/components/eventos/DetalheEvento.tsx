@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { Retrato } from '@/components/ui/Basicos'
-import { IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeNovaAba, IconeSetaDireita } from '@/components/ui/Icones'
+import { enderecoDoEvento, linkDeRota } from '@/utils/eventos'
 import MapaEventosCliente from '@/components/eventos/MapaEventosCliente'
 import { rotuloTipoEvento } from '@/constants/eventos'
 import type { Evento } from '@/types/dominio'
@@ -17,6 +18,7 @@ export default function DetalheEvento({ evento }: { evento: Evento }) {
     .map((slug) => coletivos.find((c) => c.slug === slug))
     .filter((coletivo): coletivo is NonNullable<typeof coletivo> => Boolean(coletivo))
   const semParticipantes = artesaosDoEvento.length === 0 && coletivosDoEvento.length === 0
+  const endereco = enderecoDoEvento(evento)
 
   return (
     <>
@@ -33,27 +35,31 @@ export default function DetalheEvento({ evento }: { evento: Evento }) {
         <div>
           <section className="cartao abaixo-5">
             <h2 className="secao-titulo">Sobre o evento</h2>
-            <p className="texto-suave abaixo-4">{evento.descricao}</p>
-            <div className="grade-dois">
-              <div className="dado">
-                <span className="dado-rotulo">Quando</span>
-                <span className="dado-valor">{evento.periodo}</span>
+            <p className="texto-suave abaixo-4" style={{ whiteSpace: 'pre-line' }}>{evento.descricao}</p>
+            <dl className="detalhes-evento">
+              <div>
+                <dt>Quando</dt>
+                <dd>{evento.periodo}</dd>
               </div>
-              {evento.horario && (
-                <div className="dado">
-                  <span className="dado-rotulo">Horário</span>
-                  <span className="dado-valor">{evento.horario}</span>
-                </div>
-              )}
-              <div className="dado">
-                <span className="dado-rotulo">Entrada</span>
-                <span className="dado-valor">{evento.entrada}</span>
+              <div>
+                <dt>Horário</dt>
+                <dd>{evento.horario || 'A confirmar'}</dd>
               </div>
-              <div className="dado">
-                <span className="dado-rotulo">Organização</span>
-                <span className="dado-valor">{evento.organizador}</span>
+              <div>
+                <dt>Entrada</dt>
+                <dd>{evento.entrada}</dd>
               </div>
-            </div>
+              <div>
+                <dt>Organização</dt>
+                <dd>{evento.organizador}</dd>
+              </div>
+            </dl>
+            {evento.site && (
+              <a className="botao botao-secundario acima-4" href={evento.site} target="_blank" rel="noopener noreferrer">
+                Mais informações
+                <IconeNovaAba tamanho={16} />
+              </a>
+            )}
           </section>
 
           <section className="cartao">
@@ -101,26 +107,30 @@ export default function DetalheEvento({ evento }: { evento: Evento }) {
                   lng: evento.lng,
                 },
               ]}
-              zoom={14}
+              zoom={16}
               rotulo={`Mapa com o local do evento: ${evento.local}`}
             />
           </div>
-          <div className="dado abaixo-3">
-            <span className="dado-rotulo">Local</span>
-            <span className="dado-valor">{evento.local}</span>
-          </div>
-          <div className="dado abaixo-4">
-            <span className="dado-rotulo">Endereço</span>
-            <span className="dado-valor">
-              {evento.endereco}, {evento.cidade}, PE
-            </span>
-          </div>
-          <a
-            className="botao botao-secundario"
-            href={`https://www.google.com/maps/dir/?api=1&destination=${evento.lat},${evento.lng}`}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <dl className="detalhes-evento detalhes-evento-local">
+            <div>
+              <dt>Local</dt>
+              <dd>{evento.local}</dd>
+            </div>
+            <div>
+              <dt>Endereço</dt>
+              <dd>
+                {endereco.logradouro}
+                <span className="detalhes-evento-regiao">{endereco.regiao}</span>
+              </dd>
+            </div>
+            {endereco.referencia && (
+              <div>
+                <dt>Ponto de referência</dt>
+                <dd>{endereco.referencia}</dd>
+              </div>
+            )}
+          </dl>
+          <a className="botao botao-secundario botao-largo acima-4" href={linkDeRota(evento)} target="_blank" rel="noopener noreferrer">
             Traçar rota no Google Maps
             <IconeSetaDireita />
           </a>

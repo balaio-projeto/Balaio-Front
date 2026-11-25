@@ -22,6 +22,7 @@
 @import "./components/escalonado.css";
 @import "./components/menu.css";
 @import "./components/menu-perfil.css";
+@import "./components/notificacoes.css";
 @import "./components/prateleira.css";
 @import "./components/toast.css";
 @import "./features/hero.css";
@@ -34,6 +35,7 @@
 @import "./features/admin.css";
 @import "./features/videos.css";
 @import "./features/eventos.css";
+@import "./features/promocoes.css";
 @import "./features/perfil.css";
 @import "./features/conta-auth.css";
 @import "./features/institucional.css";

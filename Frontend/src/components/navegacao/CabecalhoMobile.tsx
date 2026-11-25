@@ -2,6 +2,7 @@ import Link from 'next/link'
 import AlternadorTema from '@/components/layout/AlternadorTema'
 import { IconeBusca } from '@/components/ui/Icones'
 import DepartamentosMobile from '@/components/navegacao/DepartamentosMobile'
+import SinoNotificacoes from '@/components/notificacoes/SinoNotificacoes'
 
 export default function CabecalhoMobile() {
   return (
@@ -16,6 +17,7 @@ export default function CabecalhoMobile() {
           <Link href="/search" className="cabecalho-link" aria-label="Buscar peças" title="Buscar peças">
             <IconeBusca />
           </Link>
+          <SinoNotificacoes />
           <AlternadorTema />
         </div>
       </div>

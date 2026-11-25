@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { avisar } from '@/components/feedback/Avisos'
-import { IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeNovaAba } from '@/components/ui/Icones'
 import { removerVideo } from '@/services/api/videos.servico'
 
 export default function AcoesVideo({ id, publicado }: { id: string; publicado: boolean }) {
@@ -50,9 +50,15 @@ export default function AcoesVideo({ id, publicado }: { id: string; publicado: b
       <Link href={`/dashboard/videos/${encodeURIComponent(id)}`} className="botao botao-secundario">Editar</Link>
       <button type="button" className="botao botao-fantasma" onClick={() => definirConfirmando(true)}>Remover</button>
       {publicado && (
-        <Link href={`/videos#${id}`} className="prateleira-ver-todos">
+        <Link
+          href={`/videos#${encodeURIComponent(id)}`}
+          className="botao botao-compacto botao-secundario"
+          target="_blank"
+          rel="noopener"
+        >
+          <IconeNovaAba tamanho={15} />
           Ver no ateliê
-          <IconeSetaDireita tamanho={14} />
+          <span className="so-leitor"> (abre em nova aba)</span>
         </Link>
       )}
     </div>

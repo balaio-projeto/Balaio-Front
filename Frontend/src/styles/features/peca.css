@@ -215,10 +215,6 @@
   @apply grid grid-cols-[28px_minmax(0,1fr)] gap-2.5 items-start;
 }
 
-.pergunta-inicial {
-  @apply w-7 h-7 rounded-full bg-barro-fundo text-barro-tinta flex items-center justify-center font-bold text-pequeno flex-none;
-}
-
 .pergunta-autor {
   @apply flex items-center gap-2 text-mini text-tinta-suave mb-1;
 }
@@ -655,4 +651,16 @@
   .galeria-ampliar-indicador {
     transition: none;
   }
+}
+
+.atalho-perguntas {
+  @apply flex items-center gap-2 mt-3 py-2.5 px-3.5 rounded-caixa border border-linha bg-fundo text-destaque text-pequeno font-semibold no-underline;
+}
+
+.atalho-perguntas:hover {
+  @apply bg-destaque-suave no-underline border-destaque;
+}
+
+.secao-perguntas {
+  scroll-margin-top: 120px;
 }

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { validarCEP } from './validacao'
 import {
   cepCompleto, comporBairro, consultarViaCep, entregaDoEnderecoSalvo, entregaPeloCep, formatarCep,
-  mapearViaCep, mensagemDaBuscaCep, normalizarCep, separarBairro,
+  formatarLogradouro, mapearViaCep, mensagemDaBuscaCep, normalizarCep, separarBairro, separarNumero,
 } from './cep'
 
 const RESPOSTA_RECIFE = {
@@ -52,7 +52,20 @@ test('compõe e separa o bairro no formato aceito pelo profile-service', () => {
   assert.deepEqual(separarBairro('Centro'), { bairro: 'Centro', cidade: '', uf: '' })
 })
 
+test('separa o número de endereços antigos e monta o logradouro completo', () => {
+  assert.deepEqual(separarNumero({ rua: 'Rua da Aurora, 240' }), { rua: 'Rua da Aurora', numero: '240' })
+  assert.deepEqual(separarNumero({ rua: 'Sítio Lagoa, s/n' }), { rua: 'Sítio Lagoa', numero: 'S/N' })
+  assert.deepEqual(separarNumero({ rua: 'Rua A, 12B', numero: null }), { rua: 'Rua A', numero: '12B' })
+  assert.deepEqual(separarNumero({ rua: 'Avenida Brasil' }), { rua: 'Avenida Brasil', numero: '' })
+  assert.deepEqual(separarNumero({ rua: 'Rua da Aurora, 240', numero: '10' }), { rua: 'Rua da Aurora, 240', numero: '10' })
+  assert.equal(formatarLogradouro({ rua: 'Rua da Aurora', numero: '240', complemento: 'Apto 302' }), 'Rua da Aurora, 240 - Apto 302')
+  assert.equal(formatarLogradouro({ rua: 'Rua da Aurora', numero: '240', complemento: '' }), 'Rua da Aurora, 240')
+  assert.equal(formatarLogradouro({ rua: 'Rua da Aurora, 240' }), 'Rua da Aurora, 240')
+})
+
 test('converte endereço salvo e resultado da ViaCEP para os campos do checkout', () => {
+  assert.deepEqual(entregaDoEnderecoSalvo({ rua: 'Rua da Aurora', numero: '240', complemento: 'Apto 302', bairro: 'Boa Vista, Recife, PE', cep: '50050-000' }),
+    { cep: '50050-000', endereco: 'Rua da Aurora, 240 - Apto 302, Boa Vista', cidade: 'Recife', estado: 'PE' })
   assert.deepEqual(entregaDoEnderecoSalvo({ rua: 'Rua da Aurora, 240', bairro: 'Boa Vista, Recife, PE', cep: '50050-000' }),
     { cep: '50050-000', endereco: 'Rua da Aurora, 240, Boa Vista', cidade: 'Recife', estado: 'PE' })
   const atual = { cep: '', endereco: 'Sítio Lagoa, s/n', cidade: '', estado: '' }
@@ -96,4 +109,11 @@ test('validarCEP segue o commerce e recusa CEP com todos os dígitos iguais', ()
   assert.notEqual(validarCEP('99999-999'), null)
   assert.notEqual(validarCEP('5005-0000'), null)
   assert.notEqual(validarCEP('50050.000'), null)
+})
+
+test('insere número e complemento logo após a rua no endereço avulso do checkout', async () => {
+  const { enderecoComNumero } = await import('./cep')
+  assert.equal(enderecoComNumero('Rua da Aurora, Boa Vista', '240', 'Apto 302'), 'Rua da Aurora, 240 - Apto 302, Boa Vista')
+  assert.equal(enderecoComNumero('Sítio Lagoa', 's/n', ''), 'Sítio Lagoa, S/N')
+  assert.equal(enderecoComNumero('', '10', ''), '')
 })

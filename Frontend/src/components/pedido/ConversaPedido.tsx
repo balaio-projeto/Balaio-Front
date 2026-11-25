@@ -98,9 +98,10 @@ type Props = {
   atelie?: string
   imagem?: string
   id?: string
+  minhas?: Mensagem['autor']
 }
 
-export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId, erroCarregamento }: Props) {
+export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId, erroCarregamento, minhas = 'comprador' }: Props) {
   const [salvando, definirSalvando] = useState(false)
   const [mensagens, definirMensagens] = useState(iniciais)
   const [rascunho, definirRascunho] = useState('')
@@ -152,7 +153,7 @@ export default function ConversaPedido({ iniciais, atelie, imagem, id, pedidoId,
 
       <div className="conversa">
         {erroCarregamento && <p role="alert">Não foi possível carregar a conversa: {erroCarregamento}</p>}
-        <ListaMensagens mensagens={mensagens} minhas="comprador" />
+        <ListaMensagens mensagens={mensagens} minhas={minhas} />
       </div>
 
       {erroEnvio && <p className="campo-erro acima-3" role="alert">{erroEnvio} Sua mensagem foi mantida.</p>}

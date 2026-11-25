@@ -9,6 +9,8 @@ import { Migalhas } from '@/components/ui/Basicos'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
 import EstadoErro from '@/components/feedback/EstadoErro'
 import { IconeBusca } from '@/components/ui/Icones'
+import Prateleira from '@/components/ui/Prateleira'
+import CartaoArtesao from '@/components/vitrine/CartaoArtesao'
 import { rotuloDisponibilidade } from '@/constants/rotulos'
 import {
   filtrosAtivos,
@@ -18,11 +20,14 @@ import {
   rotuloFaixaDePreco,
   type FiltrosListagem as Filtros,
 } from '@/utils/filtrosUrl'
+import { listarArtesaos } from '@/services/api/artesaos.servico'
 import { listarPecas } from '@/services/api/pecas.servico'
 import { obterReferencias } from '@/services/api/referencias.servico'
-import { estadoDaBusca } from '@/utils/busca'
+import type { Artesao } from '@/types/dominio'
+import { casaComBusca, estadoDaBusca } from '@/utils/busca'
 
 const POR_PAGINA = 12
+const LIMITE_ATELIES = 8
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> }
 
@@ -34,11 +39,23 @@ function tituloDaListagem(filtros: Filtros): string {
   return filtros.tecnica ?? filtros.categoria ?? filtros.territorio ?? rotuloFaixaDePreco(filtros) ?? 'Todo o catálogo'
 }
 
+async function ateliesDaBusca(filtros: Filtros): Promise<Artesao[]> {
+  const termo = filtros.q
+  if (!termo || filtros.pagina > 1) return []
+  const { dados } = await listarArtesaos()
+  return (dados ?? [])
+    .filter((artesao) => casaComBusca([artesao.nome, artesao.atelie, artesao.territorio, artesao.tecnica], termo))
+    .slice(0, LIMITE_ATELIES)
+}
+
 export default async function Busca({ searchParams }: Props) {
   const [parametros, respostaReferencias] = await Promise.all([searchParams, obterReferencias()])
   const referencias = referenciasParaFiltros(respostaReferencias)
   const filtros = lerFiltros(parametros, referencias)
-  const { dados, erro, paginacao } = await listarPecas({ ...filtros, tamanho: POR_PAGINA })
+  const [{ dados, erro, paginacao }, atelies] = await Promise.all([
+    listarPecas({ ...filtros, tamanho: POR_PAGINA }),
+    ateliesDaBusca(filtros),
+  ])
   const resultados = dados ?? []
   const total = paginacao?.total ?? resultados.length
   const titulo = tituloDaListagem(filtros)
@@ -57,8 +74,16 @@ export default async function Busca({ searchParams }: Props) {
 
       <h1 className="titulo-pagina">{titulo}</h1>
       <p className="subtitulo-pagina">
-        Busque por tipo, técnica, território ou pelo nome da peça.
+        Busque por tipo, técnica, território, artesão, ateliê ou pelo nome da peça.
       </p>
+
+      {atelies.length > 0 && (
+        <Prateleira titulo="Ateliês" subtitulo={`Artesãos que combinam com "${filtros.q}"`} variante="cartoes">
+          {atelies.map((artesao) => (
+            <CartaoArtesao key={artesao.slug} artesao={artesao} />
+          ))}
+        </Prateleira>
+      )}
 
       {estadoDaBusca(dados, erro) === 'erro' && erro ? (
         <EstadoErro mensagem={erro.mensagem} />
@@ -92,7 +117,7 @@ export default async function Busca({ searchParams }: Props) {
                 descricao={
                   temFiltro
                     ? 'Tente tirar algum filtro. O catálogo cresce toda semana.'
-                    : 'Tente uma técnica, um território ou o nome de uma peça.'
+                    : 'Tente uma técnica, um território, um ateliê ou o nome de uma peça.'
                 }
                 acao={
                   temFiltro ? (

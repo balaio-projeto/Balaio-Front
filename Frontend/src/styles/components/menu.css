@@ -83,7 +83,7 @@
 }
 
 .menu-marcador {
-  @apply ml-auto text-mini font-bold rounded-pilula py-[3px] px-[9px] bg-amarelo text-tinta-fixa;
+  @apply ml-auto flex-none whitespace-nowrap min-w-6 text-center text-mini font-bold rounded-pilula py-[3px] px-2 bg-amarelo text-tinta-fixa;
 }
 
 .menu-marcador-alerta {

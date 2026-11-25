@@ -36,5 +36,30 @@ export function resumoParticipantes(evento: Pick<Evento, 'artesaos' | 'coletivos
     partes.push(`${evento.coletivos.length} ${evento.coletivos.length === 1 ? 'coletivo' : 'coletivos'}`)
   }
   if (partes.length === 0) return 'Participantes a confirmar'
-  return `${partes.join(' e ')} confirmados`
+  const total = evento.artesaos.length + evento.coletivos.length
+  return `${partes.join(' e ')} ${total === 1 ? 'confirmado' : 'confirmados'}`
+}
+
+export type EnderecoDoEvento = { logradouro: string; regiao: string; referencia: string | null }
+
+export function enderecoDoEvento(
+  evento: Pick<Evento, 'endereco' | 'cidade' | 'cep' | 'rua' | 'numero' | 'bairro' | 'complemento' | 'referencia'>,
+): EnderecoDoEvento {
+  const rua = evento.rua?.trim()
+  const referencia = evento.referencia?.trim() || null
+  if (!rua) return { logradouro: evento.endereco, regiao: `${evento.cidade} - PE`, referencia }
+  const numero = evento.numero?.trim()
+  const complemento = evento.complemento?.trim()
+  const logradouro = `${rua}${numero ? `, ${numero}` : ''}${complemento ? ` - ${complemento}` : ''}`
+  const regiao = [evento.bairro?.trim(), `${evento.cidade} - PE`, evento.cep?.trim() ? `CEP ${evento.cep.trim()}` : '']
+    .filter(Boolean).join(' · ')
+  return { logradouro, regiao, referencia }
+}
+
+export function linkDoMapa({ lat, lng }: Ponto): string {
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`
+}
+
+export function linkDeRota({ lat, lng }: Ponto): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
 }

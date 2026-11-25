@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { EnderecoUsuario } from '@/types/dominio'
+import { formatarLogradouro } from '@/utils/cep'
 
 export const OUTRO_ENDERECO = '__outro__'
 
@@ -32,7 +33,7 @@ export default function SeletorEnderecoSalvo({
               {endereco.apelido}
               {endereco.principal && <span className="selo selo-neutro">Principal</span>}
             </span>
-            <span className="campo-ajuda">{[endereco.rua, endereco.bairro, `CEP ${endereco.cep}`].join(' · ')}</span>
+            <span className="campo-ajuda">{[formatarLogradouro(endereco), endereco.bairro, `CEP ${endereco.cep}`].join(' · ')}</span>
           </span>
         </label>
       ))}
@@ -46,7 +47,7 @@ export default function SeletorEnderecoSalvo({
         />
         <span className="encolhivel">
           <span className="linha-flex" style={{ fontWeight: 600 }}>Usar outro endereço</span>
-          <span className="campo-ajuda">Preencha abaixo; ele vale só para esta compra.</span>
+          <span className="campo-ajuda">Vale só para esta compra.</span>
         </span>
       </label>
       <Link href="/account/addresses" className="botao-texto">Gerenciar endereços</Link>

@@ -27,9 +27,6 @@ export default async function VideosDoAtelie() {
     <>
       <Migalhas trilha={[{ texto: 'Painel do artesão', href: '/dashboard' }, { texto: 'Vídeos' }]} />
       <h1 className="titulo-pagina">Vídeos do ateliê</h1>
-      <p className="subtitulo-pagina">
-        Mostrar o processo é o que mais aproxima quem compra. Um minuto da sua bancada vale mais que dez fotos.
-      </p>
 
       <div className="videos-painel">
         <section className="videos-painel-lista" aria-labelledby="seus-videos-titulo">

@@ -5,7 +5,7 @@ const controle = 'http://127.0.0.1:18080'
 test('falha mantém pedido; sucesso atualiza lista após refresh', async ({ page, request }) => {
   await request.post(`${controle}/__test/reset`)
   await request.post(`${controle}/__test/config`, { data: {
-    pedidosPendentes: [{ id: 'pedido-qa', pecaSlug: 'peca-qa', comprador: 'Comprador',
+    pedidosPendentes: [{ id: 'pedido-qa', pecaSlug: 'peca-qa', comprador: { nome: 'Ana QA', imagem: null },
       quando: '20/11/2026', valor: 50 }], falhaAceite: true,
   } })
   await page.goto('/login')
@@ -34,7 +34,7 @@ test('falha mantém pedido; sucesso atualiza lista após refresh', async ({ page
 test('recusa com estorno pendente não informa liberação da peça', async ({ page, request }) => {
   await request.post(`${controle}/__test/reset`)
   await request.post(`${controle}/__test/config`, { data: {
-    pedidosPendentes: [{ id: 'pedido-qa', pecaSlug: 'peca-qa', comprador: 'Comprador',
+    pedidosPendentes: [{ id: 'pedido-qa', pecaSlug: 'peca-qa', comprador: { nome: 'Ana QA', imagem: null },
       quando: '20/11/2026', valor: 50 }],
   } })
   await page.route('**/api/v1/pedidos/pedido-qa/recusar', async (rota) => {

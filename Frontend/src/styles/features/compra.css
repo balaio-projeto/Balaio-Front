@@ -419,3 +419,19 @@
     margin-top: var(--esp-4);
   }
 }
+
+.sacola-continuar {
+  @apply mt-5;
+}
+
+.sacola-continuar .botao {
+  @apply w-full sm:w-auto;
+}
+
+.entrega-artesao {
+  @apply p-4 rounded-caixa bg-fundo border border-linha;
+}
+
+.entrega-artesao .dado-valor {
+  @apply font-semibold;
+}

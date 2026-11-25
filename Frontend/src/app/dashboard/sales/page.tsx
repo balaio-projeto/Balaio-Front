@@ -64,7 +64,7 @@ export default async function Vendas({ searchParams }: Props) {
     <>
       <Migalhas trilha={[{ texto: 'Painel do artesão', href: '/dashboard' }, { texto: 'Vendas & faturamento' }]} />
       <h1 className="titulo-pagina">Vendas e faturamento</h1>
-      <p className="subtitulo-pagina">Totais calculados no servidor a partir dos pedidos pagos das suas peças. Cancelados, recusados, reembolsados e pedidos aguardando pagamento ficam de fora.</p>
+      <p className="subtitulo-pagina">Totais com base nos pedidos pagos das suas peças. Cancelados, recusados, reembolsados e pedidos aguardando pagamento ficam de fora.</p>
 
       <nav className="linha-flex abaixo-4" aria-label="Período do relatório">
         {PERIODOS.map((opcao) => (

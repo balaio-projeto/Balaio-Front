@@ -80,6 +80,7 @@ export type Pedido = {
   compradorId?: string
   usuarioId?: string
   compradorNome: string
+  comprador?: CompradorDoPedido
   data: string
   total: number
   estado: EstadoPedido
@@ -94,24 +95,44 @@ export type Pedido = {
   motivoEncerramento?: string
   endereco?: { cep: string; endereco: string; cidade: string; estado: string }
   historicoInferido?: boolean
+  desconto?: DescontoDoPedido
+  enderecoEntrega?: { cep?: string; endereco?: string; cidade?: string; estado?: string } | null
+}
+
+export type DescontoDoPedido = {
+  cupom: string | null
+  descricao: string | null
+  automatico: boolean
+  produtos: number
+  frete: number
+  total: number
+  custeadoPor: string
+  valorSemDesconto: number
+}
+
+export type CompradorDoPedido = {
+  nome: string | null
+  imagem: string | null
 }
 
 export type PedidoPendente = {
   id: string
   pecaSlug: string
-  comprador: string
+  comprador: CompradorDoPedido
   quando: string
   valor: number
 }
 
 export type ConversaArtesao = {
   id: string
+  codigo?: string
   pessoa: string
   assunto: string
   previa: string
   quando: string
   naoLida: boolean
-  retrato: string
+  retrato: string | null
+  comprador?: CompradorDoPedido
 }
 
 export type SituacaoSolicitacaoSelo = 'pendente' | 'aprovada' | 'ajuste'
@@ -150,10 +171,12 @@ export type Mensagem = {
 
 export type Mediacao = {
   emAnalise?: boolean
-  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida' | 'falha_entrega'
+  estado?: 'aberta' | 'emAnalise' | 'decisao_pendente' | 'decidida' | 'falha_entrega' | 'cancelada'
   decisao?: 'cancelar_reembolsar' | 'negar' | 'manter_conversa' | null
+  canceladaEm?: string | null
   id: string
   pedido: string
+  compradorId?: string
   assunto: string
   partes: string
   aberta: string
@@ -196,6 +219,13 @@ export type Evento = {
   cidade: string
   local: string
   endereco: string
+  cep?: string | null
+  rua?: string | null
+  numero?: string | null
+  bairro?: string | null
+  complemento?: string | null
+  referencia?: string | null
+  site?: string | null
   lat: number
   lng: number
   artesaos: string[]
@@ -216,11 +246,35 @@ export type Video = {
   capa: string | null
   url?: string | null
   situacao?: 'publicada' | 'rascunho'
+  suspensao?: SuspensaoVideo | null
+}
+
+export type SuspensaoVideo = { motivo: string; suspensoEm: string }
+
+export type EstadoModeracaoVideo = 'publicada' | 'rascunho' | 'suspensa'
+
+export type VideoEmModeracao = {
+  id: string
+  artesao: string
+  peca?: string | null
+  legenda: string
+  etiquetas: string[]
+  duracao?: string | null
+  visualizacoes: number
+  criadoEm: string
+  publicadoEm: string | null
+  capa: string | null
+  url: string | null
+  situacao: 'publicada' | 'rascunho'
+  estado: EstadoModeracaoVideo
+  suspensao: SuspensaoVideo | null
+  suspensoPor: string | null
 }
 
 export type Comentario = {
   id?: string
   autor: string
+  autorImagem?: string | null
   texto: string
   quando: string
   curtidas: number
@@ -232,6 +286,8 @@ export type EnderecoUsuario = {
   id: string
   apelido: string
   rua: string
+  numero?: string | null
+  complemento?: string | null
   bairro: string
   cep: string
   principal: boolean
@@ -251,4 +307,9 @@ export type Usuario = {
   artesaoId?: string
 }
 
-export type OpcaoFrete = { id: string; nome: string; prazo: string; valor: number; provedor?: string; transportadora?: string | null }
+export type ModalidadeFrete = 'transportadora' | 'retirada' | 'entrega_local'
+
+export type OpcaoFrete = {
+  id: string; nome: string; prazo: string; valor: number; provedor?: string; transportadora?: string | null
+  modalidade?: ModalidadeFrete; detalhe?: string | null
+}

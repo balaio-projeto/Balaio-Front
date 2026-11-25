@@ -71,7 +71,7 @@ beforeEach(() => {
 const submissao: SubmissaoEvento = {
   slug: 'feira-teste', nome: 'Feira Teste', tipo: 'feira', organizador: 'Associação', descricao: 'Descrição',
   periodo: '12 de setembro', horario: '', entrada: 'Gratuita', cidade: 'Recife', local: 'Pátio', endereco: 'Recife, Pernambuco',
-  lat: -8, lng: -35, artesaos: [], coletivos: [],
+  lat: -8, lng: -35, artesaos: [], coletivos: [], contatoNome: 'Responsável', contatoTelefone: '(81) 99999-0000',
 }
 
 test('submissão envia dados sem marcador de publicação e aceita confirmação pendente', async () => {

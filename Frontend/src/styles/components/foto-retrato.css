@@ -52,3 +52,37 @@
     transition: none;
   }
 }
+
+.trocar-foto {
+  @apply flex items-center gap-6;
+}
+
+.trocar-foto > .retrato {
+  @apply w-[72px] h-[72px];
+}
+
+.trocar-foto-acoes {
+  @apply flex flex-wrap items-center gap-x-6 gap-y-2.5 mt-3;
+}
+
+.botao-trocar-foto {
+  @apply bg-barro-fundo text-barro-tinta;
+  border-color: color-mix(in srgb, var(--barro) 55%, var(--linha));
+}
+
+.botao-trocar-foto:hover {
+  background: color-mix(in srgb, var(--barro) 22%, var(--barro-fundo));
+  border-color: var(--barro);
+}
+
+.botao-remover-foto {
+  --terracota: color-mix(in srgb, var(--vermelho-tinta) 72%, var(--barro-tinta));
+  @apply bg-transparent;
+  color: var(--terracota);
+  border-color: color-mix(in srgb, var(--terracota) 45%, var(--linha));
+}
+
+.botao-remover-foto:hover {
+  background: color-mix(in srgb, var(--terracota) 10%, transparent);
+  border-color: var(--terracota);
+}

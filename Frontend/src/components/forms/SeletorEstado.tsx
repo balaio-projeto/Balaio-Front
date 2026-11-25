@@ -23,7 +23,6 @@ export default function SeletorEstado({
   const [indiceAtivo, definirIndiceAtivo] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const idLista = `${id}-opcoes`
-  const idAjuda = `${id}-ajuda`
   const idErro = erro ? `${id}-erro` : undefined
   const consulta = normalizar(value)
   const estadosFiltrados = useMemo(
@@ -66,7 +65,6 @@ export default function SeletorEstado({
       }}
     >
       <label className="campo-rotulo" htmlFor={id}>Estado</label>
-      <span className="campo-ajuda" id={idAjuda}>Digite a sigla ou escolha um estado.</span>
       <div className="seletor-estado-campo">
         <input
           ref={inputRef}
@@ -82,7 +80,7 @@ export default function SeletorEstado({
           aria-expanded={aberto}
           aria-controls={idLista}
           aria-activedescendant={aberto && estadosFiltrados[indiceAtivo] ? `${id}-opcao-${estadosFiltrados[indiceAtivo][0]}` : undefined}
-          aria-describedby={[idErro, idAjuda].filter(Boolean).join(' ')}
+          aria-describedby={idErro}
           aria-invalid={erro ? true : undefined}
           onFocus={() => definirAberto(true)}
           onKeyDown={aoTeclar}

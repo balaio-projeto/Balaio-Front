@@ -35,7 +35,7 @@ export async function listarMediacoes(token?: string): Promise<RespostaApi<Media
 }
 
 export function contarMediacoesEmAberto(mediacoes: Mediacao[]): number {
-  return mediacoes.filter((mediacao) => mediacao.estado !== 'decidida').length
+  return mediacoes.filter((mediacao) => mediacao.estado !== 'decidida' && mediacao.estado !== 'cancelada').length
 }
 
 export function listarMediacoesDasPartes(token?: string): Promise<RespostaApi<Mediacao[]>> {
@@ -52,4 +52,8 @@ export function decidirMediacao(id: string, decisao: DecisaoMediacao): Promise<R
 
 export function reprocessarEntregaDaMediacao(id: string): Promise<RespostaApi<Mediacao>> {
   return enviar(`/admin/mediacoes/${encodeURIComponent(id)}/reprocessar-entrega`, {})
+}
+
+export function cancelarMediacao(id: string): Promise<RespostaApi<Mediacao>> {
+  return enviar(`/admin/mediacoes/${encodeURIComponent(id)}/cancelamento`, {})
 }

@@ -4,14 +4,11 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, use, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { IconeBusca, IconeRelogio, IconeUsuario } from '@/components/ui/Icones'
-import type { SugestaoBusca } from '@/components/layout/sugestoesBusca'
+import { filtrarSugestoes, type SugestaoBusca } from '@/components/layout/sugestoesBusca'
 import { useHistoricoBusca } from '@/store/historicoBusca'
 
 const LIMITE_SUGESTOES = 8
 const LIMITE_TERMO = 80
-
-const normalizarTermo = (valor: string) =>
-  valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 const hrefDaBusca = (termo: string) => `/search?q=${encodeURIComponent(termo)}`
 
@@ -138,11 +135,7 @@ type PropsLista = {
 
 function ListaSugestoes({ sugestoes, consulta, aoEscolherTermo, aoAbrirPerfil }: PropsLista) {
   const todas = use(sugestoes)
-  const termoNormalizado = normalizarTermo(consulta)
-  const visiveis = useMemo(
-    () => todas.filter((sugestao) => normalizarTermo(sugestao.texto).includes(termoNormalizado)).slice(0, LIMITE_SUGESTOES),
-    [todas, termoNormalizado],
-  )
+  const visiveis = useMemo(() => filtrarSugestoes(todas, consulta, LIMITE_SUGESTOES), [todas, consulta])
 
   if (visiveis.length === 0) return <SemSugestoes consulta={consulta} />
 
@@ -155,7 +148,10 @@ function ListaSugestoes({ sugestoes, consulta, aoEscolherTermo, aoAbrirPerfil }:
             onClick={() => (sugestao.perfilDeArtesao ? aoAbrirPerfil() : aoEscolherTermo(sugestao.texto))}
           >
             {sugestao.perfilDeArtesao ? <IconeUsuario tamanho={15} /> : <IconeBusca tamanho={15} />}
-            <span>{sugestao.texto}</span>
+            <span>
+              {sugestao.texto}
+              {sugestao.detalhe && <small className="cabecalho-busca-detalhe"> · {sugestao.detalhe}</small>}
+            </span>
             {sugestao.perfilDeArtesao && <span className="so-leitor"> (perfil do artesão)</span>}
           </Link>
         </li>

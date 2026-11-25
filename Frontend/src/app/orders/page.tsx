@@ -12,6 +12,7 @@ import { rotuloEstadoPedido } from '@/constants/rotulos'
 import { exigirSessao } from '@/services/autenticacao'
 import { pedidoAceitaMediacao, pedidoEncerrado, situacaoNaLista, type SituacaoListaPedidos } from '@/components/pedido/acaoCancelamentoPedido'
 import Preco from '@/components/ui/Preco'
+import { codigoDoPedido, rotaPedidoDoComprador } from '@/utils/pedido'
 
 type FiltroPedidos = 'todos' | SituacaoListaPedidos
 
@@ -58,9 +59,6 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
       <Migalhas trilha={[{ texto: 'Início', href: '/' }, { texto: 'Meus pedidos' }]} />
 
       <h1 className="titulo-pagina">Meus pedidos</h1>
-      <p className="subtitulo-pagina">
-        Acompanhe o que está sendo produzido, o que está a caminho e o que já chegou.
-      </p>
 
       {pedidosLista.length > 0 && (
         <nav className="painel-abas abaixo-4" aria-label="Filtrar pedidos por situação">
@@ -88,7 +86,6 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
         <EstadoVazio
           icone={<IconePacote tamanho={34} />}
           titulo="Você ainda não fez nenhum pedido"
-          descricao="Quando comprar sua primeira peça, ela aparece aqui com todas as etapas da produção e do envio."
           acao={
             <Link href="/" className="botao botao-primario">
               Explorar o catálogo
@@ -122,7 +119,7 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
                   <div className="encolhivel">
                     <p className="texto-forte">{peca?.nome}{(pedido.itens?.length ?? 0) > 1 ? ` e mais ${pedido.itens!.length - 1} peça(s)` : ''}</p>
                     <p className="autoria">
-                      por {artesao?.nome} · Pedido #{pedido.id}
+                      por {artesao?.nome} · Pedido {codigoDoPedido(pedido.id)}
                     </p>
                     <p className={`cartao-pedido-status${entregue ? ' status-bom' : ''}`}>
                       {encerrado
@@ -141,6 +138,11 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
                       Acompanhar pedido
                     </Link>
                   )}
+                  {!encerrado && (
+                    <Link href={rotaPedidoDoComprador(pedido.id, true)} className="botao botao-fantasma">
+                      Conversar com o artesão
+                    </Link>
+                  )}
                   {entregue && (
                     <Link href={`/orders/${pedido.id}/review`} className="botao botao-sucesso">
                       Avaliar
@@ -150,6 +152,7 @@ export default async function MeusPedidos({ searchParams }: { searchParams: Prom
                     <BotaoAdicionarSacola
                       slug={peca.slug}
                       disponibilidade={peca.disponibilidade}
+                      artesao={peca.artesao}
                       texto="Comprar de novo"
                       className="botao botao-secundario"
                     />

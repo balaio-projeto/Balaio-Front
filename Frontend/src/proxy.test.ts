@@ -38,9 +38,11 @@ test('cada papel só entra nas áreas permitidas e volta ao próprio início nas
     ['comprador', '/dashboard', '/account'],
     ['artesao', '/dashboard/pieces', null],
     ['artesao', '/account', null],
-    ['artesao', '/checkout', '/dashboard'],
-    ['artesao', '/orders', '/dashboard'],
-    ['artesao', '/account/addresses', '/dashboard'],
+    ['artesao', '/checkout', null],
+    ['artesao', '/orders', null],
+    ['artesao', '/orders/123/review', null],
+    ['artesao', '/confirmation/123', null],
+    ['artesao', '/account/addresses', null],
     ['artesao', '/admin', '/dashboard'],
     ['organizador', '/account', null],
     ['organizador', '/orders', '/events/new'],
@@ -49,6 +51,10 @@ test('cada papel só entra nas áreas permitidas e volta ao próprio início nas
     ['organizador', '/admin', '/events/new'],
     ['admin', '/admin/criteria', null],
     ['admin', '/checkout', '/admin'],
+    ['admin', '/orders', '/admin'],
+    ['admin', '/account/addresses', '/admin'],
+    ['organizador', '/checkout', '/events/new'],
+    ['organizador', '/account/addresses', '/events/new'],
     ['admin', '/dashboard', '/admin'],
   ]
   for (const [papel, caminho, destino] of casos) {
@@ -97,6 +103,7 @@ test('checkout, pedido e mediação encaminham sessão como Bearer', async () =>
     ['/api/v1/pedidos/123/conversa', 'GET'],
     ['/api/v1/pedidos/123/conversa', 'POST'],
     ['/api/v1/admin/mediacoes/123/decisao', 'POST'],
+    ['/api/v1/admin/mediacoes/123/cancelamento', 'POST'],
     ['/api/v1/artesao/pedidos-pendentes', 'GET'],
     ['/api/v1/artesao/vendas', 'GET'],
   ]) {

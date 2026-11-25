@@ -15,6 +15,7 @@ import { exigirSessao } from '@/services/autenticacao'
 import CancelarPedido from '@/components/pedido/CancelarPedido'
 import { acaoCancelamentoPedido, pedidoEncerrado, pedidoInexistente } from '@/components/pedido/acaoCancelamentoPedido'
 import EstadoPagamento from '@/components/pedido/EstadoPagamento'
+import { codigoDoPedido } from '@/utils/pedido'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,7 +41,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
         trilha={[
           { texto: 'Início', href: '/' },
           { texto: 'Meus pedidos', href: '/orders' },
-          { texto: `Pedido #${pedido.id}` },
+          { texto: `Pedido ${codigoDoPedido(pedido.id)}` },
         ]}
       />
 
@@ -56,7 +57,7 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
               <div>
                 <p className="territorio">Código do pedido</p>
                 <p className="dado-valor" style={{ fontSize: 18 }}>
-                  #{pedido.id}
+                  {codigoDoPedido(pedido.id)}
                 </p>
                 <span className={`selo ${rotuloEstadoPedido[pedido.estado].classe} acima-2`}>
                   <span className="selo-ponto" />
@@ -162,11 +163,13 @@ export default async function Acompanhamento({ params }: { params: Promise<{ id:
           {pedido.estado === 'entregue' && (
             <section className="cartao acima-5">
               <h2 className="secao-titulo">Sua avaliação</h2>
-              <p className="texto-suave abaixo-3">
-                {avaliacao?.erro
-                  ? 'Não foi possível verificar sua avaliação agora. Tente novamente em instantes.'
-                  : avaliacao?.dados ? 'Obrigado por avaliar esta compra.' : 'Conte como foi receber a peça e ajude outros compradores.'}
-              </p>
+              {(avaliacao?.erro || avaliacao?.dados) && (
+                <p className="texto-suave abaixo-3">
+                  {avaliacao.erro
+                    ? 'Não foi possível verificar sua avaliação agora. Tente novamente em instantes.'
+                    : 'Obrigado por avaliar esta compra.'}
+                </p>
+              )}
               {avaliacao?.dados === false && <Link href={`/orders/${pedido.id}/review`} className="botao botao-primario">Avaliar compra</Link>}
             </section>
           )}

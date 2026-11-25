@@ -64,8 +64,12 @@
 }
 
 .auth-titulo {
-  @apply font-titulo text-[30px] mb-1.5;
+  @apply font-titulo text-[30px] mb-5;
   letter-spacing: 0.015em;
+}
+
+.auth-titulo:has(+ .auth-apoio) {
+  @apply mb-1.5;
 }
 
 .auth-apoio {

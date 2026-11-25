@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { Foto, SeloDisponibilidade } from '@/components/ui/Basicos'
 import Seletor from '@/components/ui/Seletor'
 import EstadoVazio from '@/components/feedback/EstadoVazio'
-import { IconeSacola, IconeSetaDireita } from '@/components/ui/Icones'
+import { IconeSacola, IconeSetaDireita, IconeSetaEsquerda } from '@/components/ui/Icones'
 import { useRevalidacaoSacola, useSacola } from '@/store/sacola'
 import { useSessao } from '@/store/sessao'
+import { MENSAGEM_PECA_DO_PROPRIO_ATELIE, pecaDoProprioAtelie, podeComprar } from '@/services/sessao/papeis'
 import { avisar } from '@/components/feedback/Avisos'
 import { usePecas } from '@/hooks/usePecas'
 import EstadoErro from '@/components/feedback/EstadoErro'
@@ -24,7 +25,7 @@ export default function ItensSacola() {
   const { itens, pronto, erro: erroSacola, aviso, conflito, recarregar,
     remover, removerParaMesclar, repor, alterarQuantidade, sincronizando } = useSacola()
   const { sessao: sessaoAtual } = useSessao()
-  const sessao = sessaoAtual?.papel === 'comprador' ? sessaoAtual : null
+  const sessao = podeComprar(sessaoAtual?.papel) ? sessaoAtual : null
   const semPapelDeComprador = Boolean(sessaoAtual) && !sessao
   const cotacao = useRevalidacaoSacola(itens, Boolean(sessao && pronto && !erroSacola && !conflito && !sincronizando))
   const precos = new Map(cotacao.valido ? cotacao.dados?.itens.map((item) => [item.slug, item] as const) : [])
@@ -64,7 +65,6 @@ export default function ItensSacola() {
       <EstadoVazio
         icone={<IconeSacola tamanho={34} />}
         titulo="Sua sacola está vazia"
-        descricao="As peças que você adicionar aparecem aqui, prontas para finalizar a compra."
         acao={
           <Link href="/" className="botao botao-primario">
             Explorar o catálogo
@@ -81,15 +81,6 @@ export default function ItensSacola() {
       {conflito && <div className="aviso abaixo-4" role="alert">
         <p>Não foi possível mesclar a sacola: {erroSacola} Retire uma peça e tente novamente.</p>
         <button type="button" className="botao-texto" onClick={recarregar}>Tentar novamente</button>
-      </div>}
-      {sessao && !conflito && <div className="aviso abaixo-4" role={cotacao.erro ? 'alert' : 'status'}>
-        <p>{cotacao.consultando ? 'Conferindo preços e disponibilidade atuais…'
-          : cotacao.erro ? `Não foi possível revalidar a sacola: ${cotacao.erro} Os valores exibidos são apenas referência.`
-            : cotacao.dados?.podeProsseguir ? 'Preços e disponibilidade conferidos agora. A reserva ocorre no checkout.'
-              : 'Há peça indisponível. Remova-a antes de continuar.'}</p>
-        {!cotacao.consultando && <button type="button" className="botao-texto" onClick={() => void cotacao.revalidar()}>
-          Conferir novamente
-        </button>}
       </div>}
       <p className="subtitulo-pagina">
         {itens.length} {itens.length === 1 ? 'peça na sacola' : 'peças na sacola'}.
@@ -150,7 +141,9 @@ export default function ItensSacola() {
                         </span>
                       </div>
 
-                      {cotado?.situacao === 'indisponivel' &&
+                      {pecaDoProprioAtelie(sessaoAtual, peca.artesao) ? (
+                        <p className="aviso acima-3" role="status">{MENSAGEM_PECA_DO_PROPRIO_ATELIE}. Remova-a para continuar.</p>
+                      ) : cotado?.situacao === 'indisponivel' &&
                         <p className="aviso acima-3" role="status">Peça indisponível na revalidação.</p>}
                       {cotado?.precoAtual !== null && cotado?.precoAtual !== undefined
                         && cotado.precoAtual !== precoComDesconto(peca) &&
@@ -193,17 +186,24 @@ export default function ItensSacola() {
             </section>
           ))}
 
-          <p className="acima-4">
-            <Link href="/" className="ver-peca">
-              ← Continuar explorando o catálogo
+          <div className="sacola-continuar">
+            <Link href="/search" className="botao botao-secundario">
+              <IconeSetaEsquerda />
+              Continuar explorando o catálogo
             </Link>
-          </p>
+          </div>
         </section>
 
         {detalhados.length > 0 ? <aside className="cartao coluna-compra">
           <h2 className="secao-titulo">Resumo do pedido</h2>
 
           {indisponiveis.length > 0 && <p className="aviso abaixo-4" role="status">Há peças indisponíveis na sacola. Remova-as para revisar os itens disponíveis.</p>}
+          {sessao && !conflito && !cotacao.consultando && cotacao.erro && <div className="aviso abaixo-4" role="alert">
+            <p>Não foi possível conferir os preços agora.</p>
+            <button type="button" className="botao-texto" onClick={() => void cotacao.revalidar()}>Tentar novamente</button>
+          </div>}
+          {sessao && !conflito && !cotacao.consultando && !cotacao.erro && cotacao.dados && !cotacao.dados.podeProsseguir
+            && <p className="aviso abaixo-4" role="status">Há peça indisponível na sacola. Remova-a para continuar.</p>}
 
           <p className="resumo">
             <span>Subtotal</span>
@@ -235,12 +235,9 @@ export default function ItensSacola() {
             </Link>}
           </div>
           {semPapelDeComprador && <p className="campo-ajuda acima-3" role="status">
-            Para finalizar a compra, entre com uma conta de comprador.
+            Para finalizar a compra, entre com uma conta de comprador ou de artesão.
           </p>}
 
-          <p className="campo-ajuda acima-3" style={{ textAlign: 'center' }}>
-            O pagamento de teste é processado pelo Mercado Pago; acompanhe o estado no pedido.
-          </p>
         </aside> : <aside className="cartao">
           <h2 className="secao-titulo">Peças indisponíveis</h2>
           <p className="texto-suave abaixo-4">As peças desta sacola não estão disponíveis no catálogo. Você pode removê-las e continuar explorando.</p>
